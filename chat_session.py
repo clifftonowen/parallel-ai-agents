@@ -2,7 +2,7 @@ import vertexai
 from vertexai.generative_models import GenerativeModel
 
 # Initialize the SDK
-vertexai.init(project="project-6e5874e2-a053-4fd2-ba2", location="us-central1")
+vertexai.init(project="project-6bea8cc2-36c6-4ff5-add", location="us-central1")
 
 model = GenerativeModel("gemini-2.5-flash")
 
