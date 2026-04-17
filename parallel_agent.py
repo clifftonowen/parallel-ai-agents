@@ -99,10 +99,10 @@ if __name__ == "__main__":
     prompt = "The impact of quantum computing on modern cryptography."
     
     # print("--- STARTING ASYNC TEST ---")
-    # asyncio.run(parallel_coordinator(prompt))
+    asyncio.run(parallel_coordinator(prompt))
     
     # =====================================================================
     # OPTIONAL: Uncomment to test multiprocessing.
     # =====================================================================
-    # print("\n--- STARTING MULTIPROCESSING TEST ---")
-    # true_parallel_coordinator(prompt)
+    print("\n--- STARTING MULTIPROCESSING TEST ---")
+    true_parallel_coordinator(prompt)
