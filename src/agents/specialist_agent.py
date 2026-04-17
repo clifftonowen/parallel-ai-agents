@@ -1,210 +1,467 @@
-import re
+import json
 import os
-from pptx import Presentation
-from .base_agent import BaseAgent
+import subprocess
+import time
+from datetime import datetime, timezone
+from typing import Any
+
+from .base_agent import AbstractStudyAgent, TOOL_DEFINITIONS
 
 
-# --- Notes Specialist ---
-class NotesAgent(BaseAgent):
-    """Generates structured markdown study notes saved as .txt."""
+# ---------------------------------------------------------------------------
+# Phase 1 — NotesAgent
+# ---------------------------------------------------------------------------
 
-    def __init__(self, model: str = "claude-sonnet-4-6", api_key: str | None = None):
+class NotesAgent(AbstractStudyAgent):
+    """Generates structured Markdown notes (notes.md) + timing.json sidecar.
+
+    Equipped with web_search and image_search tools so the model can verify
+    facts and embed relevant diagram URLs directly in the output.
+    """
+
+    def __init__(
+        self,
+        model: str = "claude-sonnet-4-6",
+        api_key: str | None = None,
+    ) -> None:
         super().__init__(model=model, api_key=api_key)
+        self.tools.append(TOOL_DEFINITIONS["web_search"])
+        self.tools.append(TOOL_DEFINITIONS["image_search"])
 
     def build_prompt(self, topic: str) -> str:
+        """Return the notes-generation prompt for the given topic.
+
+        Args:
+            topic: The subject to write notes about.
+
+        Returns:
+            A fully formatted prompt string.
+        """
         return (
-            f'Write structured study notes on: "{topic}".\n\n'
+            f'Write comprehensive study notes on: "{topic}".\n\n'
+            "Guidelines:\n"
             "- Use ## headers for each major concept\n"
-            "- Bullet-point definitions under each header\n"
-            "- 1-2 concrete examples per section labelled 'Example:'\n"
-            "- 400-700 words, Markdown only, no intro before the first header\n"
+            "- Bullet-point key definitions and properties under each header\n"
+            "- 1-2 concrete examples per section, labelled **Example:**\n"
+            "- Where helpful, embed a relevant diagram as ![description](url)\n"
+            "- 400-700 words total, Markdown only, no preamble before the first header\n"
+            "- Use web_search to verify facts and incorporate accurate, current information\n"
+            "- Use image_search to find diagram or illustration URLs to embed\n"
         )
 
-    def run(self, topic: str) -> str:
-        output = self._call_api(self.build_prompt(topic))
-        if not self.validate_output(output):
-            raise ValueError(f"Output failed validation for topic: '{topic}'")
-        path = self._output_path("notes", f"notes_{self.agent_id}.txt")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(output)
-        print(f"[Notes] Saved to: {path}")
-        return output
+    def run(self, **kwargs: Any) -> dict:
+        """Generate notes, save notes.md + timing.json sidecar.
 
-    def validate_output(self, output: str) -> bool:
-        if not isinstance(output, str) or not output.strip():
+        Keyword Args:
+            topic (str): The subject to generate notes about.
+
+        Returns:
+            ``{"status": "ok", "output": <notes content>, "md_path": str,
+               "timing_path": str}``
+        """
+        topic: str = kwargs["topic"]
+        t0 = time.monotonic()
+        started_ts = datetime.now(timezone.utc).isoformat()
+
+        content = self._call_api(self.build_prompt(topic), use_tools=True)
+
+        duration = round(time.monotonic() - t0, 3)
+        finished_ts = datetime.now(timezone.utc).isoformat()
+
+        result: dict = {"status": "ok", "output": content, "md_path": "", "timing_path": ""}
+
+        if not self.validate_output(result):
+            return {"status": "error", "output": content, "md_path": "", "timing_path": ""}
+
+        # Second LLM call: extract per-section timing data for VideoAgent.
+        # VideoAgent._build_narration_scripts and _generate_html_slides both
+        # iterate over this list and key into "section", "narration",
+        # "estimated_seconds" — the flat metadata dict would cause a KeyError.
+        timing_prompt = (
+            "Given these study notes, return a JSON array where each element "
+            "represents one ## section. Each object must have exactly these keys:\n"
+            '  "section": the heading text (without the ## prefix),\n'
+            '  "narration": 1-2 sentence summary of what to say about this section,\n'
+            '  "estimated_seconds": integer seconds to speak about it '
+            "(typically 20-60 per section).\n\n"
+            "Return ONLY valid JSON — no markdown fences, no explanation.\n\n"
+            f"NOTES:\n{content}"
+        )
+        timing_raw = self._call_api(timing_prompt, use_tools=False).strip()
+        if timing_raw.startswith("```"):
+            timing_raw = timing_raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        try:
+            sections: list = json.loads(timing_raw)
+        except json.JSONDecodeError:
+            sections = []
+
+        md_path = self._save_output(content, f"notes/notes_{self.agent_id}.md")
+        timing_path = self._save_output(
+            json.dumps(
+                {
+                    "agent_id": self.agent_id,
+                    "topic": topic,
+                    "started_at": started_ts,
+                    "finished_at": finished_ts,
+                    "duration_seconds": duration,
+                    "sections": sections,
+                },
+                indent=2,
+            ),
+            f"notes/notes_{self.agent_id}.json",
+        )
+
+        result["md_path"] = md_path
+        result["timing_path"] = timing_path
+        print(f"[Notes] Saved:  {md_path}")
+        print(f"[Notes] Timing: {timing_path}")
+        return result
+
+    def validate_output(self, output: dict) -> bool:
+        """Return True if the notes content passes structural and length checks.
+
+        Args:
+            output: The dict from run() — inspects output["output"].
+        """
+        if output.get("status") == "error":
             return False
-        if "## " not in output:
+        content: str = output.get("output", "")
+        if not isinstance(content, str) or not content.strip():
             return False
-        return 300 <= len(output.split()) <= 900
+        if "## " not in content:
+            return False
+        return 200 <= len(content.split()) <= 2000
 
 
-# --- Flashcard Specialist ---
-class FlashcardAgent(BaseAgent):
-    """Generates Q&A flashcards saved as .pptx."""
+# ---------------------------------------------------------------------------
+# Phase 2a — FlashcardAgent
+# ---------------------------------------------------------------------------
 
-    def __init__(self, model: str = "claude-sonnet-4-6", api_key: str | None = None):
+class FlashcardAgent(AbstractStudyAgent):
+    """Transforms notes.md into Obsidian-compatible spaced-repetition flashcards.
+
+    No tools needed — the agent reads the provided notes and rephrases them
+    into structured active-recall cards without consulting external sources.
+    """
+
+    def __init__(
+        self,
+        model: str = "claude-sonnet-4-6",
+        api_key: str | None = None,
+    ) -> None:
         super().__init__(model=model, api_key=api_key)
-        self.pairs: list[tuple[str, str]] = []
 
-    def build_prompt(self, topic: str) -> str:
+    def build_prompt(self, notes_content: str) -> str:
+        """Return the flashcard-generation prompt.
+
+        Instructs the model to produce 8-12 Obsidian-style flashcards with a
+        prescribed mix of definition, application, and distinction cards.
+
+        Args:
+            notes_content: Full text of notes.md from Phase 1.
+
+        Returns:
+            A fully formatted prompt string.
+        """
         return (
-            f'Create 10 active recall flashcards for the topic: "{topic}".\n\n'
-            "Output each card in exactly this format with a blank line between cards:\n"
-            "Q: [question]\n"
-            "A: [answer]\n\n"
-            "No numbering, no extra text, no preamble — just the Q/A pairs.\n"
+            "Read the following study notes carefully, then generate between "
+            "8 and 12 flashcards.\n\n"
+            "NOTES:\n"
+            f"{notes_content}\n\n"
+            "Use this exact Markdown format for every card — no deviations:\n\n"
+            "## {{question}} #flashcard\n\n"
+            "{{answer — 1 to 3 sentences, uses the same framing as the notes}}\n\n"
+            "---\n\n"
+            "Card type mix (all three types are required):\n"
+            "  • 3-4 definition cards   — question form: 'What is X?'\n"
+            "  • 3-4 application cards  — question form: "
+            "'How does X work in the context of Y?'\n"
+            "  • 2-3 distinction cards  — question form: "
+            "'What is the difference between X and Y?'\n\n"
+            "Constraints:\n"
+            "  • Every answer must be derivable directly from the notes above "
+            "— introduce no new information\n"
+            "  • Do not copy sentences verbatim from the notes — rephrase in "
+            "your own words\n"
+            "  • Return ONLY the Markdown flashcard content — no preamble, "
+            "no closing remarks, nothing else\n"
         )
 
-    def run(self, topic: str) -> str:
-        output = self._call_api(self.build_prompt(topic))
-        if not self.validate_output(output):
-            raise ValueError(f"Output failed validation for topic: '{topic}'")
-        self.pairs = self._parse_pairs(output)
-        path = self._output_path("flashcards", f"flashcards_{self.agent_id}.pptx")
-        self._save_pptx(self.pairs, path)
-        print(f"[Flashcards] Saved to: {path}")
-        return path
+    def run(self, notes_content: str, output_dir: str = "output") -> dict:
+        """Generate flashcards from notes and save them to flashcards.md.
 
-    def validate_output(self, output: str) -> bool:
-        if not isinstance(output, str) or not output.strip():
+        Args:
+            notes_content: Full text of notes.md from Phase 1.
+            output_dir:    Subdirectory prefix passed to _save_output.
+
+        Returns:
+            ``{"status": "ok", "flashcards_path": str, "flashcards_content": str}``
+        """
+        prompt = self.build_prompt(notes_content)
+        response = self._call_api(prompt, use_tools=False)
+        flashcards_path = self._save_output(response, "flashcards.md")
+        print(f"[Flashcards] Saved: {flashcards_path}")
+        return {
+            "status": "ok",
+            "flashcards_path": flashcards_path,
+            "flashcards_content": response,
+        }
+
+    def validate_output(self, output: dict) -> bool:
+        """Return True if the flashcard content meets structural requirements.
+
+        Passes only when the content contains at least 6 H2 headers, 6
+        #flashcard tags, and 6 horizontal-rule separators — a proxy for
+        having produced at least 6 well-formed cards.
+
+        Args:
+            output: The dict from run() — inspects output["flashcards_content"].
+        """
+        content: str = output.get("flashcards_content", "")
+        if not isinstance(content, str) or not content.strip():
             return False
-        return len(self._parse_pairs(output)) >= 3
-
-    def _parse_pairs(self, text: str) -> list[tuple[str, str]]:
-        pairs = re.findall(r'Q:\s*(.+?)\nA:\s*(.+?)(?=\nQ:|\Z)', text.strip(), re.DOTALL)
-        return [(q.strip(), a.strip()) for q, a in pairs]
-
-    def _save_pptx(self, pairs: list[tuple[str, str]], path: str) -> None:
-        prs = Presentation()
-        layout = prs.slide_layouts[1]
-        for question, answer in pairs:
-            slide = prs.slides.add_slide(layout)
-            slide.shapes.title.text = question
-            slide.placeholders[1].text = answer
-        prs.save(path)
+        return (
+            content.count("## ") >= 6
+            and content.count("#flashcard") >= 6
+            and content.count("---") >= 6
+        )
 
 
-# --- Video Specialist ---
-class VideoAgent(BaseAgent):
-    """Converts Q/A pairs + narrations into a single MP4 study video."""
+# ---------------------------------------------------------------------------
+# Phase 2b — VideoAgent
+# ---------------------------------------------------------------------------
 
-    def __init__(self, model: str = "claude-sonnet-4-6", api_key: str | None = None):
+class VideoAgent(AbstractStudyAgent):
+    """Converts notes.md + section timing data into a narrated MP4 study video.
+
+    Pipeline:
+      1. _build_narration_scripts — expand timing entries into full narrations (LLM)
+      2. _generate_html_slides    — LLM-generated HTML slides → Playwright PNG screenshots
+      3. _generate_audio          — OpenAI TTS, one MP3 per narration
+      4. _assemble_video          — MoviePy stitches frames + audio into MP4
+    """
+
+    def __init__(
+        self,
+        model: str = "claude-sonnet-4-6",
+        api_key: str | None = None,
+        openai_api_key: str | None = None,
+    ) -> None:
+        """Initialise the agent.
+
+        Args:
+            model:          Anthropic model ID.
+            api_key:        Anthropic API key.
+            openai_api_key: OpenAI API key for TTS (falls back to OPENAI_API_KEY env var).
+        """
         super().__init__(model=model, api_key=api_key)
+        self.openai_api_key = openai_api_key
 
     def build_prompt(self, topic: str) -> str:
-        raise NotImplementedError("VideoAgent does not use prompt-based generation.")
+        """No-op — VideoAgent builds all prompts inline in its private methods.
+
+        Args:
+            topic: Unused; present to satisfy the abstract interface.
+
+        Returns:
+            An empty string.
+        """
+        return ""
 
     def run(
         self,
-        pairs: list[tuple[str, str]],
-        narrations: list[str],
-        output_path: str | None = None,
-    ) -> str:
-        """
-        Run the 3-step pipeline: render frames → generate audio → assemble MP4.
+        notes_content: str,
+        timing_json: list,
+        output_path: str = "output/study_video.mp4",
+    ) -> dict:
+        """Generate a narrated study video from notes and section timing data.
 
         Args:
-            pairs: List of (question, answer) tuples from FlashcardAgent.
-            narrations: One narration string per pair for TTS.
-            output_path: Destination MP4 path. Defaults to output/videos/video_{id}.mp4.
-
-        Raises:
-            ValueError: If len(pairs) != len(narrations).
-        """
-        if len(pairs) != len(narrations):
-            raise ValueError(
-                f"Mismatch: {len(pairs)} pairs but {len(narrations)} narrations provided."
-            )
-        if output_path is None:
-            output_path = self._output_path("videos", f"video_{self.agent_id}.mp4")
-        else:
-            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-
-        frame_paths = self._export_frames(pairs)
-        audio_paths = self._generate_audio(narrations)
-        final_path = self._assemble_video(frame_paths, audio_paths, output_path)
-        print(f"[Video] Saved to: {final_path}")
-        return final_path
-
-    def validate_output(self, output: str) -> bool:
-        """Return True if output path exists, is non-empty, and ends in .mp4."""
-        return (
-            isinstance(output, str)
-            and output.endswith(".mp4")
-            and os.path.isfile(output)
-            and os.path.getsize(output) > 0
-        )
-
-    def _export_frames(self, pairs: list[tuple[str, str]]) -> list[str]:
-        """
-        Render each Q/A pair as a 1280x720 PNG using Pillow.
-
-        Args:
-            pairs: List of (question, answer) tuples.
+            notes_content: Full text of notes.md from Phase 1.
+            timing_json:   List of section dicts, each with keys:
+                           "section", "narration", "estimated_seconds".
+            output_path:   Destination path for the final MP4.
+                           Relative paths are resolved from the project root.
 
         Returns:
-            List of PNG file paths, one per pair.
+            ``{"status": "ok", "video_path": str}``
 
         Raises:
-            RuntimeError: If no frames were produced.
+            AssertionError: If frame count and narration count diverge after
+                            slide generation.
         """
-        import textwrap
-        from PIL import Image, ImageDraw, ImageFont
+        if not os.path.isabs(output_path):
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
+            output_path = os.path.join(base_dir, output_path)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        frames_dir = os.path.join(base_dir, "output", "videos", "frames")
-        os.makedirs(frames_dir, exist_ok=True)
+        narrations = self._build_narration_scripts(notes_content, timing_json)
+        frame_paths = self._generate_html_slides(timing_json, notes_content)
 
-        try:
-            font_q = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 40)
-            font_a = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 32)
-        except OSError:
-            font_q = ImageFont.load_default()
-            font_a = ImageFont.load_default()
+        assert len(frame_paths) == len(narrations), (
+            f"Frame/narration count mismatch: {len(frame_paths)} frames vs "
+            f"{len(narrations)} narrations."
+        )
 
-        paths = []
-        for i, (question, answer) in enumerate(pairs):
-            img = Image.new("RGB", (1280, 720), color=(20, 20, 35))
-            draw = ImageDraw.Draw(img)
+        audio_paths = self._generate_audio(narrations)
+        final_path = self._assemble_video(frame_paths, audio_paths, output_path)
 
-            q_wrapped = textwrap.fill(f"Q: {question}", width=60)
-            a_wrapped = textwrap.fill(f"A: {answer}", width=65)
+        result: dict = {"status": "ok", "video_path": final_path}
+        if not self.validate_output(result):
+            return {"status": "error", "video_path": final_path}
 
-            draw.text((80, 120), q_wrapped, fill=(255, 255, 255), font=font_q)
-            draw.line([(80, 370), (1200, 370)], fill=(100, 100, 150), width=2)
-            draw.text((80, 400), a_wrapped, fill=(180, 210, 255), font=font_a)
+        print(f"[Video] Saved to: {final_path}")
+        return result
 
-            path = os.path.join(frames_dir, f"frame_{i:02d}.png")
-            img.save(path)
-            paths.append(path)
-
-        if not paths:
-            raise RuntimeError("Frame export produced no images.")
-        return paths
-
-    def _generate_audio(self, narrations: list[str]) -> list[str]:
-        """
-        Generate one TTS MP3 per narration using OpenAI tts-1-hd (voice: coral).
-        Reads OPENAI_API_KEY automatically from the environment.
+    def validate_output(self, output: dict) -> bool:
+        """Return True if the MP4 file exists and is non-empty.
 
         Args:
-            narrations: List of narration strings.
+            output: The dict from run() — inspects output["video_path"].
+        """
+        path: str = output.get("video_path", "")
+        return (
+            isinstance(path, str)
+            and path.endswith(".mp4")
+            and os.path.isfile(path)
+            and os.path.getsize(path) > 0
+        )
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _build_narration_scripts(
+        self, notes_content: str, timing_json: list
+    ) -> list[str]:
+        """Expand each timing entry into a full spoken narration via the LLM.
+
+        One API call is made per timing entry; the full notes are passed as
+        context so the model can ground each narration in the wider material.
+
+        Args:
+            notes_content: Full text of notes.md — context for every call.
+            timing_json:   List of section dicts with keys "narration" and
+                           "estimated_seconds".
+
+        Returns:
+            List of expanded narration strings, one per timing entry, in order.
+        """
+        narrations: list[str] = []
+        for entry in timing_json:
+            prompt = (
+                f"Given this section from study notes: {entry['narration']}\n"
+                f"Expand this into a spoken narration of approximately "
+                f"{entry['estimated_seconds']} seconds.\n"
+                f"Use the following full notes as context: {notes_content}\n"
+                "Tone: clear, educational, like a university lecturer.\n"
+                "Return ONLY the narration text, no labels or headers."
+            )
+            narrations.append(self._call_api(prompt, use_tools=False))
+        return narrations
+
+    def _generate_html_slides(
+        self, timing_json: list, notes_content: str
+    ) -> list[str]:
+        """Generate one HTML slide per timing entry and screenshot to PNG.
+
+        Each slide is generated by the LLM as a complete, self-contained HTML
+        document, saved to output/slides/, then converted to a 1280×720 PNG
+        via a Playwright headless-Chromium screenshot.
+
+        Args:
+            timing_json:   List of section dicts with keys "section" and
+                           "narration".
+            notes_content: Full notes text passed as LLM context.
+
+        Returns:
+            List of absolute PNG file paths, one per timing entry, in order.
+        """
+        png_paths: list[str] = []
+        for i, entry in enumerate(timing_json):
+            prompt = (
+                f"Generate a single self-contained HTML slide for the concept: "
+                f"{entry['section']}\n"
+                "The slide should:\n"
+                "- Have a clean white background, 1280x720px\n"
+                "- Show the section title in large text at top\n"
+                "- Show 3-5 bullet points summarising the key ideas from the "
+                f"narration: {entry['narration']}\n"
+                "- Use simple inline CSS only — no external libraries\n"
+                "- Be a complete HTML document that renders as a slide when "
+                "opened in a browser\n"
+                "Return ONLY the HTML, no explanation."
+            )
+            html_content = self._call_api(prompt, use_tools=False)
+
+            html_path = self._save_output(html_content, f"slides/slide_{i:02d}.html")
+            png_path = os.path.join(
+                os.path.dirname(html_path), f"slide_{i:02d}.png"
+            )
+            self._html_to_png(html_path, png_path)
+            png_paths.append(png_path)
+
+        return png_paths
+
+    def _html_to_png(self, html_path: str, output_png: str) -> str:
+        """Convert an HTML file to a 1280×720 PNG using Playwright headless Chromium.
+
+        Runs the async screenshot coroutine synchronously via asyncio.run so
+        this method can be called from ordinary synchronous code.
+
+        Args:
+            html_path:  Absolute path to the .html file.
+            output_png: Destination path for the .png screenshot.
+
+        Returns:
+            output_png path after successful conversion.
+        """
+        import asyncio
+        asyncio.run(self._screenshot(html_path, output_png))
+        return output_png
+
+    async def _screenshot(self, html_path: str, output_png: str) -> None:
+        """Take a headless Chromium screenshot of an HTML file at 1280×720.
+
+        Args:
+            html_path:  Absolute path to the .html file (loaded as file:// URL).
+            output_png: Destination path for the .png screenshot.
+        """
+        from playwright.async_api import async_playwright
+
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch()
+            page = await browser.new_page(
+                viewport={"width": 1280, "height": 720}
+            )
+            await page.goto(f"file://{html_path}")
+            await page.screenshot(path=output_png, full_page=False)
+            await browser.close()
+
+    def _generate_audio(self, narrations: list[str]) -> list[str]:
+        """Generate one TTS MP3 per narration using OpenAI tts-1-hd (voice: coral).
+
+        Args:
+            narrations: List of narration strings, one per slide.
 
         Returns:
             List of MP3 file paths in the same order as narrations.
 
         Raises:
-            RuntimeError: If audio file count doesn't match narrations count.
+            RuntimeError: If the produced file count does not match narrations.
         """
         import openai
 
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         audio_dir = os.path.join(base_dir, "output", "videos", "audio")
         os.makedirs(audio_dir, exist_ok=True)
 
-        client = openai.OpenAI()  # auto-reads OPENAI_API_KEY from environment
-        audio_paths = []
-
+        client = openai.OpenAI(api_key=self.openai_api_key)
+        audio_paths: list[str] = []
         for i, narration in enumerate(narrations):
             out_path = os.path.join(audio_dir, f"audio_{i:02d}.mp3")
             with client.audio.speech.with_streaming_response.create(
@@ -217,7 +474,7 @@ class VideoAgent(BaseAgent):
 
         if len(audio_paths) != len(narrations):
             raise RuntimeError(
-                f"Expected {len(narrations)} audio files, produced {len(audio_paths)}."
+                f"Expected {len(narrations)} audio files, got {len(audio_paths)}."
             )
         return audio_paths
 
@@ -227,10 +484,10 @@ class VideoAgent(BaseAgent):
         audio_paths: list[str],
         output_path: str,
     ) -> str:
-        """
-        Combine PNG frames and MP3 clips into a single MP4.
+        """Combine PNG frames and MP3 clips into a single MP4 via MoviePy.
 
-        Each (frame, audio) pair becomes one clip whose duration matches the audio.
+        Each (frame, audio) pair becomes one clip whose on-screen duration
+        matches the length of its audio clip.
 
         Args:
             frame_paths: PNG file paths, one per slide.
@@ -238,20 +495,105 @@ class VideoAgent(BaseAgent):
             output_path: Destination MP4 path.
 
         Returns:
-            The output_path string after successful export.
+            output_path after successful export.
         """
-        from moviepy import ImageClip, AudioFileClip, concatenate_videoclips
+        from moviepy import AudioFileClip, ImageClip, concatenate_videoclips
 
         clips = []
         for frame, audio in zip(frame_paths, audio_paths):
             audio_clip = AudioFileClip(audio)
-            image_clip = (
+            clips.append(
                 ImageClip(frame)
                 .with_duration(audio_clip.duration)
                 .with_audio(audio_clip)
             )
-            clips.append(image_clip)
 
         final = concatenate_videoclips(clips, method="compose")
         final.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac")
         return output_path
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — PDFAgent
+# ---------------------------------------------------------------------------
+
+class PDFAgent(AbstractStudyAgent):
+    """Converts a Markdown file to PDF via pandoc + xelatex.
+
+    Does not call the LLM; build_prompt is a no-op to satisfy the ABC.
+    """
+
+    def __init__(
+        self,
+        model: str = "claude-sonnet-4-6",
+        api_key: str | None = None,
+    ) -> None:
+        super().__init__(model=model, api_key=api_key)
+
+    def build_prompt(self, topic: str) -> str:
+        """PDFAgent uses pandoc, not LLM prompts."""
+        return ""
+
+    def run(
+        self,
+        input_md_path: str,
+        output_pdf_path: str | None = None,
+    ) -> dict:
+        """Render a Markdown file to PDF with pandoc + xelatex.
+
+        Args:
+            input_md_path:   Absolute path to the source .md file.
+            output_pdf_path: Destination .pdf path. If None, derived by
+                             replacing the .md extension with .pdf.
+
+        Returns:
+            ``{"status": "ok", "pdf_path": str}``
+
+        Raises:
+            RuntimeError: If pandoc is not installed or exits non-zero.
+        """
+        if output_pdf_path is None:
+            output_pdf_path = os.path.splitext(input_md_path)[0] + ".pdf"
+
+        try:
+            subprocess.run(
+                [
+                    "pandoc", input_md_path,
+                    "-o", output_pdf_path,
+                    "--pdf-engine=xelatex",
+                    "-V", "geometry:margin=1in",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError:
+            raise RuntimeError(
+                "pandoc is not installed or not on PATH. "
+                "Install it from https://pandoc.org/installing.html "
+                "and install a LaTeX engine (e.g. MiKTeX or TeX Live) "
+                "for the --pdf-engine=xelatex flag."
+            )
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(f"pandoc failed:\n{exc.stderr}") from exc
+
+        result: dict = {"status": "ok", "pdf_path": output_pdf_path}
+        if not self.validate_output(result):
+            return {"status": "error", "pdf_path": output_pdf_path}
+
+        print(f"[PDF] Saved to: {output_pdf_path}")
+        return result
+
+    def validate_output(self, output: dict) -> bool:
+        """Return True if the PDF exists on disk and has non-zero size.
+
+        Args:
+            output: The dict from run() — inspects output["pdf_path"].
+        """
+        path: str = output.get("pdf_path", "")
+        return (
+            isinstance(path, str)
+            and path.endswith(".pdf")
+            and os.path.isfile(path)
+            and os.path.getsize(path) > 0
+        )

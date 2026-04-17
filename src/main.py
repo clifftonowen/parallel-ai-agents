@@ -9,7 +9,7 @@ if not anthropic_key:
     print("Error: CLAUDE_API_KEY not found. Check your .env file!")
 
 def run_test_workflow():
-    topic = "The concept of Big O notation in algorithm analysis."
+    topic = "Explain dynamic programming approaches, buttom up and top down, and the examples such as knapscak, common longest sequence."
 
     notes_agent = NotesAgent(api_key=anthropic_key)
     flashcard_agent = FlashcardAgent(api_key=anthropic_key)
