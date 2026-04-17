@@ -3,27 +3,27 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
+anthropic_key = os.getenv("CLAUDE_API_KEY")
 
-if not api_key:
-    print("Error: GOOGLE_API_KEY not found. Check your .env file!")
+if not anthropic_key:
+    print("Error: CLAUDE_API_KEY not found. Check your .env file!")
 
 def run_test_workflow():
-    test_input = "The concept of Big O notation in algorithm analysis."
-    
-    # 1. Instantiate the team
-    agents = [NotesAgent(), FlashcardAgent(), VideoAgent()]
-    
-    print("\n--- Starting Multimodal Workflow ---\n")
-    
-    # 2. Loop through agents and execute
-    for agent in agents:
-        try:
-            agent.execute(test_input)
-        except Exception as e:
-            print(f"Error in {agent.mode_type} execution: {e}")
+    topic = "The concept of Big O notation in algorithm analysis."
 
-    print("\n--- Workflow Complete. Check the 'output/' folders! ---")
+    notes_agent = NotesAgent(api_key=anthropic_key)
+    flashcard_agent = FlashcardAgent(api_key=anthropic_key)
+    video_agent = VideoAgent()
+
+    print("\n--- Starting Workflow ---\n")
+
+    notes_agent.run(topic)
+    flashcard_agent.run(topic)
+
+    narrations = [f"Question: {q} Answer: {a}" for q, a in flashcard_agent.pairs]
+    video_agent.run(flashcard_agent.pairs, narrations)
+
+    print("\n--- Workflow Complete ---")
 
 if __name__ == "__main__":
     run_test_workflow()
