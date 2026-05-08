@@ -1,0 +1,6 @@
+anthropic
+google-cloud-aiplatform
+moviepy
+openai
+playwright
+python-dotenv
