@@ -1,8 +1,15 @@
+import os
+
 import vertexai
+from dotenv import load_dotenv
 from vertexai.generative_models import GenerativeModel
 
-# Initialize the SDK
-vertexai.init(project="project-6bea8cc2-36c6-4ff5-add", location="us-central1")
+load_dotenv()
+
+GCP_PROJECT_ID = os.environ["GCP_PROJECT_ID"]
+GCP_LOCATION = os.environ["GCP_LOCATION"]
+
+vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
 
 model = GenerativeModel("gemini-2.5-flash")
 

@@ -4,10 +4,15 @@ import os
 import threading
 import multiprocessing
 import vertexai
+from dotenv import load_dotenv
 from vertexai.generative_models import GenerativeModel
 
-# Initialize
-vertexai.init(project="project-6e5874e2-a053-4fd2-ba2", location="asia-southeast1")
+load_dotenv()
+
+GCP_PROJECT_ID = os.environ["GCP_PROJECT_ID"]
+GCP_LOCATION = os.environ["GCP_LOCATION"]
+
+vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
 
 # Use Flash for ALL agents during testing for maximum speed
 notes_agent = GenerativeModel("gemini-2.5-flash", system_instruction="...")
