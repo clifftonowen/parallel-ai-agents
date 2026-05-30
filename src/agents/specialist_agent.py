@@ -1,11 +1,14 @@
 import json
+import logging
 import os
+import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
 from typing import Any
-
 from .base_agent import AbstractStudyAgent, TOOL_DEFINITIONS
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -39,27 +42,50 @@ class NotesAgent(AbstractStudyAgent):
         """
         return (
             f'Write comprehensive study notes on: "{topic}".\n\n'
-            "Guidelines:\n"
-            "- Use ## headers for each major concept\n"
+            "INSTRUCTIONS — follow all steps in order:\n\n"
+            "1. WEB SEARCH (strongly preferred): Call web_search at least twice "
+            "before writing. If the first query returns no results, retry with a "
+            "broader query. Ground every major concept in something you found.\n\n"
+            "2. IMAGE EMBEDDING: For every ## section heading, call image_search "
+            "and embed the best result immediately below the heading:\n"
+            "   ![description](url)\n"
+            "   *Caption: one-line description.*\n"
+            "If image_search fails or returns no results, skip the image for that "
+            "section and continue — do NOT stop generating notes.\n\n"
+            "3. FALLBACK: If ALL web_search calls fail or return errors, write the "
+            "notes from your internal knowledge. Still produce complete notes — "
+            "do not output any error messages or refuse to generate content.\n\n"
+            "FORMAT REQUIREMENTS:\n"
+            "- Use ## headers for each major concept (required)\n"
             "- Bullet-point key definitions and properties under each header\n"
             "- 1-2 concrete examples per section, labelled **Example:**\n"
-            "- Where helpful, embed a relevant diagram as ![description](url)\n"
             "- 400-700 words total, Markdown only, no preamble before the first header\n"
-            "- Use web_search to verify facts and incorporate accurate, current information\n"
-            "- Use image_search to find diagram or illustration URLs to embed\n"
         )
 
-    def run(self, **kwargs: Any) -> dict:
+    def run(self, output_dir: str | None = None, **kwargs: Any) -> dict:
         """Generate notes, save notes.md + timing.json sidecar.
 
         Keyword Args:
-            topic (str): The subject to generate notes about.
+            topic (str):        The subject to generate notes about.
+            output_dir (str):   Absolute path to the run's output directory.
+                                Both output files are written flat into this
+                                directory as ``notes.md`` and ``timing.json``.
+                                Falls back to ``output/`` at the project root
+                                when None.
 
         Returns:
             ``{"status": "ok", "output": <notes content>, "md_path": str,
                "timing_path": str}``
         """
         topic: str = kwargs["topic"]
+
+        if output_dir is None:
+            _base = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
+            output_dir = os.path.join(_base, "output")
+        os.makedirs(output_dir, exist_ok=True)
+
         t0 = time.monotonic()
         started_ts = datetime.now(timezone.utc).isoformat()
 
@@ -71,6 +97,15 @@ class NotesAgent(AbstractStudyAgent):
         result: dict = {"status": "ok", "output": content, "md_path": "", "timing_path": ""}
 
         if not self.validate_output(result):
+            log.error(
+                "NotesAgent validate_output FAILED.\n"
+                "  has '## ': %s\n"
+                "  word count: %d\n"
+                "  first 300 chars: %r",
+                "## " in content,
+                len(content.split()),
+                content[:300],
+            )
             return {"status": "error", "output": content, "md_path": "", "timing_path": ""}
 
         # Second LLM call: extract per-section timing data for VideoAgent.
@@ -89,13 +124,14 @@ class NotesAgent(AbstractStudyAgent):
         )
         timing_raw = self._call_api(timing_prompt, use_tools=False).strip()
         if timing_raw.startswith("```"):
-            timing_raw = timing_raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            lines = timing_raw.split("\n", 1)
+            timing_raw = lines[1].rsplit("```", 1)[0].strip() if len(lines) > 1 else ""
         try:
             sections: list = json.loads(timing_raw)
         except json.JSONDecodeError:
             sections = []
 
-        md_path = self._save_output(content, f"notes/notes_{self.agent_id}.md")
+        md_path = self._save_output(content, "notes.md", output_dir=output_dir)
         timing_path = self._save_output(
             json.dumps(
                 {
@@ -108,7 +144,8 @@ class NotesAgent(AbstractStudyAgent):
                 },
                 indent=2,
             ),
-            f"notes/notes_{self.agent_id}.json",
+            "timing.json",
+            output_dir=output_dir,
         )
 
         result["md_path"] = md_path
@@ -165,26 +202,32 @@ class FlashcardAgent(AbstractStudyAgent):
         """
         return (
             "Read the following study notes carefully, then generate between "
-            "8 and 12 flashcards.\n\n"
+            "12 and 15 flashcards.\n\n"
             "NOTES:\n"
             f"{notes_content}\n\n"
             "Use this exact Markdown format for every card — no deviations:\n\n"
             "## {{question}} #flashcard\n\n"
-            "{{answer — 1 to 3 sentences, uses the same framing as the notes}}\n\n"
+            "{{answer — see ANSWER REQUIREMENTS below}}\n\n"
             "---\n\n"
-            "Card type mix (all three types are required):\n"
-            "  • 3-4 definition cards   — question form: 'What is X?'\n"
-            "  • 3-4 application cards  — question form: "
+            "ANSWER REQUIREMENTS — all four rules apply to every single card:\n"
+            "  1. Minimum 3 sentences per answer — no exceptions.\n"
+            "  2. Every answer must include EITHER a concrete real-world example "
+            "OR an explicit comparison to a related concept.\n"
+            "  3. End every answer with a sentence starting exactly 'Why it matters:' "
+            "that explains the practical relevance of the concept.\n"
+            "  4. Every answer must be derivable directly from the notes above "
+            "— introduce no new information.\n\n"
+            "Card type mix (all three types required, totalling 12-15):\n"
+            "  • 4-5 definition cards    — question form: 'What is X?'\n"
+            "  • 4-5 application cards   — question form: "
             "'How does X work in the context of Y?'\n"
-            "  • 2-3 distinction cards  — question form: "
+            "  • 3-5 distinction cards   — question form: "
             "'What is the difference between X and Y?'\n\n"
-            "Constraints:\n"
-            "  • Every answer must be derivable directly from the notes above "
-            "— introduce no new information\n"
+            "Additional constraints:\n"
             "  • Do not copy sentences verbatim from the notes — rephrase in "
-            "your own words\n"
+            "your own words.\n"
             "  • Return ONLY the Markdown flashcard content — no preamble, "
-            "no closing remarks, nothing else\n"
+            "no closing remarks, nothing else.\n"
         )
 
     def run(self, notes_content: str, output_dir: str = "output") -> dict:
@@ -199,7 +242,7 @@ class FlashcardAgent(AbstractStudyAgent):
         """
         prompt = self.build_prompt(notes_content)
         response = self._call_api(prompt, use_tools=False)
-        flashcards_path = self._save_output(response, "flashcards.md")
+        flashcards_path = self._save_output(response, "flashcards.md", output_dir=output_dir)
         print(f"[Flashcards] Saved: {flashcards_path}")
         return {
             "status": "ok",
@@ -272,62 +315,82 @@ class VideoAgent(AbstractStudyAgent):
         self,
         notes_content: str,
         timing_json: list,
-        output_path: str = "output/study_video.mp4",
+        output_dir: str | None = None,
     ) -> dict:
-        """Generate a narrated study video from notes and section timing data.
+        """Generate a narrated study video and PPTX from notes and timing data.
 
         Args:
             notes_content: Full text of notes.md from Phase 1.
             timing_json:   List of section dicts, each with keys:
                            "section", "narration", "estimated_seconds".
-            output_path:   Destination path for the final MP4.
-                           Relative paths are resolved from the project root.
+            output_dir:    Absolute path to the run's output directory.
+                           ``study_video.mp4`` is written directly here;
+                           slides go into ``output_dir/slides/`` and audio
+                           into ``output_dir/audio/``.
+                           Falls back to ``output/`` at the project root when
+                           None.
 
         Returns:
-            ``{"status": "ok", "video_path": str}``
+            ``{"status": "ok", "video_path": str, "pptx_path": str}``
 
         Raises:
             AssertionError: If frame count and narration count diverge after
                             slide generation.
         """
-        if not os.path.isabs(output_path):
-            base_dir = os.path.dirname(
+        if output_dir is None:
+            _base = os.path.dirname(
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             )
-            output_path = os.path.join(base_dir, output_path)
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            output_dir = os.path.join(_base, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, "study_video.mp4")
 
         narrations = self._build_narration_scripts(notes_content, timing_json)
-        frame_paths = self._generate_html_slides(timing_json, notes_content)
+        frame_paths = self._generate_html_slides(timing_json, notes_content, output_dir)
 
         assert len(frame_paths) == len(narrations), (
             f"Frame/narration count mismatch: {len(frame_paths)} frames vs "
             f"{len(narrations)} narrations."
         )
 
-        audio_paths = self._generate_audio(narrations)
+        audio_paths = self._generate_audio(narrations, output_dir)
         final_path = self._assemble_video(frame_paths, audio_paths, output_path)
+        pptx_path = self._export_pptx(frame_paths, timing_json, output_dir)
 
-        result: dict = {"status": "ok", "video_path": final_path}
+        result: dict = {
+            "status": "ok",
+            "video_path": final_path,
+            "pptx_path": pptx_path,
+        }
         if not self.validate_output(result):
-            return {"status": "error", "video_path": final_path}
+            return {"status": "error", "video_path": final_path, "pptx_path": pptx_path}
 
-        print(f"[Video] Saved to: {final_path}")
+        print(f"[Video] Saved to:      {final_path}")
+        print(f"[Video] PPTX saved to: {pptx_path}")
         return result
 
     def validate_output(self, output: dict) -> bool:
-        """Return True if the MP4 file exists and is non-empty.
+        """Return True if both the MP4 and the PPTX exist and are non-empty.
 
         Args:
-            output: The dict from run() — inspects output["video_path"].
+            output: The dict from run() — inspects ``output["video_path"]``
+                    and ``output["pptx_path"]``.
         """
-        path: str = output.get("video_path", "")
-        return (
-            isinstance(path, str)
-            and path.endswith(".mp4")
-            and os.path.isfile(path)
-            and os.path.getsize(path) > 0
+        video_path: str = output.get("video_path", "")
+        pptx_path: str = output.get("pptx_path", "")
+        video_ok = (
+            isinstance(video_path, str)
+            and video_path.endswith(".mp4")
+            and os.path.isfile(video_path)
+            and os.path.getsize(video_path) > 0
         )
+        pptx_ok = (
+            isinstance(pptx_path, str)
+            and pptx_path.endswith(".pptx")
+            and os.path.isfile(pptx_path)
+            and os.path.getsize(pptx_path) > 0
+        )
+        return video_ok and pptx_ok
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -363,18 +426,21 @@ class VideoAgent(AbstractStudyAgent):
         return narrations
 
     def _generate_html_slides(
-        self, timing_json: list, notes_content: str
+        self, timing_json: list, notes_content: str, output_dir: str
     ) -> list[str]:
         """Generate one HTML slide per timing entry and screenshot to PNG.
 
         Each slide is generated by the LLM as a complete, self-contained HTML
-        document, saved to output/slides/, then converted to a 1280×720 PNG
-        via a Playwright headless-Chromium screenshot.
+        document, saved to ``output_dir/slides/``, then converted to a 1280×720
+        PNG via a Playwright headless-Chromium screenshot.
 
         Args:
             timing_json:   List of section dicts with keys "section" and
                            "narration".
             notes_content: Full notes text passed as LLM context.
+            output_dir:    Absolute path to the run's output directory.
+                           HTML and PNG files are placed in a ``slides/``
+                           subdirectory within this directory.
 
         Returns:
             List of absolute PNG file paths, one per timing entry, in order.
@@ -396,7 +462,10 @@ class VideoAgent(AbstractStudyAgent):
             )
             html_content = self._call_api(prompt, use_tools=False)
 
-            html_path = self._save_output(html_content, f"slides/slide_{i:02d}.html")
+            html_path = self._save_output(
+                html_content, f"slides/slide_{i:02d}.html", output_dir=output_dir
+            )
+            # PNG lives next to its HTML inside the slides/ subfolder
             png_path = os.path.join(
                 os.path.dirname(html_path), f"slide_{i:02d}.png"
             )
@@ -440,11 +509,14 @@ class VideoAgent(AbstractStudyAgent):
             await page.screenshot(path=output_png, full_page=False)
             await browser.close()
 
-    def _generate_audio(self, narrations: list[str]) -> list[str]:
+    def _generate_audio(self, narrations: list[str], output_dir: str) -> list[str]:
         """Generate one TTS MP3 per narration using OpenAI tts-1-hd (voice: coral).
 
         Args:
             narrations: List of narration strings, one per slide.
+            output_dir: Absolute path to the run's output directory.
+                        MP3 files are placed in an ``audio/`` subdirectory
+                        within this directory.
 
         Returns:
             List of MP3 file paths in the same order as narrations.
@@ -454,10 +526,7 @@ class VideoAgent(AbstractStudyAgent):
         """
         import openai
 
-        base_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-        audio_dir = os.path.join(base_dir, "output", "videos", "audio")
+        audio_dir = os.path.join(output_dir, "audio")
         os.makedirs(audio_dir, exist_ok=True)
 
         client = openai.OpenAI(api_key=self.openai_api_key)
@@ -477,6 +546,71 @@ class VideoAgent(AbstractStudyAgent):
                 f"Expected {len(narrations)} audio files, got {len(audio_paths)}."
             )
         return audio_paths
+
+    def _export_pptx(
+        self,
+        frame_paths: list[str],
+        timing_json: list,
+        output_dir: str,
+    ) -> str:
+        """Build a widescreen PPTX where each slide is a PNG frame + title overlay.
+
+        Each PNG frame is placed as a full-bleed background image. A dark navy
+        text box is overlaid at the top of each slide with the section title in
+        white 28 pt bold text.  The file is saved as
+        ``{output_dir}/slides/flashcards.pptx``.
+
+        Requires the ``python-pptx`` package (``pip install python-pptx``).
+
+        Args:
+            frame_paths: Absolute PNG file paths in slide order.
+            timing_json: Section timing dicts; key ``"section"`` is used as
+                         the slide title.
+            output_dir:  Absolute path to the run's output directory.
+
+        Returns:
+            Absolute path to the saved ``flashcards.pptx``.
+        """
+        from pptx import Presentation
+        from pptx.dml.color import RGBColor
+        from pptx.util import Inches, Pt
+
+        prs = Presentation()
+        prs.slide_width = Inches(13.33)
+        prs.slide_height = Inches(7.5)
+        blank_layout = prs.slide_layouts[6]  # truly blank layout
+
+        for frame_path, entry in zip(frame_paths, timing_json):
+            slide = prs.slides.add_slide(blank_layout)
+
+            # Full-bleed PNG background
+            slide.shapes.add_picture(
+                frame_path,
+                left=0,
+                top=0,
+                width=prs.slide_width,
+                height=prs.slide_height,
+            )
+
+            # Title overlay — dark navy box at the top, white bold 28 pt text
+            txBox = slide.shapes.add_textbox(
+                left=0, top=0, width=prs.slide_width, height=Inches(1.2)
+            )
+            txBox.fill.solid()
+            txBox.fill.fore_color.rgb = RGBColor(0x1A, 0x1A, 0x2E)  # dark navy
+            tf = txBox.text_frame
+            tf.word_wrap = True
+            run = tf.paragraphs[0].add_run()
+            run.text = entry.get("section", "")
+            run.font.size = Pt(28)
+            run.font.bold = True
+            run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+
+        slides_dir = os.path.join(output_dir, "slides")
+        os.makedirs(slides_dir, exist_ok=True)
+        pptx_path = os.path.join(slides_dir, "flashcards.pptx")
+        prs.save(pptx_path)
+        return pptx_path
 
     def _assemble_video(
         self,
@@ -555,10 +689,19 @@ class PDFAgent(AbstractStudyAgent):
         if output_pdf_path is None:
             output_pdf_path = os.path.splitext(input_md_path)[0] + ".pdf"
 
+        # Resolve pandoc: check PATH, then the Windows per-user install location.
+        _fallback = os.path.expandvars(r"%LOCALAPPDATA%\Pandoc\pandoc.exe")
+        pandoc_exe = shutil.which("pandoc") or (_fallback if os.path.isfile(_fallback) else None)
+        if pandoc_exe is None:
+            raise RuntimeError(
+                "pandoc not found on PATH or in %LOCALAPPDATA%\\Pandoc. "
+                "Install it from https://pandoc.org/installing.html"
+            )
+
         try:
             subprocess.run(
                 [
-                    "pandoc", input_md_path,
+                    pandoc_exe, input_md_path,
                     "-o", output_pdf_path,
                     "--pdf-engine=xelatex",
                     "-V", "geometry:margin=1in",
@@ -566,13 +709,6 @@ class PDFAgent(AbstractStudyAgent):
                 check=True,
                 capture_output=True,
                 text=True,
-            )
-        except FileNotFoundError:
-            raise RuntimeError(
-                "pandoc is not installed or not on PATH. "
-                "Install it from https://pandoc.org/installing.html "
-                "and install a LaTeX engine (e.g. MiKTeX or TeX Live) "
-                "for the --pdf-engine=xelatex flag."
             )
         except subprocess.CalledProcessError as exc:
             raise RuntimeError(f"pandoc failed:\n{exc.stderr}") from exc

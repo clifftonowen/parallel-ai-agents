@@ -1,14 +1,13 @@
-"""
-base_agent.py
-Abstract base class for all study-material generation agents.
-"""
 
+import logging
 import os
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any
 
 import anthropic
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +169,10 @@ class AbstractStudyAgent(ABC):
                 tool_results: list[dict] = []
                 for block in response.content:
                     if block.type == "tool_use":
+                        log.debug(
+                            "Dispatching tool '%s' with input %r",
+                            block.name, block.input,
+                        )
                         result = self._handle_tool_call(block.name, block.input)
                         tool_results.append(
                             {
@@ -194,6 +197,10 @@ class AbstractStudyAgent(ABC):
     def _handle_tool_call(self, tool_name: str, tool_input: dict) -> str:
         """Dispatch a model-issued tool call to the correct implementation.
 
+        Logs a WARNING whenever a tool returns an empty string or an
+        error/no-results sentinel (any result whose stripped text starts with
+        '['), so callers are not left guessing why notes look generic.
+
         Args:
             tool_name:  Name of the tool the model wants to call.
             tool_input: Input dict the model supplied for the tool.
@@ -202,13 +209,29 @@ class AbstractStudyAgent(ABC):
             A string result to inject as a tool_result content block.
         """
         if tool_name == "web_search":
-            return self._web_search(tool_input["query"])
-        if tool_name == "image_search":
-            return self._image_search(
+            result = self._web_search(tool_input["query"])
+        elif tool_name == "image_search":
+            result = self._image_search(
                 tool_input["query"],
                 tool_input.get("max_results", 3),
             )
-        return f"[tool error] Unknown tool: {tool_name}"
+        else:
+            result = f"[tool error] Unknown tool: {tool_name}"
+
+        if not result or not result.strip():
+            log.warning(
+                "Tool '%s' returned an empty result (input: %r)",
+                tool_name, tool_input,
+            )
+        elif result.lstrip().startswith("["):
+            # All our error/no-result sentinels are prefixed with '[',
+            # e.g. "[web_search error] ...", "[image_search] ... not installed",
+            # "No results found." is NOT prefixed — that's a soft miss, not an error.
+            log.warning(
+                "Tool '%s' returned an error or unavailability sentinel: %r",
+                tool_name, result[:200],
+            )
+        return result
 
     def _web_search(self, query: str) -> str:
         """Search the web and return the top 3 results as formatted text.
@@ -278,22 +301,37 @@ class AbstractStudyAgent(ABC):
     # File I/O
     # ------------------------------------------------------------------
 
-    def _save_output(self, content: str, filename: str) -> str:
-        """Write content to output/{filename}, creating parent dirs as needed.
+    def _save_output(
+        self, content: str, filename: str, output_dir: str | None = None
+    ) -> str:
+        """Write content to a file, creating parent dirs as needed.
+
+        When *output_dir* is provided the file is placed at
+        ``output_dir / filename``; otherwise it falls back to the project-level
+        ``output / filename`` (legacy behaviour, used when no run directory has
+        been set up by the orchestrator).
 
         Args:
-            content:  Text content to write.
-            filename: Path relative to the project output/ directory,
-                      e.g. "notes/notes_abc12.md".
+            content:    Text content to write.
+            filename:   Path relative to *output_dir* (or the project output/
+                        directory), e.g. ``"notes.md"`` or
+                        ``"slides/slide_00.html"``.
+            output_dir: Absolute path to the run's output directory.
+                        Pass ``None`` to use the project-level default.
 
         Returns:
             The absolute path of the written file.
         """
-        base_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-        path = os.path.join(base_dir, "output", filename)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if output_dir is not None:
+            path = os.path.join(output_dir, filename)
+        else:
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
+            path = os.path.join(base_dir, "output", filename)
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         return path
