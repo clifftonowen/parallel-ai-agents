@@ -53,9 +53,9 @@ Flashcard agent  HTML agent         Video agent     PDF agent
               notes.md, flashcards.md, notes.html, notes.pdf, video.mp4
 ```
 
-The current `src/main.py` driver implements the Notes -> Flashcards ->
-Video subset sequentially. Conversion to the parallel orchestrator above
-is the active work.
+`orchestrator.py` implements this architecture today: Notes runs first,
+Flashcards and Video fan out in parallel, then PDF export runs last. (The
+HTML agent and the Gemini Deep Research front-end remain the active work.)
 
 ## Repository layout
 
@@ -64,7 +64,7 @@ is the active work.
 ├── parallel_agent.py        Three-agent Gemini fan-out (asyncio + multiprocessing)
 ├── parallel_agent_6.py      Six-agent Gemini fan-out
 ├── chat_session.py          Stateful vs. stateless Gemini chat reference
-├── orchestrator.py          Claude-side orchestrator (work in progress)
+├── orchestrator.py          Claude-side pipeline driver (working entry point)
 ├── benchmark_test.py        Benchmark harness
 ├── requirements.txt
 └── src/
@@ -98,7 +98,9 @@ playwright install
 ```
 
 The `playwright install` step downloads the browser binaries used by the
-HTML rendering helpers in `specialist_agent.py`.
+HTML rendering helpers in `specialist_agent.py`. `duckduckgo_search` backs
+the `web_search` / `image_search` tools the `NotesAgent` calls; without it
+those tool calls return an install-hint string instead of real results.
 
 ### 2. Authenticate Google Cloud (benchmark track)
 
@@ -117,6 +119,9 @@ Create a `.env` file at the repository root. All scripts call
 ```
 # Anthropic Claude (pipeline track)
 CLAUDE_API_KEY=...
+# orchestrator.py reads ANTHROPIC_API_KEY from the environment, so set it
+# to the same value (the agents themselves accept either).
+ANTHROPIC_API_KEY=...
 
 # OpenAI (text-to-speech in the video agent)
 OPENAI_API_KEY=...
@@ -148,26 +153,47 @@ the total wall-clock time for the batch.
 
 ### Pipeline track
 
-`src/main.py` uses package-relative imports
-(`from agents.specialist_agent import ...`), so it must be invoked with
-`src/` as the working directory:
+The working entry point is `orchestrator.py` at the repository root. From a
+single topic string it runs the full pipeline — Phase 1 `NotesAgent`
+(sequential), Phase 2 `FlashcardAgent` + `VideoAgent` (parallel via a
+thread pool), Phase 3 `PDFAgent` (sequential) — and writes every artifact
+to `output/`.
+
+Set the topic at the bottom of `orchestrator.py` (the `topic="..."`
+argument in the `__main__` block), then run from the repository root:
 
 ```
-cd src
-python main.py
+python orchestrator.py
 ```
 
-The driver runs Notes -> Flashcards -> Video on a hard-coded topic and
-writes artifacts to `output/` at the repository root. To change the
-subject, edit the `topic = "..."` line in `src/main.py`.
+Generated under `output/`:
+
+```
+notes/notes_<id>.md      structured Markdown notes
+notes/notes_<id>.json    per-section timing sidecar (drives the video)
+flashcards.md            Obsidian-style spaced-repetition cards
+slides/                  per-section HTML slides + PNG screenshots
+videos/audio/            per-section TTS narration (MP3)
+study_video.mp4          final narrated study video
+notes.pdf, flashcards.pdf  PDF renders (only if pandoc + xelatex are present)
+```
+
+The video stage needs `ffmpeg` on `PATH`; the PDF stage needs `pandoc` +
+a LaTeX engine (e.g. MiKTeX or TeX Live). If either is missing, that stage
+is skipped or errors non-fatally — the rest of the bundle is still
+produced.
+
+> **Note:** `src/main.py` is an earlier, sequential Notes -> Flashcards ->
+> Video sketch whose calls have drifted out of sync with the current agent
+> APIs; it does not run as-is. Use `orchestrator.py` instead.
 
 ## Status
 
 - **Done:** parallelisation research; instrumented true vs. concurrent
-  execution; Notes / Flashcards / Video pipeline on Claude with `.env`
-  driven configuration.
-- **In progress:** target orchestrator architecture above; per-task model
-  benchmarking; HTML agent.
+  execution; Notes -> (Flashcards ‖ Video) -> PDF pipeline on Claude via
+  `orchestrator.py`, with `.env`-driven configuration.
+- **In progress:** per-task model benchmarking; HTML agent; Gemini Deep
+  Research front-end.
 - **Planned:** customisable video output (linear vs. quiz checkpoints);
   Python vs. Rust benchmark for the orchestrator.
 
