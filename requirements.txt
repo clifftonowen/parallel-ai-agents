@@ -4,3 +4,4 @@ moviepy
 openai
 playwright
 python-dotenv
+duckduckgo_search
