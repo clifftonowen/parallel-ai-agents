@@ -187,9 +187,17 @@ def _banner(title: str, detail: str = "") -> None:
 if __name__ == "__main__":
     import os
 
+    anthropic_api_key = os.environ.get("CLAUDE_API_KEY") or os.environ.get(
+        "ANTHROPIC_API_KEY"
+    )
+    if not anthropic_api_key:
+        raise SystemExit(
+            "Set CLAUDE_API_KEY (or ANTHROPIC_API_KEY) in your .env file."
+        )
+
     orchestrator = StudyOrchestrator(
-        anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
+        anthropic_api_key=anthropic_api_key,
         openai_api_key=os.environ["OPENAI_API_KEY"],
     )
-    result = orchestrator.run(topic="machine learning basics")
+    result = orchestrator.run(topic="A-levels Physics: Newton's Laws of Motion")
     print(result)

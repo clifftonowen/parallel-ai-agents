@@ -119,9 +119,6 @@ Create a `.env` file at the repository root. All scripts call
 ```
 # Anthropic Claude (pipeline track)
 CLAUDE_API_KEY=...
-# orchestrator.py reads ANTHROPIC_API_KEY from the environment, so set it
-# to the same value (the agents themselves accept either).
-ANTHROPIC_API_KEY=...
 
 # OpenAI (text-to-speech in the video agent)
 OPENAI_API_KEY=...
