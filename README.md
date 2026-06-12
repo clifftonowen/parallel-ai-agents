@@ -77,16 +77,40 @@ HTML agent and the Gemini Deep Research front-end remain the active work.)
 ## Prerequisites
 
 - Python 3.11 or newer.
-- `ffmpeg` available on `PATH` (required by `moviepy`).
-- `pandoc` available on `PATH` (required by `PDFAgent`).
+- `ffmpeg` available on `PATH` (required by `moviepy` for the video stage).
+- `pandoc` plus a LaTeX engine (xelatex) on `PATH` (required by `PDFAgent`).
 - A Google Cloud project with the Vertex AI API enabled (benchmark track).
 - API access to Anthropic Claude and OpenAI (pipeline track).
 
-On macOS:
+### Installing ffmpeg and pandoc
+
+**macOS** (Homebrew):
 
 ```
 brew install ffmpeg pandoc
+brew install --cask basictex      # LaTeX engine for the PDF stage
 ```
+
+**Windows** (winget):
+
+```
+winget install Gyan.FFmpeg
+winget install JohnMacFarlane.Pandoc
+winget install MiKTeX.MiKTeX       # LaTeX engine for the PDF stage
+```
+
+After installing on Windows, open a **new** terminal so the updated `PATH`
+is picked up. Verify both tools resolve:
+
+```
+ffmpeg -version
+pandoc --version
+```
+
+`ffmpeg` is required for the video stage — without it `VideoAgent` cannot
+assemble `study_video.mp4`. `pandoc` (plus a LaTeX engine) is only needed
+for the PDF stage; if it is absent the pipeline skips PDF export and still
+produces the rest of the bundle.
 
 ## Setup
 
