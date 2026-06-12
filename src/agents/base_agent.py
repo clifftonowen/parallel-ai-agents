@@ -224,7 +224,7 @@ class AbstractStudyAgent(ABC):
             "Title: ...\\nURL: ...\\nSnippet: ...\\n\\n"
         """
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
 
             results: list[str] = []
             with DDGS() as ddgs:
@@ -237,8 +237,7 @@ class AbstractStudyAgent(ABC):
             return "\n".join(results) or "No results found."
         except ImportError:
             return (
-                "[web_search] duckduckgo_search not installed. "
-                "Run: pip install duckduckgo_search"
+                "[web_search] ddgs not installed. Run: pip install ddgs"
             )
         except Exception as exc:
             return f"[web_search error] {exc}"
@@ -256,7 +255,7 @@ class AbstractStudyAgent(ABC):
             Newline-separated Markdown image links: "![title](url)"
         """
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
 
             lines: list[str] = []
             with DDGS() as ddgs:
@@ -268,8 +267,7 @@ class AbstractStudyAgent(ABC):
             return "\n".join(lines) or "No images found."
         except ImportError:
             return (
-                "[image_search] duckduckgo_search not installed. "
-                "Run: pip install duckduckgo_search"
+                "[image_search] ddgs not installed. Run: pip install ddgs"
             )
         except Exception as exc:
             return f"[image_search error] {exc}"
