@@ -78,7 +78,12 @@ HTML agent and the Gemini Deep Research front-end remain the active work.)
 
 - Python 3.11 or newer.
 - `ffmpeg` available on `PATH` (required by `moviepy` for the video stage).
-- `pandoc` plus a LaTeX engine (xelatex) on `PATH` (required by `PDFAgent`).
+- `pandoc` plus a PDF engine (required by `PDFAgent`). The agent auto-detects
+  whichever engine is installed — a LaTeX engine (`tectonic`, `xelatex`,
+  `lualatex`, or `pdflatex`) or an HTML engine (`wkhtmltopdf`, `weasyprint`).
+  `tectonic` is recommended on Windows: it is a single self-contained binary
+  that fetches LaTeX packages on first use. `PDFAgent` resolves `pandoc` and
+  the engine by absolute path, so they do **not** need to be on `PATH`.
 - A Google Cloud project with the Vertex AI API enabled (benchmark track).
 - API access to Anthropic Claude and OpenAI (pipeline track).
 
@@ -99,8 +104,17 @@ winget install JohnMacFarlane.Pandoc
 winget install MiKTeX.MiKTeX       # LaTeX engine for the PDF stage
 ```
 
-After installing on Windows, open a **new** terminal so the updated `PATH`
-is picked up. Verify both tools resolve:
+For the PDF engine, `tectonic` is a lighter alternative to a full LaTeX
+distribution. If it is not in your `winget` source, download the official
+Windows binary from
+https://github.com/tectonic-typesetting/tectonic/releases and place
+`tectonic.exe` in `%LOCALAPPDATA%\Tectonic` — `PDFAgent` searches that
+directory automatically.
+
+`ffmpeg` must be on `PATH` for the video stage. `pandoc` and the PDF engine
+do **not** need to be on `PATH`: `PDFAgent` resolves them by absolute path,
+searching `PATH` plus the standard install locations (so a stale `PATH`
+after install no longer breaks PDF export). You can still verify them:
 
 ```
 ffmpeg -version
@@ -108,9 +122,9 @@ pandoc --version
 ```
 
 `ffmpeg` is required for the video stage — without it `VideoAgent` cannot
-assemble `study_video.mp4`. `pandoc` (plus a LaTeX engine) is only needed
-for the PDF stage; if it is absent the pipeline skips PDF export and still
-produces the rest of the bundle.
+assemble `study_video.mp4`. `pandoc` (plus a PDF engine) is only needed
+for the PDF stage; if either is absent the pipeline skips PDF export and
+still produces the rest of the bundle.
 
 ## Setup
 
@@ -196,13 +210,14 @@ flashcards.md            Obsidian-style spaced-repetition cards
 slides/                  per-section HTML slides + PNG screenshots
 videos/audio/            per-section TTS narration (MP3)
 study_video.mp4          final narrated study video
-notes.pdf, flashcards.pdf  PDF renders (only if pandoc + xelatex are present)
+notes.pdf, flashcards.pdf  PDF renders (only if pandoc + a PDF engine are present)
 ```
 
 The video stage needs `ffmpeg` on `PATH`; the PDF stage needs `pandoc` +
-a LaTeX engine (e.g. MiKTeX or TeX Live). If either is missing, that stage
-is skipped or errors non-fatally — the rest of the bundle is still
-produced.
+a PDF engine (`tectonic`, a LaTeX engine such as MiKTeX/TeX Live, or
+`wkhtmltopdf`), which `PDFAgent` auto-detects and resolves by absolute
+path. If either dependency is missing, that stage is skipped or errors
+non-fatally — the rest of the bundle is still produced.
 
 > **Note:** `src/main.py` is an earlier, sequential Notes -> Flashcards ->
 > Video sketch whose calls have drifted out of sync with the current agent
