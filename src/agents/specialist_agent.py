@@ -199,7 +199,7 @@ class FlashcardAgent(AbstractStudyAgent):
         """
         prompt = self.build_prompt(notes_content)
         response = self._call_api(prompt, use_tools=False)
-        flashcards_path = self._save_output(response, "flashcards.md")
+        flashcards_path = self._save_output(response, f"flashcards/flashcards_{self.agent_id}.md")
         print(f"[Flashcards] Saved: {flashcards_path}")
         return {
             "status": "ok",
