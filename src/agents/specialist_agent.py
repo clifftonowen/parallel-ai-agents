@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -517,6 +518,41 @@ class VideoAgent(AbstractStudyAgent):
 # Phase 3 — PDFAgent
 # ---------------------------------------------------------------------------
 
+# Directories where pandoc / LaTeX engines commonly land on Windows but which
+# are not always reflected in the *current process'* PATH (e.g. when a terminal
+# was launched before the installer updated the environment). We search these
+# explicitly so a stale PATH can never break PDF generation again.
+_EXTRA_TOOL_DIRS = [
+    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Pandoc"),
+    os.path.join(os.environ.get("ProgramFiles", ""), "Pandoc"),
+    os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Pandoc"),
+    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links"),
+    os.path.join(os.environ.get("USERPROFILE", ""), "scoop", "shims"),
+    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Tectonic"),
+]
+
+# Candidate PDF engines, in order of preference. The first one found wins.
+_PDF_ENGINES = ["xelatex", "lualatex", "pdflatex", "tectonic", "wkhtmltopdf", "weasyprint"]
+
+
+def _resolve_tool(name: str) -> str | None:
+    """Locate an executable by name, searching PATH and known install dirs.
+
+    Returns the absolute path to the executable, or None if not found.
+    Works even when the running process inherited a stale PATH.
+    """
+    found = shutil.which(name)
+    if found:
+        return found
+    for d in _EXTRA_TOOL_DIRS:
+        if not d:
+            continue
+        candidate = shutil.which(name, path=d)
+        if candidate:
+            return candidate
+    return None
+
+
 class PDFAgent(AbstractStudyAgent):
     """Converts a Markdown file to PDF via pandoc + xelatex.
 
@@ -555,27 +591,49 @@ class PDFAgent(AbstractStudyAgent):
         if output_pdf_path is None:
             output_pdf_path = os.path.splitext(input_md_path)[0] + ".pdf"
 
+        pandoc = _resolve_tool("pandoc")
+        if pandoc is None:
+            raise RuntimeError(
+                "pandoc could not be found on PATH or in any known install "
+                "location. Install it from https://pandoc.org/installing.html "
+                "(or `winget install JohnMacFarlane.Pandoc`)."
+            )
+
+        engine = next((e for e in _PDF_ENGINES if _resolve_tool(e)), None)
+        if engine is None:
+            raise RuntimeError(
+                "pandoc is installed, but no PDF engine was found. Install one "
+                "of: a LaTeX engine such as tectonic "
+                "(`winget install TectonicTypesetting.Tectonic`), MiKTeX, or "
+                "TeX Live (provides xelatex/pdflatex), or wkhtmltopdf "
+                "(`winget install wkhtmltopdf.wkhtmltox`)."
+            )
+
+        cmd = [
+            pandoc, input_md_path,
+            "-o", output_pdf_path,
+            f"--pdf-engine={_resolve_tool(engine)}",
+        ]
+        # geometry margins only apply to LaTeX engines; HTML engines ignore/error.
+        if engine in ("xelatex", "lualatex", "pdflatex", "tectonic"):
+            cmd += ["-V", "geometry:margin=1in"]
+
         try:
+            # Decode output as UTF-8 with replacement: pandoc/LaTeX engines can
+            # emit non-cp1252 bytes (e.g. tectonic's font diagnostics), which
+            # would otherwise crash the capture thread on Windows.
             subprocess.run(
-                [
-                    "pandoc", input_md_path,
-                    "-o", output_pdf_path,
-                    "--pdf-engine=xelatex",
-                    "-V", "geometry:margin=1in",
-                ],
+                cmd,
                 check=True,
                 capture_output=True,
                 text=True,
-            )
-        except FileNotFoundError:
-            raise RuntimeError(
-                "pandoc is not installed or not on PATH. "
-                "Install it from https://pandoc.org/installing.html "
-                "and install a LaTeX engine (e.g. MiKTeX or TeX Live) "
-                "for the --pdf-engine=xelatex flag."
+                encoding="utf-8",
+                errors="replace",
             )
         except subprocess.CalledProcessError as exc:
-            raise RuntimeError(f"pandoc failed:\n{exc.stderr}") from exc
+            raise RuntimeError(
+                f"pandoc failed (engine={engine}):\n{exc.stderr}"
+            ) from exc
 
         result: dict = {"status": "ok", "pdf_path": output_pdf_path}
         if not self.validate_output(result):
