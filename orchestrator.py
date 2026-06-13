@@ -199,5 +199,5 @@ if __name__ == "__main__":
         anthropic_api_key=anthropic_api_key,
         openai_api_key=os.environ["OPENAI_API_KEY"],
     )
-    result = orchestrator.run(topic="A-levels Physics: Newton's Laws of Motion")
+    result = orchestrator.run(topic="A-levels Chemistry: VSEPR theory")
     print(result)
