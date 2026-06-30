@@ -165,15 +165,21 @@ class StudyOrchestrator:
         # -------------------------------------------------------- #
         _banner("Phase 3 — PDFAgent")
 
-        notes_pdf_result = self.pdf_agent.run(input_md_path=notes_path)
-
-        flashcards_pdf_result: dict = {}
+        pdf_targets: list[str] = [notes_path]
         if flashcard_result.get("flashcards_path"):
-            flashcards_pdf_result = self.pdf_agent.run(
-                input_md_path=flashcard_result["flashcards_path"]
-            )
+            pdf_targets.append(flashcard_result["flashcards_path"])
         else:
             print("[Orchestrator] Skipping flashcards PDF — no flashcard output.")
+
+        with ThreadPoolExecutor(max_workers=2) as _pdf_pool:
+            _pdf_futures = [
+                _pdf_pool.submit(self.pdf_agent.run, input_md_path=p)
+                for p in pdf_targets
+            ]
+            _pdf_results = [f.result() for f in _pdf_futures]
+
+        notes_pdf_result: dict = _pdf_results[0]
+        flashcards_pdf_result: dict = _pdf_results[1] if len(_pdf_results) > 1 else {}
 
         # -------------------------------------------------------- #
         # Summary                                                   #
