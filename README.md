@@ -57,6 +57,8 @@ Flashcard agent  HTML agent         Video agent     PDF agent
 Flashcards and Video fan out in parallel, then PDF export runs last. (The
 HTML agent and the Gemini Deep Research front-end remain the active work.)
 
+![Architecture diagram](docs/architecture-diagram.jpg)
+
 ## Repository layout
 
 ```
