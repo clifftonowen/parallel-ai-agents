@@ -1,12 +1,15 @@
 import json
+import logging
 import os
 import shutil
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
-
 from .base_agent import AbstractStudyAgent, TOOL_DEFINITIONS
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -40,27 +43,56 @@ class NotesAgent(AbstractStudyAgent):
         """
         return (
             f'Write comprehensive study notes on: "{topic}".\n\n'
-            "Guidelines:\n"
-            "- Use ## headers for each major concept\n"
+            "INSTRUCTIONS — follow all steps in order:\n\n"
+            "1. WEB SEARCH (strongly preferred): Call web_search at least twice "
+            "before writing. If the first query returns no results, retry with a "
+            "broader query. Ground every major concept in something you found.\n\n"
+            "2. IMAGE EMBEDDING: For every ## section heading, call image_search "
+            "and embed the best result immediately below the heading:\n"
+            "   ![description](url)\n"
+            "   *Caption: one-line description.*\n"
+            "If image_search fails or returns no results, skip the image for that "
+            "section and continue — do NOT stop generating notes.\n\n"
+            "3. FALLBACK: If ALL web_search calls fail or return errors, write the "
+            "notes from your internal knowledge. Still produce complete notes — "
+            "do not output any error messages or refuse to generate content.\n\n"
+            "FORMAT REQUIREMENTS:\n"
+            "- Use ## headers for each major concept (required)\n"
             "- Bullet-point key definitions and properties under each header\n"
             "- 1-2 concrete examples per section, labelled **Example:**\n"
-            "- Where helpful, embed a relevant diagram as ![description](url)\n"
-            "- 400-700 words total, Markdown only, no preamble before the first header\n"
-            "- Use web_search to verify facts and incorporate accurate, current information\n"
-            "- Use image_search to find diagram or illustration URLs to embed\n"
+            "- 400-700 words total, Markdown only, no preamble before the first header\n\n"
+            "AFTER your Markdown notes, on its own line write exactly:\n"
+            "---TIMING---\n"
+            "Then write a JSON array, one object per ## section:\n"
+            '[{"section": "heading without ##", "narration": "1-2 sentence summary", '
+            '"estimated_seconds": <int 20-60>}]\n'
+            "Return ONLY the JSON array after the separator — no code fences, no explanation.\n"
         )
 
-    def run(self, **kwargs: Any) -> dict:
+    def run(self, output_dir: str | None = None, **kwargs: Any) -> dict:
         """Generate notes, save notes.md + timing.json sidecar.
 
         Keyword Args:
-            topic (str): The subject to generate notes about.
+            topic (str):        The subject to generate notes about.
+            output_dir (str):   Absolute path to the run's output directory.
+                                Both output files are written flat into this
+                                directory as ``notes.md`` and ``timing.json``.
+                                Falls back to ``output/`` at the project root
+                                when None.
 
         Returns:
             ``{"status": "ok", "output": <notes content>, "md_path": str,
                "timing_path": str}``
         """
         topic: str = kwargs["topic"]
+
+        if output_dir is None:
+            _base = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
+            output_dir = os.path.join(_base, "output")
+        os.makedirs(output_dir, exist_ok=True)
+
         t0 = time.monotonic()
         started_ts = datetime.now(timezone.utc).isoformat()
 
@@ -72,31 +104,61 @@ class NotesAgent(AbstractStudyAgent):
         result: dict = {"status": "ok", "output": content, "md_path": "", "timing_path": ""}
 
         if not self.validate_output(result):
+            log.error(
+                "NotesAgent validate_output FAILED.\n"
+                "  has '## ': %s\n"
+                "  word count: %d\n"
+                "  first 300 chars: %r",
+                "## " in content,
+                len(content.split()),
+                content[:300],
+            )
             return {"status": "error", "output": content, "md_path": "", "timing_path": ""}
 
-        # Second LLM call: extract per-section timing data for VideoAgent.
-        # VideoAgent._build_narration_scripts and _generate_html_slides both
-        # iterate over this list and key into "section", "narration",
-        # "estimated_seconds" — the flat metadata dict would cause a KeyError.
-        timing_prompt = (
-            "Given these study notes, return a JSON array where each element "
-            "represents one ## section. Each object must have exactly these keys:\n"
-            '  "section": the heading text (without the ## prefix),\n'
-            '  "narration": 1-2 sentence summary of what to say about this section,\n'
-            '  "estimated_seconds": integer seconds to speak about it '
-            "(typically 20-60 per section).\n\n"
-            "Return ONLY valid JSON — no markdown fences, no explanation.\n\n"
-            f"NOTES:\n{content}"
-        )
-        timing_raw = self._call_api(timing_prompt, use_tools=False).strip()
-        if timing_raw.startswith("```"):
-            timing_raw = timing_raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        try:
-            sections: list = json.loads(timing_raw)
-        except json.JSONDecodeError:
-            sections = []
+        # Attempt to extract timing data from the combined output (saves a second LLM call).
+        # build_prompt instructs Claude to append ---TIMING--- then a JSON array.
+        sections: list = []
+        if "---TIMING---" in content:
+            notes_part, timing_raw = content.split("---TIMING---", 1)
+            content = notes_part.strip()
+            timing_raw = (
+                timing_raw.strip()
+                .lstrip("```json")
+                .lstrip("```")
+                .rstrip("```")
+                .strip()
+            )
+            try:
+                sections = json.loads(timing_raw)
+                log.info("[Notes] Timing extracted inline — skipping second LLM call.")
+            except json.JSONDecodeError:
+                log.warning("[Notes] Inline timing JSON malformed — falling back to second call.")
 
-        md_path = self._save_output(content, f"notes/notes_{self.agent_id}.md")
+        if not sections:
+            # Fallback: dedicated second LLM call (original behaviour).
+            # VideoAgent._build_narration_scripts and _generate_html_slides both
+            # iterate over this list and key into "section", "narration",
+            # "estimated_seconds" — the flat metadata dict would cause a KeyError.
+            timing_prompt = (
+                "Given these study notes, return a JSON array where each element "
+                "represents one ## section. Each object must have exactly these keys:\n"
+                '  "section": the heading text (without the ## prefix),\n'
+                '  "narration": 1-2 sentence summary of what to say about this section,\n'
+                '  "estimated_seconds": integer seconds to speak about it '
+                "(typically 20-60 per section).\n\n"
+                "Return ONLY valid JSON — no markdown fences, no explanation.\n\n"
+                f"NOTES:\n{content}"
+            )
+            timing_raw = self._call_api(timing_prompt, use_tools=False).strip()
+            if timing_raw.startswith("```"):
+                lines = timing_raw.split("\n", 1)
+                timing_raw = lines[1].rsplit("```", 1)[0].strip() if len(lines) > 1 else ""
+            try:
+                sections = json.loads(timing_raw)
+            except json.JSONDecodeError:
+                sections = []
+
+        md_path = self._save_output(content, "notes.md", output_dir=output_dir)
         timing_path = self._save_output(
             json.dumps(
                 {
@@ -109,11 +171,15 @@ class NotesAgent(AbstractStudyAgent):
                 },
                 indent=2,
             ),
-            f"notes/notes_{self.agent_id}.json",
+            "timing.json",
+            output_dir=output_dir,
         )
 
         result["md_path"] = md_path
         result["timing_path"] = timing_path
+        result["duration_s"] = duration
+        result["started_at"] = started_ts
+        result["finished_at"] = finished_ts
         print(f"[Notes] Saved:  {md_path}")
         print(f"[Notes] Timing: {timing_path}")
         return result
@@ -147,7 +213,7 @@ class FlashcardAgent(AbstractStudyAgent):
 
     def __init__(
         self,
-        model: str = "claude-sonnet-4-6",
+        model: str = "claude-haiku-4-5-20251001",
         api_key: str | None = None,
     ) -> None:
         super().__init__(model=model, api_key=api_key)
@@ -166,26 +232,32 @@ class FlashcardAgent(AbstractStudyAgent):
         """
         return (
             "Read the following study notes carefully, then generate between "
-            "8 and 12 flashcards.\n\n"
+            "12 and 15 flashcards.\n\n"
             "NOTES:\n"
             f"{notes_content}\n\n"
             "Use this exact Markdown format for every card — no deviations:\n\n"
             "## {{question}} #flashcard\n\n"
-            "{{answer — 1 to 3 sentences, uses the same framing as the notes}}\n\n"
+            "{{answer — see ANSWER REQUIREMENTS below}}\n\n"
             "---\n\n"
-            "Card type mix (all three types are required):\n"
-            "  • 3-4 definition cards   — question form: 'What is X?'\n"
-            "  • 3-4 application cards  — question form: "
+            "ANSWER REQUIREMENTS — all four rules apply to every single card:\n"
+            "  1. Minimum 3 sentences per answer — no exceptions.\n"
+            "  2. Every answer must include EITHER a concrete real-world example "
+            "OR an explicit comparison to a related concept.\n"
+            "  3. End every answer with a sentence starting exactly 'Why it matters:' "
+            "that explains the practical relevance of the concept.\n"
+            "  4. Every answer must be derivable directly from the notes above "
+            "— introduce no new information.\n\n"
+            "Card type mix (all three types required, totalling 12-15):\n"
+            "  • 4-5 definition cards    — question form: 'What is X?'\n"
+            "  • 4-5 application cards   — question form: "
             "'How does X work in the context of Y?'\n"
-            "  • 2-3 distinction cards  — question form: "
+            "  • 3-5 distinction cards   — question form: "
             "'What is the difference between X and Y?'\n\n"
-            "Constraints:\n"
-            "  • Every answer must be derivable directly from the notes above "
-            "— introduce no new information\n"
+            "Additional constraints:\n"
             "  • Do not copy sentences verbatim from the notes — rephrase in "
-            "your own words\n"
+            "your own words.\n"
             "  • Return ONLY the Markdown flashcard content — no preamble, "
-            "no closing remarks, nothing else\n"
+            "no closing remarks, nothing else.\n"
         )
 
     def run(self, notes_content: str, output_dir: str = "output") -> dict:
@@ -198,14 +270,21 @@ class FlashcardAgent(AbstractStudyAgent):
         Returns:
             ``{"status": "ok", "flashcards_path": str, "flashcards_content": str}``
         """
+        t0 = time.monotonic()
+        started_at = datetime.now(timezone.utc).isoformat()
         prompt = self.build_prompt(notes_content)
         response = self._call_api(prompt, use_tools=False)
+        duration_s = round(time.monotonic() - t0, 3)
+        finished_at = datetime.now(timezone.utc).isoformat()
         flashcards_path = self._save_output(response, f"flashcards/flashcards_{self.agent_id}.md")
         print(f"[Flashcards] Saved: {flashcards_path}")
         return {
             "status": "ok",
             "flashcards_path": flashcards_path,
             "flashcards_content": response,
+            "duration_s": duration_s,
+            "started_at": started_at,
+            "finished_at": finished_at,
         }
 
     def validate_output(self, output: dict) -> bool:
@@ -244,7 +323,7 @@ class VideoAgent(AbstractStudyAgent):
 
     def __init__(
         self,
-        model: str = "claude-sonnet-4-6",
+        model: str = "claude-haiku-4-5-20251001",
         api_key: str | None = None,
         openai_api_key: str | None = None,
     ) -> None:
@@ -273,62 +352,117 @@ class VideoAgent(AbstractStudyAgent):
         self,
         notes_content: str,
         timing_json: list,
-        output_path: str = "output/study_video.mp4",
+        output_dir: str | None = None,
     ) -> dict:
-        """Generate a narrated study video from notes and section timing data.
+        """Generate a narrated study video and PPTX from notes and timing data.
 
         Args:
             notes_content: Full text of notes.md from Phase 1.
             timing_json:   List of section dicts, each with keys:
                            "section", "narration", "estimated_seconds".
-            output_path:   Destination path for the final MP4.
-                           Relative paths are resolved from the project root.
+            output_dir:    Absolute path to the run's output directory.
+                           ``study_video.mp4`` is written directly here;
+                           slides go into ``output_dir/slides/`` and audio
+                           into ``output_dir/audio/``.
+                           Falls back to ``output/`` at the project root when
+                           None.
 
         Returns:
-            ``{"status": "ok", "video_path": str}``
+            ``{"status": "ok", "video_path": str, "pptx_path": str}``
 
         Raises:
             AssertionError: If frame count and narration count diverge after
                             slide generation.
         """
-        if not os.path.isabs(output_path):
-            base_dir = os.path.dirname(
+        if output_dir is None:
+            _base = os.path.dirname(
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             )
-            output_path = os.path.join(base_dir, output_path)
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            output_dir = os.path.join(_base, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, "study_video.mp4")
 
-        narrations = self._build_narration_scripts(notes_content, timing_json)
-        frame_paths = self._generate_html_slides(timing_json, notes_content)
+        _t0 = time.monotonic()
+
+        # Stage A: narrations and slides both need only timing_json — run in parallel
+        t = time.monotonic()
+        with ThreadPoolExecutor(max_workers=2) as _stage_a:
+            _narr_fut  = _stage_a.submit(self._build_narration_scripts, notes_content, timing_json)
+            _slide_fut = _stage_a.submit(self._generate_html_slides, timing_json, notes_content, output_dir)
+            narrations  = _narr_fut.result()
+            frame_paths = _slide_fut.result()
+        dt_narrations = time.monotonic() - t  # combined wall-clock for stage A
+        dt_slides = dt_narrations              # same wall-clock (ran in parallel)
 
         assert len(frame_paths) == len(narrations), (
             f"Frame/narration count mismatch: {len(frame_paths)} frames vs "
             f"{len(narrations)} narrations."
         )
 
-        audio_paths = self._generate_audio(narrations)
+        # Stage B+C: audio needs narrations; PPTX needs frame_paths — both ready, run in parallel
+        t = time.monotonic()
+        with ThreadPoolExecutor(max_workers=2) as _stage_bc:
+            _audio_fut = _stage_bc.submit(self._generate_audio, narrations, output_dir)
+            _pptx_fut  = _stage_bc.submit(self._export_pptx, frame_paths, timing_json, output_dir)
+            audio_paths = _audio_fut.result()
+            pptx_path   = _pptx_fut.result()
+        dt_audio = time.monotonic() - t  # combined wall-clock for stage B+C
+        dt_pptx  = dt_audio              # same wall-clock (ran in parallel)
+
+        # Stage D: video assembly needs both frame_paths and audio_paths
+        t = time.monotonic()
         final_path = self._assemble_video(frame_paths, audio_paths, output_path)
+        dt_assemble = time.monotonic() - t
 
-        result: dict = {"status": "ok", "video_path": final_path}
+        dt_total = time.monotonic() - _t0
+        print(
+            f"\n[Video] Benchmark ({len(timing_json)} sections):\n"
+            f"  stage-A (narrations‖slides) : {dt_narrations:6.1f}s\n"
+            f"  stage-BC (audio‖pptx)       : {dt_audio:6.1f}s\n"
+            f"  assemble                    : {dt_assemble:6.1f}s\n"
+            f"  total                       : {dt_total:6.1f}s"
+        )
+
+        result: dict = {
+            "status": "ok",
+            "video_path": final_path,
+            "pptx_path": pptx_path,
+            "benchmark": {
+                "stage_a_s": round(dt_narrations, 2),   # narrations ‖ slides (wall-clock)
+                "stage_bc_s": round(dt_audio, 2),        # audio ‖ pptx (wall-clock)
+                "assemble_s": round(dt_assemble, 2),
+                "total_s": round(dt_total, 2),
+            },
+        }
         if not self.validate_output(result):
-            return {"status": "error", "video_path": final_path}
+            return {"status": "error", "video_path": final_path, "pptx_path": pptx_path}
 
-        print(f"[Video] Saved to: {final_path}")
+        print(f"[Video] Saved to:      {final_path}")
+        print(f"[Video] PPTX saved to: {pptx_path}")
         return result
 
     def validate_output(self, output: dict) -> bool:
-        """Return True if the MP4 file exists and is non-empty.
+        """Return True if both the MP4 and the PPTX exist and are non-empty.
 
         Args:
-            output: The dict from run() — inspects output["video_path"].
+            output: The dict from run() — inspects ``output["video_path"]``
+                    and ``output["pptx_path"]``.
         """
-        path: str = output.get("video_path", "")
-        return (
-            isinstance(path, str)
-            and path.endswith(".mp4")
-            and os.path.isfile(path)
-            and os.path.getsize(path) > 0
+        video_path: str = output.get("video_path", "")
+        pptx_path: str = output.get("pptx_path", "")
+        video_ok = (
+            isinstance(video_path, str)
+            and video_path.endswith(".mp4")
+            and os.path.isfile(video_path)
+            and os.path.getsize(video_path) > 0
         )
+        pptx_ok = (
+            isinstance(pptx_path, str)
+            and pptx_path.endswith(".pptx")
+            and os.path.isfile(pptx_path)
+            and os.path.getsize(pptx_path) > 0
+        )
+        return video_ok and pptx_ok
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -339,8 +473,8 @@ class VideoAgent(AbstractStudyAgent):
     ) -> list[str]:
         """Expand each timing entry into a full spoken narration via the LLM.
 
-        One API call is made per timing entry; the full notes are passed as
-        context so the model can ground each narration in the wider material.
+        All API calls are issued concurrently (one thread per section, capped
+        at 5 workers to avoid rate-limit spikes).
 
         Args:
             notes_content: Full text of notes.md — context for every call.
@@ -350,8 +484,7 @@ class VideoAgent(AbstractStudyAgent):
         Returns:
             List of expanded narration strings, one per timing entry, in order.
         """
-        narrations: list[str] = []
-        for entry in timing_json:
+        def _narrate(i: int, entry: dict) -> tuple[int, str]:
             prompt = (
                 f"Given this section from study notes: {entry['narration']}\n"
                 f"Expand this into a spoken narration of approximately "
@@ -360,28 +493,37 @@ class VideoAgent(AbstractStudyAgent):
                 "Tone: clear, educational, like a university lecturer.\n"
                 "Return ONLY the narration text, no labels or headers."
             )
-            narrations.append(self._call_api(prompt, use_tools=False))
+            return i, self._call_api(prompt, use_tools=False)
+
+        workers = min(len(timing_json), 5)
+        narrations: list[str] = [""] * len(timing_json)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_narrate, i, entry): i for i, entry in enumerate(timing_json)}
+            for fut in as_completed(futures):
+                i, text = fut.result()
+                narrations[i] = text
         return narrations
 
     def _generate_html_slides(
-        self, timing_json: list, notes_content: str
+        self, timing_json: list, notes_content: str, output_dir: str
     ) -> list[str]:
         """Generate one HTML slide per timing entry and screenshot to PNG.
 
-        Each slide is generated by the LLM as a complete, self-contained HTML
-        document, saved to output/slides/, then converted to a 1280×720 PNG
-        via a Playwright headless-Chromium screenshot.
+        LLM generation and Playwright screenshot for each slide are issued
+        concurrently (one thread per slide, capped at 5 workers).
 
         Args:
             timing_json:   List of section dicts with keys "section" and
                            "narration".
             notes_content: Full notes text passed as LLM context.
+            output_dir:    Absolute path to the run's output directory.
+                           HTML and PNG files are placed in a ``slides/``
+                           subdirectory within this directory.
 
         Returns:
             List of absolute PNG file paths, one per timing entry, in order.
         """
-        png_paths: list[str] = []
-        for i, entry in enumerate(timing_json):
+        def _make_slide(i: int, entry: dict) -> tuple[int, str]:
             prompt = (
                 f"Generate a single self-contained HTML slide for the concept: "
                 f"{entry['section']}\n"
@@ -396,21 +538,29 @@ class VideoAgent(AbstractStudyAgent):
                 "Return ONLY the HTML, no explanation."
             )
             html_content = self._call_api(prompt, use_tools=False)
-
-            html_path = self._save_output(html_content, f"slides/slide_{i:02d}.html")
-            png_path = os.path.join(
-                os.path.dirname(html_path), f"slide_{i:02d}.png"
+            html_path = self._save_output(
+                html_content, f"slides/slide_{i:02d}.html", output_dir=output_dir
             )
+            png_path = os.path.join(os.path.dirname(html_path), f"slide_{i:02d}.png")
             self._html_to_png(html_path, png_path)
-            png_paths.append(png_path)
+            return i, png_path
 
+        workers = min(len(timing_json), 5)
+        png_paths: list[str] = [""] * len(timing_json)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_make_slide, i, entry): i for i, entry in enumerate(timing_json)}
+            for fut in as_completed(futures):
+                i, png_path = fut.result()
+                png_paths[i] = png_path
         return png_paths
 
     def _html_to_png(self, html_path: str, output_png: str) -> str:
-        """Convert an HTML file to a 1280×720 PNG using Playwright headless Chromium.
+        """Convert an HTML file to a 1280×720 PNG using Playwright sync API.
 
-        Runs the async screenshot coroutine synchronously via asyncio.run so
-        this method can be called from ordinary synchronous code.
+        Uses the synchronous Playwright API so this method is safe to call
+        from ThreadPoolExecutor threads (which have no running event loop)
+        and from within ADK's async runner context (where asyncio.run would
+        raise "This event loop is already running").
 
         Args:
             html_path:  Absolute path to the .html file.
@@ -419,51 +569,39 @@ class VideoAgent(AbstractStudyAgent):
         Returns:
             output_png path after successful conversion.
         """
-        import asyncio
-        asyncio.run(self._screenshot(html_path, output_png))
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            page = browser.new_page(viewport={"width": 1280, "height": 720})
+            page.goto(f"file://{html_path}")
+            page.screenshot(path=output_png, full_page=False)
+            browser.close()
         return output_png
 
-    async def _screenshot(self, html_path: str, output_png: str) -> None:
-        """Take a headless Chromium screenshot of an HTML file at 1280×720.
-
-        Args:
-            html_path:  Absolute path to the .html file (loaded as file:// URL).
-            output_png: Destination path for the .png screenshot.
-        """
-        from playwright.async_api import async_playwright
-
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch()
-            page = await browser.new_page(
-                viewport={"width": 1280, "height": 720}
-            )
-            await page.goto(f"file://{html_path}")
-            await page.screenshot(path=output_png, full_page=False)
-            await browser.close()
-
-    def _generate_audio(self, narrations: list[str]) -> list[str]:
+    def _generate_audio(self, narrations: list[str], output_dir: str) -> list[str]:
         """Generate one TTS MP3 per narration using OpenAI tts-1-hd (voice: coral).
+
+        All TTS requests are issued concurrently (one thread per narration,
+        capped at 5 workers).
 
         Args:
             narrations: List of narration strings, one per slide.
+            output_dir: Absolute path to the run's output directory.
+                        MP3 files are placed in an ``audio/`` subdirectory
+                        within this directory.
 
         Returns:
             List of MP3 file paths in the same order as narrations.
-
-        Raises:
-            RuntimeError: If the produced file count does not match narrations.
         """
         import openai
 
-        base_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-        audio_dir = os.path.join(base_dir, "output", "videos", "audio")
+        audio_dir = os.path.join(output_dir, "audio")
         os.makedirs(audio_dir, exist_ok=True)
 
         client = openai.OpenAI(api_key=self.openai_api_key)
-        audio_paths: list[str] = []
-        for i, narration in enumerate(narrations):
+
+        def _tts(i: int, narration: str) -> tuple[int, str]:
             out_path = os.path.join(audio_dir, f"audio_{i:02d}.mp3")
             with client.audio.speech.with_streaming_response.create(
                 model="tts-1-hd",
@@ -471,13 +609,81 @@ class VideoAgent(AbstractStudyAgent):
                 input=narration,
             ) as response:
                 response.stream_to_file(out_path)
-            audio_paths.append(out_path)
+            return i, out_path
 
-        if len(audio_paths) != len(narrations):
-            raise RuntimeError(
-                f"Expected {len(narrations)} audio files, got {len(audio_paths)}."
-            )
+        workers = min(len(narrations), 5)
+        audio_paths: list[str] = [""] * len(narrations)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_tts, i, n): i for i, n in enumerate(narrations)}
+            for fut in as_completed(futures):
+                i, path = fut.result()
+                audio_paths[i] = path
         return audio_paths
+
+    def _export_pptx(
+        self,
+        frame_paths: list[str],
+        timing_json: list,
+        output_dir: str,
+    ) -> str:
+        """Build a widescreen PPTX where each slide is a PNG frame + title overlay.
+
+        Each PNG frame is placed as a full-bleed background image. A dark navy
+        text box is overlaid at the top of each slide with the section title in
+        white 28 pt bold text.  The file is saved as
+        ``{output_dir}/slides/flashcards.pptx``.
+
+        Requires the ``python-pptx`` package (``pip install python-pptx``).
+
+        Args:
+            frame_paths: Absolute PNG file paths in slide order.
+            timing_json: Section timing dicts; key ``"section"`` is used as
+                         the slide title.
+            output_dir:  Absolute path to the run's output directory.
+
+        Returns:
+            Absolute path to the saved ``flashcards.pptx``.
+        """
+        from pptx import Presentation
+        from pptx.dml.color import RGBColor
+        from pptx.util import Inches, Pt
+
+        prs = Presentation()
+        prs.slide_width = Inches(13.33)
+        prs.slide_height = Inches(7.5)
+        blank_layout = prs.slide_layouts[6]  # truly blank layout
+
+        for frame_path, entry in zip(frame_paths, timing_json):
+            slide = prs.slides.add_slide(blank_layout)
+
+            # Full-bleed PNG background
+            slide.shapes.add_picture(
+                frame_path,
+                left=0,
+                top=0,
+                width=prs.slide_width,
+                height=prs.slide_height,
+            )
+
+            # Title overlay — dark navy box at the top, white bold 28 pt text
+            txBox = slide.shapes.add_textbox(
+                left=0, top=0, width=prs.slide_width, height=Inches(1.2)
+            )
+            txBox.fill.solid()
+            txBox.fill.fore_color.rgb = RGBColor(0x1A, 0x1A, 0x2E)  # dark navy
+            tf = txBox.text_frame
+            tf.word_wrap = True
+            run = tf.paragraphs[0].add_run()
+            run.text = entry.get("section", "")
+            run.font.size = Pt(28)
+            run.font.bold = True
+            run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+
+        slides_dir = os.path.join(output_dir, "slides")
+        os.makedirs(slides_dir, exist_ok=True)
+        pptx_path = os.path.join(slides_dir, "flashcards.pptx")
+        prs.save(pptx_path)
+        return pptx_path
 
     def _assemble_video(
         self,
@@ -618,6 +824,8 @@ class PDFAgent(AbstractStudyAgent):
         if engine in ("xelatex", "lualatex", "pdflatex", "tectonic"):
             cmd += ["-V", "geometry:margin=1in"]
 
+        t0 = time.monotonic()
+        started_at = datetime.now(timezone.utc).isoformat()
         try:
             # Decode output as UTF-8 with replacement: pandoc/LaTeX engines can
             # emit non-cp1252 bytes (e.g. tectonic's font diagnostics), which
@@ -635,9 +843,17 @@ class PDFAgent(AbstractStudyAgent):
                 f"pandoc failed (engine={engine}):\n{exc.stderr}"
             ) from exc
 
-        result: dict = {"status": "ok", "pdf_path": output_pdf_path}
+        duration_s = round(time.monotonic() - t0, 3)
+        finished_at = datetime.now(timezone.utc).isoformat()
+        result: dict = {
+            "status": "ok",
+            "pdf_path": output_pdf_path,
+            "duration_s": duration_s,
+            "started_at": started_at,
+            "finished_at": finished_at,
+        }
         if not self.validate_output(result):
-            return {"status": "error", "pdf_path": output_pdf_path}
+            return {"status": "error", "pdf_path": output_pdf_path, "duration_s": duration_s}
 
         print(f"[PDF] Saved to: {output_pdf_path}")
         return result
