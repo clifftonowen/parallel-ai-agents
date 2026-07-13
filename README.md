@@ -263,14 +263,9 @@ variants, and exposes the results.
 > enables permissive CORS (`allow_origins=["*"]`) so an external UI, or a
 > tool such as `curl`, can call it directly.
 
-The dashboard stack needs a few packages beyond the core pipeline
-requirements:
-
-```
-pip install fastapi "uvicorn[standard]" numpy
-# For the "adk" / "async" run modes, also install Google's Agent Dev Kit:
-pip install google-adk google-genai
-```
+The dashboard stack (`fastapi`, `uvicorn`, `numpy`, and Google's ADK for the
+`adk` / `async` run modes) is included in `requirements.txt`, so
+`pip install -r requirements.txt` already covers it.
 
 Start the server from the repository root:
 
