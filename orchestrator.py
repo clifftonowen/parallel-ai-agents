@@ -199,5 +199,5 @@ if __name__ == "__main__":
         anthropic_api_key=anthropic_api_key,
         openai_api_key=os.environ["OPENAI_API_KEY"],
     )
-    result = orchestrator.run(topic="Convolutional Neural Networks")
+    result = orchestrator.run(topic="Convolutional Neural Networks (CNNs) in Deep Learning")
     print(result)
