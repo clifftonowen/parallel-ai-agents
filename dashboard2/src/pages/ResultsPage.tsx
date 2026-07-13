@@ -144,7 +144,7 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
 // ─── Outputs Tab ─────────────────────────────────────────────────────────────
 
 function OutputsTab({ runState }: { runState: RunState }) {
-  const { run_id, outputs, topic } = runState;
+  const { run_id, outputs } = runState;
 
   const OUTPUT_CARDS: {
     key: keyof typeof outputs;

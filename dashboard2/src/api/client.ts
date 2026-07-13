@@ -1,4 +1,4 @@
-import type { BenchmarkReport, RunMode, RunState, RunSummary, SSEEvent } from "../types";
+import type { RunMode, RunState, RunSummary, SSEEvent } from "../types";
 
 const BASE = "/api";
 
