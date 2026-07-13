@@ -1,0 +1,45 @@
+{
+  "topic": "alice auth test",
+  "timestamp": "20260702_140025",
+  "original": null,
+  "adk": null,
+  "async": {
+    "total_wall_s": 119.101,
+    "phases": {
+      "phase1_wall_s": 65.929,
+      "phase2_wall_s": 30.16,
+      "phase3_wall_s": 11.26
+    },
+    "agents": {
+      "notes": {
+        "duration_s": 65.929,
+        "started_at": "2026-07-02T06:00:34.238465+00:00",
+        "finished_at": "2026-07-02T06:01:40.167779+00:00"
+      },
+      "flashcard": {
+        "duration_s": 30.16,
+        "started_at": "2026-07-02T06:01:40.953293+00:00",
+        "finished_at": "2026-07-02T06:02:11.112856+00:00"
+      },
+      "video": {},
+      "notes_pdf": {
+        "duration_s": 11.26,
+        "started_at": "2026-07-02T06:02:20.789848+00:00",
+        "finished_at": "2026-07-02T06:02:32.050021+00:00"
+      },
+      "flashcards_pdf": {
+        "duration_s": 10.979,
+        "started_at": "2026-07-02T06:02:21.490161+00:00",
+        "finished_at": "2026-07-02T06:02:32.469668+00:00"
+      }
+    },
+    "tokens": {
+      "total_input": 29852,
+      "total_output": 10063,
+      "llm_calls": 20,
+      "llm_total_s": 126.845,
+      "cache_read_tokens": 0,
+      "cache_create_tokens": 0
+    }
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "topic": "Give me a runthrough on machine learning's logistic regression",
+  "timestamp": "20260630_212940",
+  "original": {
+    "total_wall_s": 752.097,
+    "phases": {
+      "phase1_wall_s": 73.692,
+      "phase2_wall_s": 662.21,
+      "phase3_wall_s": 16.036
+    },
+    "agents": {
+      "notes": {
+        "duration_s": 73.692,
+        "started_at": "2026-06-30T13:29:52.066868+00:00",
+        "finished_at": "2026-06-30T13:31:05.758729+00:00"
+      },
+      "flashcard": {
+        "duration_s": 30.045,
+        "started_at": "2026-06-30T13:31:05.807238+00:00",
+        "finished_at": "2026-06-30T13:31:35.852114+00:00"
+      },
+      "video": {
+        "stage_a_s": 22.32,
+        "stage_bc_s": 37.71,
+        "assemble_s": 602.18,
+        "total_s": 662.21
+      },
+      "notes_pdf": {
+        "duration_s": 16.036,
+        "started_at": "2026-06-30T13:42:08.108574+00:00",
+        "finished_at": "2026-06-30T13:42:24.144496+00:00"
+      },
+      "flashcards_pdf": {
+        "duration_s": 15.877,
+        "started_at": "2026-06-30T13:42:08.114276+00:00",
+        "finished_at": "2026-06-30T13:42:23.990943+00:00"
+      }
+    },
+    "tokens": {
+      "total_input": 31438,
+      "total_output": 12803,
+      "llm_calls": 20,
+      "llm_total_s": 151.873
+    }
+  },
+  "adk": {
+    "total_wall_s": 1079.76,
+    "phases": {
+      "phase1": 67.296,
+      "phase2": 993.847,
+      "phase3": 17.136
+    },
+    "agents": {
+      "notes": {
+        "input_tokens": 17195,
+        "output_tokens": 3224,
+        "llm_events": 7
+      },
+      "flashcard": {},
+      "video": {},
+      "notes_pdf": {},
+      "flashcards_pdf": {}
+    },
+    "tokens": {
+      "total_input": 17195,
+      "total_output": 3224,
+      "by_agent": {
+        "notes_agent": {
+          "input_tokens": 17195,
+          "output_tokens": 3224,
+          "llm_events": 7
+        }
+      }
+    },
+    "otel": {}
+  },
+  "async": {
+    "total_wall_s": 683.777,
+    "phases": {
+      "phase1_wall_s": 70.817,
+      "phase2_wall_s": 591.67,
+      "phase3_wall_s": 17.253
+    },
+    "agents": {
+      "notes": {
+        "duration_s": 70.817,
+        "started_at": "2026-06-30T14:00:24.904729+00:00",
+        "finished_at": "2026-06-30T14:01:35.721696+00:00"
+      },
+      "flashcard": {
+        "duration_s": 27.842,
+        "started_at": "2026-06-30T14:01:36.624681+00:00",
+        "finished_at": "2026-06-30T14:02:04.466649+00:00"
+      },
+      "video": {
+        "stage_a_s": 22.6,
+        "stage_bc_s": 25.8,
+        "assemble_s": 543.27,
+        "total_s": 591.67
+      },
+      "notes_pdf": {
+        "duration_s": 13.761,
+        "started_at": "2026-06-30T14:11:29.910241+00:00",
+        "finished_at": "2026-06-30T14:11:43.671706+00:00"
+      },
+      "flashcards_pdf": {
+        "duration_s": 17.253,
+        "started_at": "2026-06-30T14:11:30.579925+00:00",
+        "finished_at": "2026-06-30T14:11:47.833119+00:00"
+      }
+    },
+    "tokens": {
+      "total_input": 36642,
+      "total_output": 12541,
+      "llm_calls": 21,
+      "llm_total_s": 132.564,
+      "cache_read_tokens": 0,
+      "cache_create_tokens": 0
+    }
+  }
+}

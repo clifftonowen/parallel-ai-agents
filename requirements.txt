@@ -1,6 +1,17 @@
+# Core pipeline (Notes -> Flashcards -> Video -> PDF)
 anthropic
 google-cloud-aiplatform
 moviepy
 openai
 playwright
 python-dotenv
+ddgs
+
+# Dashboard / API server (api_server.py) + semantic prompt cache
+fastapi
+uvicorn[standard]
+numpy
+
+# Google ADK orchestrator variant (adk / async run modes)
+google-adk
+google-genai

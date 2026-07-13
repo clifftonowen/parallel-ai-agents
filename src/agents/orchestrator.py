@@ -11,13 +11,17 @@ Phase 3 (sequential): PDFAgent renders notes.md and flashcards.md to PDF
 import json
 import logging
 import os
+import re
 import sys
 from concurrent.futures import Future, ThreadPoolExecutor
+from datetime import datetime
 from typing import Any
 
 from dotenv import load_dotenv
 
-_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
@@ -76,8 +80,8 @@ class StudyOrchestrator:
 
         Returns:
             Summary dict with keys:
-            ``topic``, ``notes_md``, ``flashcards_md``, ``video``,
-            ``notes_pdf``, ``flashcards_pdf``.
+            ``topic``, ``run_dir``, ``notes_md``, ``flashcards_md``,
+            ``video``, ``notes_pdf``, ``flashcards_pdf``.
             Each value is the raw agent result dict (or an empty dict if the
             agent was skipped due to an upstream error).
 
@@ -90,7 +94,16 @@ class StudyOrchestrator:
         # -------------------------------------------------------- #
         _banner("Phase 1 — NotesAgent", detail=f"topic: {topic!r}")
 
-        notes_result = self.notes_agent.run(topic=topic)
+        # Build a timestamped run directory so every orchestrator call
+        # produces a self-contained folder:
+        #   output/{topic_slug}_{YYYYMMDD_HHMMSS}/
+        topic_slug = re.sub(r"[^a-z0-9]+", "_", topic.lower()).strip("_")[:30]
+        run_id = f"{topic_slug}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        run_dir = os.path.join(os.path.abspath(self.output_dir), run_id)
+        os.makedirs(run_dir, exist_ok=True)
+        log.info("Run directory: %s", run_dir)
+
+        notes_result = self.notes_agent.run(topic=topic, output_dir=run_dir)
 
         if notes_result["status"] != "ok":
             raise RuntimeError("Notes agent failed — aborting pipeline")
@@ -114,17 +127,24 @@ class StudyOrchestrator:
         # -------------------------------------------------------- #
         _banner("Phase 2 — FlashcardAgent + VideoAgent", detail="parallel")
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            fc_future: Future = pool.submit(
-                self.flashcard_agent.run, notes_content=notes_content
-            )
-            vid_future: Future = pool.submit(
-                self.video_agent.run,
-                notes_content=notes_content,
-                timing_json=timing_json,
-            )
-        # Both futures have completed (or failed) here — the executor
-        # waited for both before exiting the with block.
+        try:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                fc_future: Future = pool.submit(
+                    self.flashcard_agent.run,
+                    notes_content=notes_content,
+                    output_dir=run_dir,
+                )
+                vid_future: Future = pool.submit(
+                    self.video_agent.run,
+                    notes_content=notes_content,
+                    timing_json=timing_json,
+                    output_dir=run_dir,
+                )
+            # Both futures have completed (or failed) here — the executor
+            # waited for both before exiting the with block.
+        except KeyboardInterrupt:
+            print("\n[Orchestrator] Interrupted during Phase 2 — stopping.")
+            raise SystemExit(1)
 
         flashcard_result: dict = {}
         try:
@@ -145,21 +165,28 @@ class StudyOrchestrator:
         # -------------------------------------------------------- #
         _banner("Phase 3 — PDFAgent")
 
-        notes_pdf_result = self.pdf_agent.run(input_md_path=notes_path)
-
-        flashcards_pdf_result: dict = {}
+        pdf_targets: list[str] = [notes_path]
         if flashcard_result.get("flashcards_path"):
-            flashcards_pdf_result = self.pdf_agent.run(
-                input_md_path=flashcard_result["flashcards_path"]
-            )
+            pdf_targets.append(flashcard_result["flashcards_path"])
         else:
             print("[Orchestrator] Skipping flashcards PDF — no flashcard output.")
+
+        with ThreadPoolExecutor(max_workers=2) as _pdf_pool:
+            _pdf_futures = [
+                _pdf_pool.submit(self.pdf_agent.run, input_md_path=p)
+                for p in pdf_targets
+            ]
+            _pdf_results = [f.result() for f in _pdf_futures]
+
+        notes_pdf_result: dict = _pdf_results[0]
+        flashcards_pdf_result: dict = _pdf_results[1] if len(_pdf_results) > 1 else {}
 
         # -------------------------------------------------------- #
         # Summary                                                   #
         # -------------------------------------------------------- #
         summary: dict[str, Any] = {
             "topic": topic,
+            "run_dir": run_dir,
             "notes_md": notes_result,
             "flashcards_md": flashcard_result,
             "video": video_result,
@@ -186,10 +213,22 @@ def _banner(title: str, detail: str = "") -> None:
 
 if __name__ == "__main__":
     import os
+    import sys
+
+    # Windows cp1252 terminals can't encode all Unicode chars the LLM may emit.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    anthropic_api_key = os.environ.get("CLAUDE_API_KEY") or os.environ.get(
+        "ANTHROPIC_API_KEY"
+    )
+    if not anthropic_api_key:
+        raise SystemExit(
+            "Set CLAUDE_API_KEY (or ANTHROPIC_API_KEY) in your .env file."
+        )
 
     orchestrator = StudyOrchestrator(
-        anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
+        anthropic_api_key=anthropic_api_key,
         openai_api_key=os.environ["OPENAI_API_KEY"],
     )
-    result = orchestrator.run(topic="machine learning basics")
+    result = orchestrator.run(topic="Convolutional Neural Networks (CNNs) in Deep Learning")
     print(result)
