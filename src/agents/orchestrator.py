@@ -3,9 +3,13 @@ orchestrator.py
 StudyOrchestrator — three-phase pipeline runner for the multi-agent
 study material generator.
 
-Phase 1 (sequential): NotesAgent     → notes.md + timing.json sidecar
-Phase 2 (parallel):   FlashcardAgent + VideoAgent consume notes.md
-Phase 3 (sequential): PDFAgent renders notes.md and flashcards.md to PDF
+Phase 1 (sequential): NotesAgent → notes.md + timing.json sidecar
+Phase 2 (parallel):   FlashcardAgent + VideoAgent consume notes.md;
+                      PDFAgent renders notes.md → notes.pdf alongside them
+                      (notes.pdf has no dependency on Phase 2's output, so
+                      it runs concurrently instead of waiting for it).
+Phase 3 (sequential): PDFAgent renders flashcards.md → flashcards.pdf,
+                      once flashcards.md exists.
 """
 
 import json
@@ -42,9 +46,12 @@ class StudyOrchestrator:
     """Three-phase pipeline that produces notes, flashcards, a video, and PDFs.
 
     Phase 1 (sequential): NotesAgent must complete before anything else starts.
-    Phase 2 (parallel):   FlashcardAgent and VideoAgent run simultaneously.
-    Phase 3 (sequential): PDFAgent converts notes and flashcards to PDF after
-                          Phase 2 finishes, regardless of Phase 2 errors.
+    Phase 2 (parallel):   FlashcardAgent, VideoAgent, and the notes.pdf render
+                          run simultaneously — notes.pdf only depends on
+                          Phase 1's output, so it doesn't need to wait for
+                          flashcards or video.
+    Phase 3 (sequential): PDFAgent converts flashcards.md to PDF once
+                          flashcards.md exists (skipped if flashcards failed).
     """
 
     def __init__(
@@ -123,12 +130,17 @@ class StudyOrchestrator:
             timing_json: list = json.load(_f).get("sections", [])
 
         # -------------------------------------------------------- #
-        # PHASE 2 — Flashcards + Video (parallel)                  #
+        # PHASE 2 — Flashcards + Video + notes.pdf (parallel)      #
         # -------------------------------------------------------- #
-        _banner("Phase 2 — FlashcardAgent + VideoAgent", detail="parallel")
+        # notes.pdf only depends on notes.md (Phase 1's output), so it runs
+        # alongside flashcards/video instead of waiting for them.
+        _banner(
+            "Phase 2 — FlashcardAgent + VideoAgent + notes.pdf",
+            detail="parallel",
+        )
 
         try:
-            with ThreadPoolExecutor(max_workers=2) as pool:
+            with ThreadPoolExecutor(max_workers=3) as pool:
                 fc_future: Future = pool.submit(
                     self.flashcard_agent.run,
                     notes_content=notes_content,
@@ -140,8 +152,12 @@ class StudyOrchestrator:
                     timing_json=timing_json,
                     output_dir=run_dir,
                 )
-            # Both futures have completed (or failed) here — the executor
-            # waited for both before exiting the with block.
+                npdf_future: Future = pool.submit(
+                    self.pdf_agent.run,
+                    input_md_path=notes_path,
+                )
+            # All three futures have completed (or failed) here — the
+            # executor waited for them before exiting the with block.
         except KeyboardInterrupt:
             print("\n[Orchestrator] Interrupted during Phase 2 — stopping.")
             raise SystemExit(1)
@@ -160,26 +176,29 @@ class StudyOrchestrator:
             log.error("VideoAgent raised: %s", exc)
             print(f"[Orchestrator] VideoAgent error (non-fatal): {exc}")
 
-        # -------------------------------------------------------- #
-        # PHASE 3 — PDF export (sequential, after phase 2)         #
-        # -------------------------------------------------------- #
-        _banner("Phase 3 — PDFAgent")
+        notes_pdf_result: dict = {}
+        try:
+            notes_pdf_result = npdf_future.result()
+        except Exception as exc:
+            log.error("PDFAgent (notes) raised: %s", exc)
+            print(f"[Orchestrator] Notes PDF error (non-fatal): {exc}")
 
-        pdf_targets: list[str] = [notes_path]
+        # -------------------------------------------------------- #
+        # PHASE 3 — flashcards.pdf (sequential, after flashcards)  #
+        # -------------------------------------------------------- #
+        _banner("Phase 3 — PDFAgent (flashcards)")
+
+        flashcards_pdf_result: dict = {}
         if flashcard_result.get("flashcards_path"):
-            pdf_targets.append(flashcard_result["flashcards_path"])
+            try:
+                flashcards_pdf_result = self.pdf_agent.run(
+                    input_md_path=flashcard_result["flashcards_path"],
+                )
+            except Exception as exc:
+                log.error("PDFAgent (flashcards) raised: %s", exc)
+                print(f"[Orchestrator] Flashcards PDF error (non-fatal): {exc}")
         else:
             print("[Orchestrator] Skipping flashcards PDF — no flashcard output.")
-
-        with ThreadPoolExecutor(max_workers=2) as _pdf_pool:
-            _pdf_futures = [
-                _pdf_pool.submit(self.pdf_agent.run, input_md_path=p)
-                for p in pdf_targets
-            ]
-            _pdf_results = [f.result() for f in _pdf_futures]
-
-        notes_pdf_result: dict = _pdf_results[0]
-        flashcards_pdf_result: dict = _pdf_results[1] if len(_pdf_results) > 1 else {}
 
         # -------------------------------------------------------- #
         # Summary                                                   #

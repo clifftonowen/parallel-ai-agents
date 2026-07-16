@@ -5,6 +5,7 @@ import BarChart from "../components/BarChart";
 import FileCard from "../components/FileCard";
 import TokenTable from "../components/TokenTable";
 import type { AsyncMetrics, BenchmarkReport, RunState } from "../types";
+import { c, font, hairline } from "../theme";
 
 type Tab = "benchmark" | "outputs" | "log";
 
@@ -86,26 +87,26 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
         <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
           {adkSpeedup && (
             <div style={tabStyles.speedupBadge}>
-              <div style={{ fontSize: 36, fontWeight: 800, color: "#6366f1" }}>{adkSpeedup}×</div>
-              <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>ADK Speedup</div>
+              <div style={{ fontFamily: font.display, fontSize: 34, fontWeight: 600, color: c.reagent }}>{adkSpeedup}×</div>
+              <div style={{ fontFamily: font.mono, fontSize: 11, color: c.inkSoft, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>ADK Speedup</div>
             </div>
           )}
           {asyncSpeedup && (
-            <div style={{ ...tabStyles.speedupBadge, borderColor: "#14b8a6" }}>
-              <div style={{ fontSize: 36, fontWeight: 800, color: "#14b8a6" }}>{asyncSpeedup}×</div>
-              <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Async Speedup</div>
+            <div style={tabStyles.speedupBadge}>
+              <div style={{ fontFamily: font.display, fontSize: 34, fontWeight: 600, color: c.reagentSoft }}>{asyncSpeedup}×</div>
+              <div style={{ fontFamily: font.mono, fontSize: 11, color: c.inkSoft, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Async Speedup</div>
             </div>
           )}
           {parallelDetected != null && (
             <div
               style={{
                 ...tabStyles.parallelBadge,
-                backgroundColor: parallelDetected ? "#14532d" : "#450a0a",
-                border: `1px solid ${parallelDetected ? "#22c55e" : "#ef4444"}`,
+                backgroundColor: parallelDetected ? c.reagentWash : c.flagWash,
+                border: `1px solid ${parallelDetected ? c.reagent : c.flag}`,
               }}
             >
               <span style={{ fontSize: 18 }}>{parallelDetected ? "✓" : "✗"}</span>
-              <span style={{ color: "#fff", fontWeight: 700 }}>
+              <span style={{ color: c.ink, fontWeight: 700, fontSize: 13 }}>
                 {parallelDetected ? "Parallel tool dispatch" : "Serial tool dispatch"}
               </span>
             </div>
@@ -159,12 +160,12 @@ function OutputsTab({ runState }: { runState: RunState }) {
     { key: "video", label: "study_video.mp4", icon: "🎬" },
   ];
 
-  const available = OUTPUT_CARDS.filter((c) => outputs[c.key] != null && outputs[c.key] !== "");
+  const available = OUTPUT_CARDS.filter((card) => outputs[card.key] != null && outputs[card.key] !== "");
 
   return (
     <div style={tabStyles.scroll}>
       {available.length === 0 ? (
-        <p style={{ color: "#475569", textAlign: "center", padding: "24px 0" }}>
+        <p style={{ color: c.inkFaint, textAlign: "center", padding: "24px 0" }}>
           No output files found for this run.
         </p>
       ) : (
@@ -198,7 +199,7 @@ function LogTab({ lines }: { lines: string[] }) {
   return (
     <pre style={tabStyles.logPre}>
       {lines.length === 0 ? (
-        <span style={{ color: "#334155" }}>No log output captured.</span>
+        <span style={{ color: c.inkFaint }}>No log output captured.</span>
       ) : (
         lines.join("\n")
       )}
@@ -226,14 +227,14 @@ export default function ResultsPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: 60, color: "#94a3b8" }}>
+      <div style={{ display: "flex", justifyContent: "center", padding: 60, color: c.inkSoft }}>
         Loading results...
       </div>
     );
   }
   if (fetchError || !runState) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: 60, color: "#f87171" }}>
+      <div style={{ display: "flex", justifyContent: "center", padding: 60, color: c.flag }}>
         {fetchError ?? "No results found."}
       </div>
     );
@@ -271,7 +272,7 @@ export default function ResultsPage() {
           (report && (report.original || report.adk) ? (
             <BenchmarkTab report={report} />
           ) : (
-            <p style={{ color: "#475569", textAlign: "center", padding: "24px 0" }}>
+            <p style={{ color: c.inkFaint, textAlign: "center", padding: "24px 0" }}>
               No benchmark data available. Only runs using benchmark_profile.py produce this data.
             </p>
           ))}
@@ -286,10 +287,10 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     maxWidth: 900,
     margin: "0 auto",
-    padding: "24px 20px",
+    padding: "20px 20px 24px",
     display: "flex",
     flexDirection: "column",
-    height: "calc(100vh - 48px)",
+    height: "calc(100vh - 52px)",
   },
   header: {
     display: "flex",
@@ -298,42 +299,45 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 16,
   },
   backBtn: {
-    backgroundColor: "transparent",
-    color: "#6366f1",
-    border: "none",
-    fontSize: 14,
-    fontWeight: 600,
+    fontFamily: font.mono,
+    color: c.reagent,
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
     flexShrink: 0,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: "#f1f5f9",
+    fontFamily: font.display,
+    fontSize: 22,
+    fontWeight: 600,
+    color: c.ink,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   tabBar: {
     display: "flex",
-    backgroundColor: "#1e293b",
-    borderRadius: 8,
-    padding: 4,
+    borderBottom: hairline,
     marginBottom: 16,
     gap: 4,
   },
   tab: {
     flex: 1,
     backgroundColor: "transparent",
-    color: "#64748b",
-    border: "none",
-    borderRadius: 6,
-    padding: "8px 0",
-    fontSize: 13,
-    fontWeight: 600,
+    color: c.inkSoft,
+    fontFamily: font.mono,
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    padding: "10px 0",
+    borderBottom: "2px solid transparent",
+    marginBottom: -1,
   },
   tabActive: {
-    backgroundColor: "#6366f1",
-    color: "#fff",
+    color: c.reagent,
+    borderBottom: `2px solid ${c.reagent}`,
   },
   tabContent: {
     flex: 1,
@@ -350,29 +354,27 @@ const tabStyles: Record<string, React.CSSProperties> = {
     paddingBottom: 24,
   },
   sectionTitle: {
-    color: "#475569",
+    fontFamily: font.mono,
+    color: c.inkFaint,
     fontSize: 11,
     fontWeight: 700,
     textTransform: "uppercase",
-    letterSpacing: "0.5px",
+    letterSpacing: "0.08em",
     marginBottom: 10,
-    marginTop: 20,
+    marginTop: 22,
   },
   chartBlock: {
-    backgroundColor: "#1e293b",
-    borderRadius: 10,
+    backgroundColor: c.paperCard,
+    border: hairline,
     padding: 16,
-    border: "1px solid #334155",
   },
   speedupBadge: {
-    backgroundColor: "#1e293b",
-    border: "1px solid #6366f1",
-    borderRadius: 10,
+    backgroundColor: c.paperCard,
+    border: hairline,
     padding: "14px 24px",
     textAlign: "center",
   },
   parallelBadge: {
-    borderRadius: 10,
     padding: "14px 20px",
     display: "flex",
     alignItems: "center",
@@ -380,23 +382,21 @@ const tabStyles: Record<string, React.CSSProperties> = {
   },
   downloadAllBtn: {
     width: "100%",
-    backgroundColor: "#22c55e",
-    color: "#fff",
-    border: "none",
-    borderRadius: 10,
+    backgroundColor: c.reagent,
+    color: c.paper,
+    fontFamily: font.body,
     padding: "14px 0",
     fontSize: 15,
-    fontWeight: 700,
+    fontWeight: 600,
     marginTop: 12,
   },
   logPre: {
     flex: 1,
-    backgroundColor: "#020617",
-    border: "1px solid #1e293b",
-    borderRadius: 8,
+    backgroundColor: c.ink,
     padding: 14,
     overflow: "auto",
-    color: "#94a3b8",
+    color: c.paperDeep,
+    fontFamily: font.mono,
     fontSize: 11,
     lineHeight: 1.65,
     whiteSpace: "pre-wrap",

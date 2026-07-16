@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listRuns, startRun } from "../api/client";
 import type { RunMode, RunSummary } from "../types";
+import { c, font, eyebrow, hairline } from "../theme";
 
 const MODES: { label: string; value: RunMode }[] = [
   { label: "All three", value: "all" },
@@ -10,11 +11,16 @@ const MODES: { label: string; value: RunMode }[] = [
   { label: "Original only", value: "original" },
 ];
 
-const STATUS_COLORS: Record<string, string> = {
-  running: "#f59e0b",
-  complete: "#22c55e",
-  error: "#ef4444",
-};
+function statusColor(s: string) {
+  if (s === "complete") return c.reagent;
+  if (s === "error") return c.flag;
+  return c.inkSoft;
+}
+function statusWord(s: string) {
+  if (s === "complete") return "ready";
+  if (s === "error") return "failed";
+  return "working…";
+}
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -54,33 +60,48 @@ export default function HomePage() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        {/* Header */}
-        <h1 style={styles.title}>AI Study Generator</h1>
-        <p style={styles.subtitle}>
-          Generate notes, flashcards, and a narrated video — then compare orchestrator performance.
+    <main style={page}>
+      {/* Masthead */}
+      <header style={masthead} className="animate-rise">
+        <div style={mastheadTop}>
+          <span style={eyebrow}>Benchmark Dashboard</span>
+          <span style={{ ...eyebrow, color: c.reagent }}>· compare orchestrators</span>
+        </div>
+        <div style={topRule} className="rule-draw" />
+      </header>
+
+      {/* Intake */}
+      <section style={intake} className="animate-rise">
+        <h1 style={intakeLead}>
+          Run the pipeline,
+          <br />
+          <em style={{ fontStyle: "italic", color: c.reagent }}>compare</em> the results.
+        </h1>
+        <p style={intakeSub}>
+          Generate notes, flashcards, and a narrated video — then compare wall-clock
+          time and token usage across the original, ADK, and async orchestrators.
         </p>
 
-        {/* Topic input */}
-        <input
-          style={styles.input}
-          placeholder="e.g. machine learning basics"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleRun()}
-          autoFocus
-        />
+        <div style={slip}>
+          <span style={slipTick}>topic ▸</span>
+          <input
+            style={input}
+            placeholder="e.g. machine learning basics"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleRun()}
+            autoFocus
+          />
+        </div>
 
-        {/* Mode toggle */}
-        <div style={styles.modeRow}>
+        <div style={modeRow}>
           {MODES.map((m) => (
             <button
               key={m.value}
               onClick={() => setMode(m.value)}
               style={{
-                ...styles.modeBtn,
-                ...(mode === m.value ? styles.modeBtnActive : {}),
+                ...modeBtn,
+                ...(mode === m.value ? modeBtnActive : {}),
               }}
             >
               {m.label}
@@ -88,197 +109,210 @@ export default function HomePage() {
           ))}
         </div>
 
-        {error && <p style={styles.error}>{error}</p>}
+        {error && <p style={errorLine}>{error}</p>}
 
-        {/* Run button */}
         <button
           onClick={handleRun}
           disabled={launching}
-          style={{ ...styles.runBtn, ...(launching ? styles.runBtnDisabled : {}) }}
+          style={{ ...cta, opacity: launching ? 0.6 : 1 }}
         >
-          {launching ? "Starting..." : "▶  Run Pipeline"}
+          {launching ? "Starting…" : "Run pipeline →"}
         </button>
-      </div>
+      </section>
 
       {/* History */}
-      <div style={styles.historySection}>
-        <div style={styles.historyHeader}>
-          <h2 style={styles.historyTitle}>Recent Runs</h2>
-          <button onClick={fetchHistory} style={styles.refreshBtn}>↻ Refresh</button>
+      <section style={ledger}>
+        <div style={ledgerHead}>
+          <span style={eyebrow}>Recent Runs</span>
+          <button onClick={fetchHistory} style={ledgerRefresh}>
+            refresh
+          </button>
         </div>
 
         {history.length === 0 ? (
-          <p style={styles.emptyText}>No runs yet. Start one above!</p>
+          <p style={emptyLedger}>No runs yet. Start one above.</p>
         ) : (
-          <div>
-            {history.map((item) => (
-              <div
-                key={item.run_id}
-                onClick={() =>
-                  navigate(item.status === "complete" ? `/results/${item.run_id}` : `/run/${item.run_id}`)
-                }
-                style={styles.historyCard}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={styles.historyTopic}>{item.topic}</p>
-                  <p style={styles.historyMeta}>
-                    {item.mode} · {new Date(item.started_at).toLocaleString()}
-                  </p>
-                </div>
-                <span
-                  style={{
-                    ...styles.statusBadge,
-                    backgroundColor: STATUS_COLORS[item.status] ?? "#475569",
-                  }}
+          <ol style={ledgerList}>
+            {history.map((item, i) => (
+              <li key={item.run_id}>
+                <button
+                  onClick={() =>
+                    navigate(item.status === "complete" ? `/results/${item.run_id}` : `/run/${item.run_id}`)
+                  }
+                  style={ledgerRow}
                 >
-                  {item.status}
-                </span>
-              </div>
+                  <span style={ledgerNum}>{String(history.length - i).padStart(3, "0")}</span>
+                  <span style={ledgerTopic}>{item.topic}</span>
+                  <span style={ledgerMeta}>
+                    {item.mode} · {new Date(item.started_at).toLocaleString()}
+                  </span>
+                  <span style={{ ...ledgerStatus, color: statusColor(item.status) }}>
+                    {statusWord(item.status)}
+                  </span>
+                </button>
+              </li>
             ))}
-          </div>
+          </ol>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    maxWidth: 680,
-    margin: "0 auto",
-    padding: "32px 20px",
-  },
-  card: {
-    backgroundColor: "#1e293b",
-    borderRadius: 12,
-    padding: 28,
-    border: "1px solid #334155",
-    marginBottom: 28,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 800,
-    color: "#f1f5f9",
-    marginBottom: 8,
-  },
-  subtitle: {
-    color: "#94a3b8",
-    fontSize: 14,
-    lineHeight: 1.6,
-    marginBottom: 22,
-  },
-  input: {
-    width: "100%",
-    backgroundColor: "#0f172a",
-    color: "#f1f5f9",
-    border: "1px solid #334155",
-    borderRadius: 8,
-    padding: "13px 16px",
-    fontSize: 15,
-    outline: "none",
-    marginBottom: 14,
-  },
-  modeRow: {
-    display: "flex",
-    gap: 8,
-    marginBottom: 14,
-  },
-  modeBtn: {
-    flex: 1,
-    backgroundColor: "#0f172a",
-    color: "#64748b",
-    border: "1px solid #334155",
-    borderRadius: 8,
-    padding: "10px 0",
-    fontSize: 13,
-    fontWeight: 600,
-    transition: "all 0.15s",
-  },
-  modeBtnActive: {
-    backgroundColor: "#6366f1",
-    color: "#fff",
-    borderColor: "#6366f1",
-  },
-  error: {
-    color: "#f87171",
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  runBtn: {
-    width: "100%",
-    backgroundColor: "#6366f1",
-    color: "#fff",
-    border: "none",
-    borderRadius: 10,
-    padding: "15px 0",
-    fontSize: 16,
-    fontWeight: 700,
-    letterSpacing: "0.2px",
-  },
-  runBtnDisabled: {
-    opacity: 0.6,
-    cursor: "not-allowed",
-  },
-  historySection: {
-    backgroundColor: "#1e293b",
-    borderRadius: 12,
-    padding: 24,
-    border: "1px solid #334155",
-  },
-  historyHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: "#f1f5f9",
-  },
-  refreshBtn: {
-    backgroundColor: "transparent",
-    color: "#6366f1",
-    border: "none",
-    fontSize: 14,
-    fontWeight: 600,
-  },
-  emptyText: {
-    color: "#475569",
-    textAlign: "center",
-    padding: "16px 0",
-  },
-  historyCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#0f172a",
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 8,
-    border: "1px solid #1e293b",
-    cursor: "pointer",
-    transition: "border-color 0.15s",
-  },
-  historyTopic: {
-    color: "#f1f5f9",
-    fontWeight: 600,
-    fontSize: 14,
-    marginBottom: 2,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  historyMeta: {
-    color: "#64748b",
-    fontSize: 12,
-  },
-  statusBadge: {
-    borderRadius: 6,
-    padding: "3px 9px",
-    fontSize: 11,
-    fontWeight: 700,
-    color: "#fff",
-    flexShrink: 0,
-  },
+const page: React.CSSProperties = {
+  maxWidth: 760,
+  margin: "0 auto",
+  padding: "24px 22px 80px",
+};
+
+const masthead: React.CSSProperties = { marginBottom: 40 };
+const mastheadTop: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: 8,
+  marginBottom: 10,
+};
+const topRule: React.CSSProperties = {
+  height: 2,
+  backgroundColor: c.ink,
+  transformOrigin: "left",
+};
+
+const intake: React.CSSProperties = { marginBottom: 52 };
+
+const intakeLead: React.CSSProperties = {
+  display: "block",
+  fontFamily: font.display,
+  fontSize: "clamp(34px, 6.5vw, 54px)",
+  fontWeight: 600,
+  lineHeight: 1.02,
+  letterSpacing: "-0.02em",
+  color: c.ink,
+  marginBottom: 16,
+  overflowWrap: "break-word",
+};
+
+const intakeSub: React.CSSProperties = {
+  fontSize: 16,
+  color: c.inkSoft,
+  maxWidth: 520,
+  marginBottom: 24,
+};
+
+const slip: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  border: `1px solid ${c.ink}`,
+  backgroundColor: c.paperCard,
+  padding: "14px 18px",
+};
+
+const slipTick: React.CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: 13,
+  fontWeight: 700,
+  color: c.reagent,
+  flexShrink: 0,
+};
+
+const input: React.CSSProperties = {
+  flex: 1,
+  border: "none",
+  outline: "none",
+  background: "transparent",
+  fontFamily: font.body,
+  fontSize: 17,
+  color: c.ink,
+};
+
+const modeRow: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginTop: 14,
+};
+
+const modeBtn: React.CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: 12,
+  color: c.inkSoft,
+  border: `1px solid ${c.rule}`,
+  padding: "9px 14px",
+  transition: "border-color 0.15s, color 0.15s, background-color 0.15s",
+};
+
+const modeBtnActive: React.CSSProperties = {
+  backgroundColor: c.reagent,
+  color: c.paper,
+  borderColor: c.reagent,
+};
+
+const errorLine: React.CSSProperties = {
+  color: c.flag,
+  fontFamily: font.mono,
+  fontSize: 13,
+  marginTop: 16,
+};
+
+const cta: React.CSSProperties = {
+  marginTop: 22,
+  width: "100%",
+  backgroundColor: c.reagent,
+  color: c.paper,
+  fontFamily: font.body,
+  fontSize: 17,
+  fontWeight: 600,
+  padding: "16px 20px",
+  transition: "background-color 0.15s",
+};
+
+const ledger: React.CSSProperties = { borderTop: hairline, paddingTop: 22 };
+const ledgerHead: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "baseline",
+  marginBottom: 12,
+};
+const ledgerRefresh: React.CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: 11,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  color: c.reagent,
+};
+const emptyLedger: React.CSSProperties = { color: c.inkFaint, fontSize: 14, padding: "8px 0" };
+
+const ledgerList: React.CSSProperties = { listStyle: "none" };
+const ledgerRow: React.CSSProperties = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  gap: 14,
+  padding: "13px 0",
+  borderBottom: `1px solid ${c.ruleSoft}`,
+  textAlign: "left",
+};
+const ledgerNum: React.CSSProperties = { fontFamily: font.mono, fontSize: 12, color: c.inkFaint, flexShrink: 0 };
+const ledgerTopic: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  fontSize: 15,
+  color: c.ink,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+const ledgerMeta: React.CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: 11,
+  color: c.inkFaint,
+  flexShrink: 0,
+};
+const ledgerStatus: React.CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: 11,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  flexShrink: 0,
 };

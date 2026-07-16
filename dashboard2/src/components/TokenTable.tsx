@@ -1,3 +1,5 @@
+import { c, font, hairline, hairlineSoft } from "../theme";
+
 interface Row {
   label: string;
   original?: string | number;
@@ -12,18 +14,18 @@ interface Props {
 
 export default function TokenTable({ rows, showAsync = false }: Props) {
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", borderRadius: 8, overflow: "hidden", border: "1px solid #334155" }}>
+    <table style={{ width: "100%", borderCollapse: "collapse", border: hairline }}>
       <thead>
-        <tr style={{ backgroundColor: "#1e293b" }}>
+        <tr style={{ backgroundColor: c.paperCard }}>
           <th style={thStyle}>Metric</th>
-          <th style={{ ...thStyle, color: "#f59e0b" }}>Original</th>
-          <th style={{ ...thStyle, color: "#6366f1" }}>ADK</th>
-          {showAsync && <th style={{ ...thStyle, color: "#14b8a6" }}>Async</th>}
+          <th style={{ ...thStyle, color: c.inkSoft }}>Original</th>
+          <th style={{ ...thStyle, color: c.reagent }}>ADK</th>
+          {showAsync && <th style={{ ...thStyle, color: c.reagentSoft }}>Async</th>}
         </tr>
       </thead>
       <tbody>
         {rows.map((row, i) => (
-          <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "#0f172a" : "#1e293b" }}>
+          <tr key={i} style={{ backgroundColor: i % 2 === 0 ? c.paper : c.paperCard }}>
             <td style={tdLabelStyle}>{row.label}</td>
             <td style={tdStyle}>{row.original != null ? String(row.original) : "—"}</td>
             <td style={tdStyle}>{row.adk != null ? String(row.adk) : "—"}</td>
@@ -38,21 +40,24 @@ export default function TokenTable({ rows, showAsync = false }: Props) {
 const thStyle: React.CSSProperties = {
   padding: "9px 12px",
   textAlign: "left",
-  fontSize: 12,
+  fontFamily: font.mono,
+  fontSize: 11,
   fontWeight: 700,
-  color: "#94a3b8",
-  borderBottom: "1px solid #334155",
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: c.inkFaint,
+  borderBottom: hairline,
 };
 
 const tdStyle: React.CSSProperties = {
   padding: "9px 12px",
   fontSize: 12,
-  color: "#cbd5e1",
-  borderBottom: "1px solid #1e293b",
+  color: c.inkSoft,
+  borderBottom: hairlineSoft,
 };
 
 const tdLabelStyle: React.CSSProperties = {
   ...tdStyle,
-  color: "#94a3b8",
+  color: c.ink,
   fontWeight: 500,
 };

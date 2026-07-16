@@ -1,17 +1,19 @@
+import { c, font } from "../theme";
+
 interface Props {
   label: string;
   state: "done" | "active" | "pending";
 }
 
 const COLORS = {
-  done: "#22c55e",
-  active: "#6366f1",
-  pending: "#1e293b",
+  done: c.reagentSoft,
+  active: c.reagent,
+  pending: c.paperCard,
 };
 const TEXT_COLORS = {
-  done: "#fff",
-  active: "#fff",
-  pending: "#475569",
+  done: c.paper,
+  active: c.paper,
+  pending: c.inkFaint,
 };
 
 export default function PhaseBar({ label, state }: Props) {
@@ -20,16 +22,16 @@ export default function PhaseBar({ label, state }: Props) {
       style={{
         flex: 1,
         backgroundColor: COLORS[state],
-        borderRadius: 8,
         height: 44,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
         padding: "0 8px",
-        border: state === "active" ? "1px solid #818cf8" : "1px solid transparent",
+        border: state === "pending" ? `1px solid ${c.ruleSoft}` : "1px solid transparent",
         transition: "background-color 0.3s",
       }}
+      className={state === "active" ? "animate-pulse" : undefined}
     >
       {state === "active" && (
         <span
@@ -37,8 +39,8 @@ export default function PhaseBar({ label, state }: Props) {
             width: 12,
             height: 12,
             borderRadius: "50%",
-            border: "2px solid rgba(255,255,255,0.4)",
-            borderTopColor: "#fff",
+            border: "2px solid rgba(241,236,224,0.4)",
+            borderTopColor: c.paper,
             display: "inline-block",
             animation: "spin 0.8s linear infinite",
           }}
@@ -47,14 +49,15 @@ export default function PhaseBar({ label, state }: Props) {
       <span
         style={{
           color: TEXT_COLORS[state],
+          fontFamily: font.mono,
           fontSize: 11,
-          fontWeight: 600,
+          fontWeight: 700,
+          letterSpacing: "0.04em",
           textAlign: "center",
         }}
       >
         {label}
       </span>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

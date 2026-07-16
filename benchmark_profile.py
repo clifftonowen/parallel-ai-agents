@@ -69,8 +69,8 @@ def _make_spy_create(original_create):
 
 _PHASE_AGENTS = {
     "phase1": ["notes_agent", "notes_post_process"],
-    "phase2": ["flashcard_agent", "video_agent"],
-    "phase3": ["notes_pdf_agent", "flashcards_pdf_agent"],
+    "phase2": ["flashcard_agent", "video_agent", "notes_pdf_agent"],
+    "phase3": ["flashcards_pdf_agent"],
 }
 
 
@@ -416,8 +416,8 @@ def main() -> None:
             "total_wall_s": round(t_total, 3),
             "phases": {
                 "phase1_wall_s": round(notes_dur, 3),
-                "phase2_wall_s": round(max(fc_dur, vid_total), 3),
-                "phase3_wall_s": round(max(npdf_dur, fpdf_dur), 3),
+                "phase2_wall_s": round(max(fc_dur, vid_total, npdf_dur), 3),
+                "phase3_wall_s": round(fpdf_dur, 3),
             },
             "agents": {
                 "notes":          {"duration_s": notes_dur,
@@ -563,8 +563,8 @@ def main() -> None:
             "total_wall_s": round(t_total, 3),
             "phases": {
                 "phase1_wall_s": round(notes_dur, 3),
-                "phase2_wall_s": round(max(fc_dur, vid_total), 3),
-                "phase3_wall_s": round(max(npdf_dur, fpdf_dur), 3),
+                "phase2_wall_s": round(max(fc_dur, vid_total, npdf_dur), 3),
+                "phase3_wall_s": round(fpdf_dur, 3),
             },
             "agents": {
                 "notes":          {"duration_s": notes_dur,

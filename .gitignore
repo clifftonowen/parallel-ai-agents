@@ -2,6 +2,9 @@
 # Study Bench local accounts DB
 study_bench.db
 
+# Root-level launcher deps (npm run dev orchestrates api + both frontends)
+/node_modules/
+
 # Python bytecode cache
 __pycache__/
 *.pyc

@@ -1,0 +1,50 @@
+{
+  "topic": "How logistic regression actually works",
+  "timestamp": "20260716_203158",
+  "original": null,
+  "adk": null,
+  "async": {
+    "total_wall_s": 346.884,
+    "phases": {
+      "phase1_wall_s": 47.044,
+      "phase2_wall_s": 289.23,
+      "phase3_wall_s": 8.322
+    },
+    "agents": {
+      "notes": {
+        "duration_s": 47.044,
+        "started_at": "2026-07-16T12:32:04.834057+00:00",
+        "finished_at": "2026-07-16T12:32:51.878708+00:00"
+      },
+      "flashcard": {
+        "duration_s": 22.541,
+        "started_at": "2026-07-16T12:32:52.400517+00:00",
+        "finished_at": "2026-07-16T12:33:14.941842+00:00"
+      },
+      "video": {
+        "stage_a_s": 10.39,
+        "stage_bc_s": 15.68,
+        "assemble_s": 263.16,
+        "total_s": 289.23
+      },
+      "notes_pdf": {
+        "duration_s": 10.373,
+        "started_at": "2026-07-16T12:32:53.493482+00:00",
+        "finished_at": "2026-07-16T12:33:03.866844+00:00"
+      },
+      "flashcards_pdf": {
+        "duration_s": 8.322,
+        "started_at": "2026-07-16T12:37:42.743465+00:00",
+        "finished_at": "2026-07-16T12:37:51.065707+00:00"
+      }
+    },
+    "tokens": {
+      "total_input": 18774,
+      "total_output": 9756,
+      "llm_calls": 15,
+      "llm_total_s": 99.174,
+      "cache_read_tokens": 0,
+      "cache_create_tokens": 0
+    }
+  }
+}

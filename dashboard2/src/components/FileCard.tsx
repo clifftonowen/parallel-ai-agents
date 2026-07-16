@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { downloadFile, fetchFileText } from "../api/client";
+import { c, font, hairline } from "../theme";
 
 interface Props {
   run_id: string;
@@ -42,7 +43,7 @@ export default function FileCard({ run_id, label, filename, icon, previewable }:
       <div style={cardStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
           <span style={{ fontSize: 22 }}>{icon}</span>
-          <span style={{ color: "#f1f5f9", fontWeight: 600, fontSize: 14 }}>{label}</span>
+          <span style={{ color: c.ink, fontWeight: 600, fontSize: 14 }}>{label}</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {previewable && (
@@ -58,7 +59,7 @@ export default function FileCard({ run_id, label, filename, icon, previewable }:
             ↓ Download
           </button>
         </div>
-        {error && <p style={{ color: "#f87171", fontSize: 11, marginTop: 6 }}>{error}</p>}
+        {error && <p style={{ color: c.flag, fontSize: 11, marginTop: 6 }}>{error}</p>}
       </div>
 
       {/* Preview dialog */}
@@ -69,7 +70,7 @@ export default function FileCard({ run_id, label, filename, icon, previewable }:
         >
           <div style={dialogStyle}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ color: "#f1f5f9", fontSize: 16 }}>{label}</h3>
+              <h3 style={{ fontFamily: font.display, color: c.ink, fontSize: 18, fontWeight: 600 }}>{label}</h3>
               <button onClick={() => setPreviewOpen(false)} style={closeBtnStyle}>✕ Close</button>
             </div>
             <pre style={preStyle}>{previewContent}</pre>
@@ -81,19 +82,17 @@ export default function FileCard({ run_id, label, filename, icon, previewable }:
 }
 
 const cardStyle: React.CSSProperties = {
-  backgroundColor: "#1e293b",
-  borderRadius: 10,
+  backgroundColor: c.paperCard,
+  border: hairline,
   padding: 14,
   marginBottom: 8,
-  border: "1px solid #334155",
 };
 
 const previewBtnStyle: React.CSSProperties = {
   flex: 1,
-  backgroundColor: "#334155",
-  color: "#94a3b8",
-  border: "none",
-  borderRadius: 6,
+  backgroundColor: "transparent",
+  color: c.inkSoft,
+  border: `1px solid ${c.rule}`,
   padding: "8px 12px",
   fontSize: 13,
   fontWeight: 600,
@@ -101,10 +100,8 @@ const previewBtnStyle: React.CSSProperties = {
 
 const dlBtnStyle: React.CSSProperties = {
   flex: 1,
-  backgroundColor: "#6366f1",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
+  backgroundColor: c.reagent,
+  color: c.paper,
   padding: "8px 12px",
   fontSize: 13,
   fontWeight: 600,
@@ -113,7 +110,7 @@ const dlBtnStyle: React.CSSProperties = {
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  backgroundColor: "rgba(0,0,0,0.7)",
+  backgroundColor: "rgba(23,21,15,0.7)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -122,21 +119,21 @@ const overlayStyle: React.CSSProperties = {
 };
 
 const dialogStyle: React.CSSProperties = {
-  backgroundColor: "#1e293b",
-  borderRadius: 12,
+  backgroundColor: c.paperCard,
   padding: 24,
   width: "100%",
   maxWidth: 800,
   maxHeight: "80vh",
   display: "flex",
   flexDirection: "column",
-  border: "1px solid #334155",
+  border: hairline,
 };
 
 const preStyle: React.CSSProperties = {
   flex: 1,
   overflow: "auto",
-  color: "#cbd5e1",
+  color: c.inkSoft,
+  fontFamily: font.mono,
   fontSize: 12,
   lineHeight: 1.7,
   whiteSpace: "pre-wrap",
@@ -145,8 +142,7 @@ const preStyle: React.CSSProperties = {
 
 const closeBtnStyle: React.CSSProperties = {
   backgroundColor: "transparent",
-  color: "#6366f1",
-  border: "none",
+  color: c.reagent,
   fontSize: 14,
   fontWeight: 600,
 };

@@ -116,25 +116,28 @@ class ADKStudyOrchestrator:
                         NotesPostProcessAgent(anthropic_api_key=self.anthropic_api_key),
                     ],
                 ),
-                # Phase 2: Flashcards and Video (parallel)
+                # Phase 2: Flashcards ‖ Video ‖ notes.pdf (parallel)
                 # FlashcardAgent saves flashcards.md via after_agent_callback
                 # while VideoADKAgent is still running — no sequential save step needed.
+                # notes.pdf only depends on notes_md_path (written by Phase 1's
+                # NotesPostProcessAgent), so it runs alongside flashcards/video
+                # instead of waiting for Phase 2 to finish.
                 ParallelAgent(
                     name="phase2",
                     sub_agents=[
                         make_flashcard_agent(),
                         VideoADKAgent(name="video_agent"),
-                    ],
-                ),
-                # Phase 3: PDF conversion (parallel)
-                ParallelAgent(
-                    name="phase3",
-                    sub_agents=[
                         PDFADKAgent(
                             name="notes_pdf_agent",
                             md_state_key="notes_md_path",
                             pdf_state_key="notes_pdf_path",
                         ),
+                    ],
+                ),
+                # Phase 3: flashcards.pdf (needs flashcards_md_path from phase2)
+                ParallelAgent(
+                    name="phase3",
+                    sub_agents=[
                         PDFADKAgent(
                             name="flashcards_pdf_agent",
                             md_state_key="flashcards_md_path",

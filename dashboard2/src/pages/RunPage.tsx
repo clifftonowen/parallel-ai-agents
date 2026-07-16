@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getRun, streamRun } from "../api/client";
 import PhaseBar from "../components/PhaseBar";
 import type { RunPhase, SSEEvent } from "../types";
+import { c, font, eyebrow } from "../theme";
 
 const PHASES: { key: string; label: string; activeOn: RunPhase[] }[] = [
   { key: "phase1", label: "Phase 1 — Notes", activeOn: ["phase1"] },
@@ -75,21 +76,14 @@ export default function RunPage() {
   }, [run_id, navigate]);
 
   const currentIdx = phaseIndex(phase);
+  const statusColor = status === "complete" ? c.reagent : status === "error" ? c.flag : c.inkSoft;
 
   return (
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
         <h1 style={styles.title}>{topic || "Running pipeline..."}</h1>
-        <span
-          style={{
-            ...styles.statusBadge,
-            backgroundColor:
-              status === "complete" ? "#22c55e" : status === "error" ? "#ef4444" : "#f59e0b",
-          }}
-        >
-          {status}
-        </span>
+        <span style={{ ...styles.statusBadge, color: statusColor }}>{status}</span>
       </div>
 
       {/* Phase indicators */}
@@ -137,10 +131,10 @@ export default function RunPage() {
 
       {/* Log console */}
       <div style={styles.consoleWrapper}>
-        <p style={styles.consoleLabel}>Live Log</p>
+        <p style={eyebrow}>Live Log</p>
         <pre ref={logRef} style={styles.console}>
           {logLines.length === 0 ? (
-            <span style={{ color: "#334155" }}>Waiting for output...</span>
+            <span style={{ color: c.inkFaint }}>Waiting for output...</span>
           ) : (
             logLines.join("\n")
           )}
@@ -154,10 +148,10 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     maxWidth: 900,
     margin: "0 auto",
-    padding: "24px 20px",
+    padding: "20px 20px 24px",
     display: "flex",
     flexDirection: "column",
-    height: "calc(100vh - 48px)",
+    height: "calc(100vh - 52px)",
   },
   header: {
     display: "flex",
@@ -167,73 +161,71 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: "wrap",
   },
   title: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: "#f1f5f9",
+    fontFamily: font.display,
+    fontSize: 24,
+    fontWeight: 600,
+    color: c.ink,
     flex: 1,
   },
   statusBadge: {
-    borderRadius: 6,
-    padding: "3px 10px",
-    fontSize: 12,
+    fontFamily: font.mono,
+    fontSize: 11,
     fontWeight: 700,
-    color: "#fff",
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
     flexShrink: 0,
   },
   phaseRow: {
     display: "flex",
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   progressSection: {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   progressTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#1e293b",
-    borderRadius: 3,
+    backgroundColor: c.ruleSoft,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    backgroundColor: "#6366f1",
-    borderRadius: 3,
+    backgroundColor: c.reagent,
     transition: "width 0.4s ease",
   },
   progressPct: {
-    color: "#94a3b8",
+    fontFamily: font.mono,
+    color: c.inkSoft,
     fontSize: 12,
     width: 38,
     textAlign: "right",
   },
   statusText: {
-    color: "#94a3b8",
+    color: c.inkSoft,
     fontSize: 13,
     textAlign: "center",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   errorBox: {
-    backgroundColor: "#450a0a",
-    border: "1px solid #ef4444",
-    borderRadius: 8,
+    backgroundColor: c.flagWash,
+    borderLeft: `3px solid ${c.flag}`,
     padding: 12,
-    color: "#fca5a5",
+    color: c.ink,
     fontSize: 13,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   resultsBtn: {
-    backgroundColor: "#22c55e",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "12px 24px",
+    backgroundColor: c.reagent,
+    color: c.paper,
+    fontFamily: font.body,
+    padding: "13px 26px",
     fontSize: 15,
-    fontWeight: 700,
-    marginBottom: 14,
+    fontWeight: 600,
+    marginBottom: 16,
     alignSelf: "center",
   },
   consoleWrapper: {
@@ -241,23 +233,15 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     minHeight: 0,
-  },
-  consoleLabel: {
-    color: "#475569",
-    fontSize: 11,
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    marginBottom: 6,
+    gap: 6,
   },
   console: {
     flex: 1,
-    backgroundColor: "#020617",
-    border: "1px solid #1e293b",
-    borderRadius: 8,
+    backgroundColor: c.ink,
     padding: 12,
     overflow: "auto",
-    color: "#94a3b8",
+    color: c.paperDeep,
+    fontFamily: font.mono,
     fontSize: 11,
     lineHeight: 1.65,
     whiteSpace: "pre-wrap",
