@@ -92,10 +92,11 @@ and `run(topic)`, so they are interchangeable for benchmarking:
 
 ```
 .
-├── parallel_agent.py        Three-agent Gemini fan-out (asyncio + multiprocessing)
-├── parallel_agent_6.py      Six-agent Gemini fan-out
-├── chat_session.py          Stateful vs. stateless Gemini chat reference
-├── benchmark_test.py        Benchmark harness (Gemini track)
+├── examples/                Standalone Gemini-track reference scripts
+│   ├── parallel_agent.py        Three-agent fan-out (asyncio + multiprocessing)
+│   ├── parallel_agent_6.py      Six-agent fan-out
+│   ├── chat_session.py          Stateful vs. stateless chat reference
+│   └── benchmark_test.py        asyncio-vs-multiprocessing timing demo
 ├── api_server.py            FastAPI dashboard backend (REST + SSE), port 8000
 ├── auth_db.py               SQLite-backed local accounts (study_bench.db)
 ├── benchmark_profile.py     Profiles the orchestrator variants
@@ -222,9 +223,9 @@ front-end keeps its own `node_modules`, which must already be installed
 Each script defines a fixed prompt at the bottom of the file.
 
 ```
-python parallel_agent.py     # 3 agents; asyncio and multiprocessing runs
-python parallel_agent_6.py   # 6 agents; asyncio and multiprocessing runs
-python chat_session.py       # ChatSession vs. stateless generate_content
+python examples/parallel_agent.py     # 3 agents; asyncio and multiprocessing
+python examples/parallel_agent_6.py   # 6 agents; asyncio and multiprocessing
+python examples/chat_session.py       # ChatSession vs. stateless generate_content
 ```
 
 Each run prints per-agent PID, thread name, and elapsed time, followed by the

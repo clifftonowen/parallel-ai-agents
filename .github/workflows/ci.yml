@@ -40,7 +40,5 @@ jobs:
       - name: build (typecheck + bundle)
         run: npm run build
 
-      # study-bench has no eslint config yet; dropped once it gains one.
       - name: lint
-        if: matrix.app == 'dashboard2'
         run: npm run lint

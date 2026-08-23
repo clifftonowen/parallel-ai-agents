@@ -4,8 +4,8 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -400,8 +400,8 @@ class VideoAgent(AbstractStudyAgent):
             _slide_fut = _stage_a.submit(self._generate_html_slides, timing_json, notes_content, output_dir)
             narrations  = _narr_fut.result()
             frame_paths = _slide_fut.result()
-        dt_narrations = time.monotonic() - t  # combined wall-clock for stage A
-        dt_slides = dt_narrations              # same wall-clock (ran in parallel)
+        # One wall-clock for the whole stage: narrations and slides ran in parallel.
+        dt_narrations = time.monotonic() - t
 
         assert len(frame_paths) == len(narrations), (
             f"Frame/narration count mismatch: {len(frame_paths)} frames vs "
@@ -415,8 +415,8 @@ class VideoAgent(AbstractStudyAgent):
             _pptx_fut  = _stage_bc.submit(self._export_pptx, frame_paths, timing_json, output_dir)
             audio_paths = _audio_fut.result()
             pptx_path   = _pptx_fut.result()
-        dt_audio = time.monotonic() - t  # combined wall-clock for stage B+C
-        dt_pptx  = dt_audio              # same wall-clock (ran in parallel)
+        # One wall-clock for the whole stage: audio and pptx ran in parallel.
+        dt_audio = time.monotonic() - t
 
         # Stage D: video assembly needs both frame_paths and audio_paths
         t = time.monotonic()
@@ -737,13 +737,23 @@ class VideoAgent(AbstractStudyAgent):
 # are not always reflected in the *current process'* PATH (e.g. when a terminal
 # was launched before the installer updated the environment). We search these
 # explicitly so a stale PATH can never break PDF generation again.
-_EXTRA_TOOL_DIRS = [
-    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Pandoc"),
-    os.path.join(os.environ.get("ProgramFiles", ""), "Pandoc"),
-    os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Pandoc"),
-    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links"),
-    os.path.join(os.environ.get("USERPROFILE", ""), "scoop", "shims"),
-    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Tectonic"),
+# These are Windows install locations only. On Linux the env vars are unset,
+# so this list is empty and _resolve_tool degrades to a plain shutil.which --
+# meaning every binary MUST be on PATH there. Gated explicitly so it does not
+# read as a working fallback on platforms where it does nothing.
+_EXTRA_TOOL_DIRS: list[str] = []
+if sys.platform == "win32":
+    _EXTRA_TOOL_DIRS = [
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Pandoc"),
+        os.path.join(os.environ.get("ProgramFiles", ""), "Pandoc"),
+        os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Pandoc"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links"),
+        os.path.join(os.environ.get("USERPROFILE", ""), "scoop", "shims"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Tectonic"),
+    ]
+# Extra colon/semicolon-separated dirs, for images that install tools oddly.
+_EXTRA_TOOL_DIRS += [
+    p for p in os.environ.get("EXTRA_TOOL_DIRS", "").split(os.pathsep) if p.strip()
 ]
 
 # LaTeX engines can only size a narrow set of image formats. A .webp, .svg or
@@ -889,14 +899,20 @@ class PDFAgent(AbstractStudyAgent):
         _eisvogel = None
         if _is_latex:
             _eisvogel_candidates = [
+                # Explicit override first - how a container points at its copy.
+                os.environ.get("EISVOGEL_TEMPLATE", ""),
+                # Windows. expandvars only understands %VAR% on win32, so these
+                # stay literal elsewhere and simply fail the isfile check.
                 os.path.expandvars(r"%APPDATA%\pandoc\templates\eisvogel.latex"),
                 os.path.expandvars(r"%USERPROFILE%\.pandoc\templates\eisvogel.latex"),
+                # POSIX: per-user, then the system-wide path a Docker image uses.
                 os.path.join(
                     os.path.expanduser("~"), ".pandoc", "templates", "eisvogel.latex"
                 ),
+                "/usr/share/pandoc/templates/eisvogel.latex",
             ]
             _eisvogel = next(
-                (p for p in _eisvogel_candidates if os.path.isfile(p)), None
+                (p for p in _eisvogel_candidates if p and os.path.isfile(p)), None
             )
 
         # LaTeX aborts the whole document on one unsizeable image, and the notes

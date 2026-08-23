@@ -30,7 +30,7 @@ from google.adk.events import Event
 from google.genai import types
 
 from .adk_tools import WEB_SEARCH_TOOL, IMAGE_SEARCH_TOOL
-from .specialist_agent import NotesAgent, FlashcardAgent, VideoAgent, PDFAgent
+from .specialist_agent import NotesAgent, VideoAgent, PDFAgent
 
 log = logging.getLogger(__name__)
 

@@ -30,7 +30,6 @@ import uuid
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,9 +45,25 @@ import prompt_cache
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# Prefer the project venv python; fall back to sys.executable
-_VENV_PYTHON = os.path.join(PROJECT_ROOT, "..", ".venv", "Scripts", "python.exe")
-PYTHON = os.path.abspath(_VENV_PYTHON) if os.path.isfile(os.path.abspath(_VENV_PYTHON)) else sys.executable
+def _resolve_python() -> str:
+    """Interpreter used to spawn benchmark_profile.py.
+
+    Prefers an explicit override, then a sibling venv in either the Windows
+    or POSIX layout, then the running interpreter. In a container the app
+    python IS the pipeline python, so the sys.executable fallback is the
+    normal path rather than a degraded one.
+    """
+    explicit = os.environ.get("PIPELINE_PYTHON", "").strip()
+    if explicit and os.path.isfile(explicit):
+        return explicit
+    for rel in ("Scripts/python.exe", "bin/python"):
+        cand = os.path.abspath(os.path.join(PROJECT_ROOT, "..", ".venv", *rel.split("/")))
+        if os.path.isfile(cand):
+            return cand
+    return sys.executable
+
+
+PYTHON = _resolve_python()
 
 app = FastAPI(title="parallel-ai-agents dashboard")
 

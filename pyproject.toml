@@ -1,0 +1,27 @@
+[project]
+name = "parallel-ai-agents"
+version = "0.1.0"
+description = "Multi-agent study-material generation pipeline with parallelisation benchmarking"
+# 3.10 is the hard syntax floor (PEP 604 unions evaluated at runtime in modules
+# without `from __future__ import annotations`), but the container and CI both
+# pin 3.11, so that is the supported floor.
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+# Reference scripts from an earlier phase of the project. Kept for provenance,
+# not maintained to the same standard as src/.
+exclude = ["examples", "output", ".venv", "venv", "node_modules"]
+
+[tool.ruff.lint]
+# Deliberately narrow to start. Ruff has never run against this codebase, so the
+# full default set has an unknown baseline. F alone (pyflakes: undefined names,
+# unused imports, unused locals) is high-signal and currently passes clean.
+# Widen to ["E", "F", "I", "UP", "B"] once this is established.
+select = ["F"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Keep the reference scripts out of collection; examples/benchmark_test.py
+# matches the default *_test.py pattern but is a timing demo, not a test.
+norecursedirs = ["examples", "output", "node_modules", ".venv", "venv"]

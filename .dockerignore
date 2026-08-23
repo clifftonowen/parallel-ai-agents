@@ -1,0 +1,43 @@
+# The image runs the Python backend only. The front-ends are built and served
+# by Vercel, so none of their source or dependencies belong here.
+
+.git
+.github
+.claude
+.gitignore
+
+# Secrets. Never bake these into a layer.
+.env
+.env.*
+!.env.example
+
+# Front-ends (Vercel builds these)
+dashboard2
+study-bench
+landing
+node_modules
+**/node_modules
+package.json
+package-lock.json
+
+# Local virtualenvs
+.venv
+venv
+
+# Generated at runtime, mounted as a volume in the container
+output
+*.db
+*.prof
+profiling_results_*.json
+
+# Python bytecode
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+
+# Docs and reference scripts are not needed to run the server
+docs
+examples
+*.md
+!README.md

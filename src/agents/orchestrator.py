@@ -232,8 +232,6 @@ def _banner(title: str, detail: str = "") -> None:
 
 
 if __name__ == "__main__":
-    import os
-    import sys
 
     # Windows cp1252 terminals can't encode all Unicode chars the LLM may emit.
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
