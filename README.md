@@ -1,10 +1,9 @@
-# parallel-ai-agents
+# parallel-ai-agents — Study Bench
 
 A research codebase for parallelising LLM-driven content generation. The
-pipeline takes a topic and difficulty tier as input and produces a bundle
-of study artifacts — structured notes, flashcards, an HTML render, a PDF,
-and a narrated video — by fanning a single research stage out to several
-specialised agents that run concurrently.
+pipeline takes a topic and produces a bundle of study artifacts — structured
+notes, flashcards, a PDF, and a narrated video — by fanning a single research
+stage out to several specialised agents that run concurrently.
 
 The project is developed as part of an Undergraduate Research Opportunities
 Programme (UROP) at the Singapore University of Technology and Design.
@@ -13,24 +12,34 @@ Programme (UROP) at the Singapore University of Technology and Design.
 
 The repository hosts three complementary tracks:
 
-1. **Benchmark track (Vertex AI / Gemini).** Standalone scripts that
-   compare `asyncio`-based concurrency against `multiprocessing`-based
-   parallelism for fan-out across three and six agents. Used to quantify
-   true vs. concurrent execution and to inform the eventual Rust port.
-2. **Pipeline track (Anthropic / Claude).** A working
-   `Notes -> Flashcards -> Video` pipeline built on the Claude API with
-   tool use. This is the basis for the broader study-content pipeline
-   described under "Target architecture".
-3. **Dashboard & orchestration-variants track (Anthropic / Claude).** A
-   FastAPI backend (`api_server.py`) that runs the pipeline on demand and
-   streams progress, plus three interchangeable orchestrator implementations
-   — a thread-pool version (`src/agents/orchestrator.py`), an `asyncio`
-   version (`src/agents/async_orchestrator.py`), and a Google ADK version
-   (`src/agents/adk_*`) — benchmarked head-to-head by `benchmark_profile.py`.
-   A semantic prompt cache (`prompt_cache.py`) and a local accounts store
-   (`auth_db.py`) support this track. See "Dashboard / API server" below.
+1. **Benchmark track (Vertex AI / Gemini).** Standalone scripts that compare
+   `asyncio`-based concurrency against `multiprocessing`-based parallelism for
+   fan-out across three and six agents. Used to quantify true vs. concurrent
+   execution and to inform the eventual Rust port.
+2. **Pipeline track (Anthropic / Claude).** The working study-content pipeline
+   built on the Claude API with tool use — notes, flashcards, video, PDFs.
+3. **Dashboard & orchestration-variants track.** A FastAPI backend
+   (`api_server.py`) that runs the pipeline on demand and streams progress,
+   three interchangeable orchestrator implementations benchmarked head-to-head
+   by `benchmark_profile.py`, and two React front-ends. A semantic prompt cache
+   (`prompt_cache.py`) and a local accounts store (`auth_db.py`) support it.
 
-## Target architecture
+## Pipeline
+
+1. **Notes** (sequential) — `NotesAgent` (Claude Sonnet) researches the topic
+   via web/image search and writes `notes.md`, plus a `timing.json` sidecar
+   used to pace the video narration.
+2. **Flashcards + Video + notes PDF** (parallel) — `FlashcardAgent` builds
+   Obsidian-style flashcards; `VideoAgent` builds narrated slides (HTML → PNG
+   via Playwright, TTS via OpenAI `tts-1-hd`, assembled with MoviePy into
+   `study_video.mp4` plus a `.pptx`); `PDFAgent` renders `notes.pdf`. The notes
+   PDF only depends on Phase 1, so it runs alongside rather than waiting.
+3. **Flashcards PDF** (sequential, after flashcards succeed) — `PDFAgent`
+   renders `flashcards.pdf`.
+
+Each run writes every artifact to `output/{topic_slug}_{timestamp}/`.
+
+### Target architecture
 
 ```
 Topic + difficulty tier (beginner / intermediate / advanced)
@@ -58,15 +67,26 @@ Flashcard agent  HTML agent         Video agent     PDF agent
                           |
                           v
               Output bundle
-              notes.md, flashcards.md, notes.html, notes.pdf, video.mp4
 ```
 
-`src/agents/orchestrator.py` implements this architecture today: Notes runs
-first, Flashcards and Video fan out in parallel, then PDF export runs last.
-Each run writes to a timestamped directory under `output/`. (The HTML agent
-and the Gemini Deep Research front-end remain the active work.)
+The HTML agent and the Gemini Deep Research front-end remain the active work.
 
 ![Architecture diagram](docs/architecture-diagram.jpg)
+
+### Three orchestrators, one interface
+
+All three implement `__init__(anthropic_api_key, openai_api_key, output_dir)`
+and `run(topic)`, so they are interchangeable for benchmarking:
+
+- `src/agents/orchestrator.py` — `StudyOrchestrator`, the stable entry point.
+  Parallelism via `concurrent.futures.ThreadPoolExecutor`.
+- `src/agents/async_orchestrator.py` — `AsyncStudyOrchestrator`. Pure asyncio
+  (`asyncio.gather` plus `run_in_executor`), model tiering (notes stays Sonnet,
+  flashcards/video use Haiku), and Anthropic prompt caching.
+- `src/agents/adk_orchestrator.py` — `ADKStudyOrchestrator`. Declarative Google
+  ADK `SequentialAgent`/`ParallelAgent` graph using `AnthropicLlm` (not Gemini),
+  reusing the prompt-building logic from `specialist_agent.py` via thin wrapper
+  agents in `src/agents/adk_agents.py`.
 
 ## Repository layout
 
@@ -76,36 +96,38 @@ and the Gemini Deep Research front-end remain the active work.)
 ├── parallel_agent_6.py      Six-agent Gemini fan-out
 ├── chat_session.py          Stateful vs. stateless Gemini chat reference
 ├── benchmark_test.py        Benchmark harness (Gemini track)
-├── api_server.py            FastAPI dashboard backend (REST + SSE)
-├── auth_db.py               SQLite-backed local accounts for the dashboard
-├── benchmark_profile.py     Profiles the orchestrator variants (original/async/adk)
+├── api_server.py            FastAPI dashboard backend (REST + SSE), port 8000
+├── auth_db.py               SQLite-backed local accounts (study_bench.db)
+├── benchmark_profile.py     Profiles the orchestrator variants
 ├── prompt_cache.py          Semantic (embedding-similarity) prompt cache
 ├── profiling_results_*.json Captured benchmark runs
 ├── requirements.txt
-└── src/
-    └── agents/
-        ├── base_agent.py            AbstractStudyAgent + tool definitions
-        ├── specialist_agent.py      NotesAgent, FlashcardAgent, VideoAgent, PDFAgent
-        ├── orchestrator.py          Claude-side pipeline driver (working entry point)
-        ├── async_orchestrator.py    asyncio variant of the orchestrator
-        ├── adk_orchestrator.py      Google ADK variant of the orchestrator
-        ├── adk_agents.py            ADK agent definitions (AnthropicLlm models)
-        └── adk_tools.py             Tools exposed to the ADK agents
+├── package.json             Root launcher only (concurrently)
+├── dashboard2/              Benchmarking dashboard (React + Vite + TS), port 5173
+├── study-bench/             Learner-facing app (React + Vite + TS), port 5174
+└── src/agents/
+    ├── base_agent.py            AbstractStudyAgent + tool definitions
+    ├── config.py                require_env() and shared configuration helpers
+    ├── specialist_agent.py      NotesAgent, FlashcardAgent, VideoAgent, PDFAgent
+    ├── orchestrator.py          Thread-pool pipeline driver
+    ├── async_orchestrator.py    asyncio variant
+    ├── adk_orchestrator.py      Google ADK variant
+    ├── adk_agents.py            ADK agent definitions (AnthropicLlm models)
+    └── adk_tools.py             Tools exposed to the ADK agents
 ```
-
-> **Moved:** the pipeline driver is now `src/agents/orchestrator.py` (it used
-> to live at the repository root). `src/main.py` has been removed.
 
 ## Prerequisites
 
-- Python 3.11 or newer.
-- `ffmpeg` available on `PATH` (required by `moviepy` for the video stage).
+- Python 3.11 or newer, Node 20.17+ for the front-ends.
+- `ffmpeg` on `PATH` (required by `moviepy` for the video stage).
 - `pandoc` plus a PDF engine (required by `PDFAgent`). The agent auto-detects
   whichever engine is installed — a LaTeX engine (`tectonic`, `xelatex`,
-  `lualatex`, or `pdflatex`) or an HTML engine (`wkhtmltopdf`, `weasyprint`).
-  `tectonic` is recommended on Windows: it is a single self-contained binary
-  that fetches LaTeX packages on first use. `PDFAgent` resolves `pandoc` and
-  the engine by absolute path, so they do **not** need to be on `PATH`.
+  `lualatex`, `pdflatex`) or an HTML engine (`wkhtmltopdf`, `weasyprint`) — and
+  resolves both by absolute path, so neither needs to be on `PATH`.
+- The Eisvogel LaTeX template is optional but recommended for nicer PDFs.
+  Install to `%APPDATA%\pandoc\templates\eisvogel.latex` (Windows) or
+  `~/.pandoc/templates/eisvogel.latex`. It is only used when the resolved
+  engine is a LaTeX one; otherwise basic formatting is applied.
 - A Google Cloud project with the Vertex AI API enabled (benchmark track).
 - API access to Anthropic Claude and OpenAI (pipeline track).
 
@@ -126,46 +148,32 @@ winget install JohnMacFarlane.Pandoc
 winget install MiKTeX.MiKTeX       # LaTeX engine for the PDF stage
 ```
 
-For the PDF engine, `tectonic` is a lighter alternative to a full LaTeX
-distribution. If it is not in your `winget` source, download the official
-Windows binary from
+`tectonic` is a lighter alternative to a full LaTeX distribution. If it is not
+in your `winget` source, download the Windows binary from
 https://github.com/tectonic-typesetting/tectonic/releases and place
-`tectonic.exe` in `%LOCALAPPDATA%\Tectonic` — `PDFAgent` searches that
-directory automatically.
+`tectonic.exe` in `%LOCALAPPDATA%\Tectonic` — `PDFAgent` searches there.
 
-`ffmpeg` must be on `PATH` for the video stage. `pandoc` and the PDF engine
-do **not** need to be on `PATH`: `PDFAgent` resolves them by absolute path,
-searching `PATH` plus the standard install locations (so a stale `PATH`
-after install no longer breaks PDF export). You can still verify them:
-
-```
-ffmpeg -version
-pandoc --version
-```
-
-`ffmpeg` is required for the video stage — without it `VideoAgent` cannot
-assemble `study_video.mp4`. `pandoc` (plus a PDF engine) is only needed
-for the PDF stage; if either is absent the pipeline skips PDF export and
-still produces the rest of the bundle.
+If `ffmpeg` is missing, `VideoAgent` cannot assemble `study_video.mp4`. If
+`pandoc` or a PDF engine is missing, PDF export is skipped and the rest of the
+bundle is still produced.
 
 ## Setup
 
-### 1. Install Python dependencies
+### 1. Install dependencies
 
 ```
 pip install -r requirements.txt
 playwright install
 ```
 
-The `playwright install` step downloads the browser binaries used by the
-HTML rendering helpers in `specialist_agent.py`. `duckduckgo_search` backs
-the `web_search` / `image_search` tools the `NotesAgent` calls; without it
-those tool calls return an install-hint string instead of real results.
+`playwright install` downloads the browser binaries used for HTML-to-PNG slide
+rendering. `ddgs` backs the `web_search` / `image_search` tools the `NotesAgent`
+calls; without it those tool calls return an install-hint string instead of
+real results.
 
 ### 2. Authenticate Google Cloud (benchmark track)
 
-The Vertex AI SDK uses Application Default Credentials rather than a
-static API key:
+The Vertex AI SDK uses Application Default Credentials, not a static API key:
 
 ```
 gcloud auth application-default login
@@ -173,18 +181,14 @@ gcloud auth application-default login
 
 ### 3. Configure environment variables
 
-Create a `.env` file at the repository root. All scripts call
-`load_dotenv()` and resolve configuration from this file.
+Copy `.env.example` to `.env` at the repository root and fill it in. All
+scripts call `load_dotenv()` and resolve configuration from that file.
 
 ```
-# Anthropic Claude (pipeline + dashboard tracks)
-# The thread-pool orchestrator reads CLAUDE_API_KEY (falling back to
-# ANTHROPIC_API_KEY); the async/ADK orchestrators and benchmark_profile.py
-# read ANTHROPIC_API_KEY. Set both to the same value to keep every path working.
-CLAUDE_API_KEY=...
+# Anthropic Claude — every orchestrator and benchmark_profile.py
 ANTHROPIC_API_KEY=...
 
-# OpenAI (text-to-speech in the video agent; embeddings for the prompt cache)
+# OpenAI — text-to-speech in the video agent, embeddings for the prompt cache
 OPENAI_API_KEY=...
 
 # Google / Gemini (benchmark track)
@@ -192,7 +196,7 @@ GOOGLE_API_KEY=...
 GCP_PROJECT_ID=your-gcp-project-id
 GCP_LOCATION=asia-southeast1
 
-# Semantic prompt cache (optional; used by the dashboard track)
+# Semantic prompt cache (optional)
 CACHE_ENABLED=1
 CACHE_SIM_THRESHOLD=0.78
 CACHE_EMBED_MODEL=text-embedding-3-small
@@ -200,13 +204,22 @@ CACHE_EMBED_MODEL=text-embedding-3-small
 
 `.env` is git-ignored. Do not commit credentials.
 
-
 ## Usage
 
-### Benchmark track
+### Everything at once
 
-Each script defines a fixed prompt at the bottom of the file; modify it as
-required for the experiment.
+```
+npm install    # one-time; installs `concurrently` at the repo root only
+npm run dev    # api :8000, dashboard :5173, study-bench :5174
+```
+
+Ctrl+C stops all three. This only touches the root `package.json` — each
+front-end keeps its own `node_modules`, which must already be installed
+(`npm install` inside `dashboard2/` and `study-bench/`).
+
+### Benchmark track (Gemini)
+
+Each script defines a fixed prompt at the bottom of the file.
 
 ```
 python parallel_agent.py     # 3 agents; asyncio and multiprocessing runs
@@ -214,103 +227,85 @@ python parallel_agent_6.py   # 6 agents; asyncio and multiprocessing runs
 python chat_session.py       # ChatSession vs. stateless generate_content
 ```
 
-Each run prints per-agent PID, thread name, and elapsed time, followed by
-the total wall-clock time for the batch.
+Each run prints per-agent PID, thread name, and elapsed time, followed by the
+total wall-clock time for the batch.
 
-### Pipeline track
-
-The working entry point is `src/agents/orchestrator.py`. From a single topic
-string it runs the full pipeline — Phase 1 `NotesAgent` (sequential),
-Phase 2 `FlashcardAgent` + `VideoAgent` (parallel via a thread pool),
-Phase 3 `PDFAgent` (sequential) — and writes every artifact to a timestamped
-run directory under `output/`.
-
-Set the topic at the bottom of `src/agents/orchestrator.py` (the `topic="..."`
-argument in the `__main__` block), then run from the repository root:
+### Pipeline track, no server
 
 ```
-python src/agents/orchestrator.py
+python -m src.agents.orchestrator        # StudyOrchestrator (thread pool)
+python src/agents/async_orchestrator.py  # AsyncStudyOrchestrator
+python src/agents/adk_orchestrator.py    # ADKStudyOrchestrator
 ```
 
-Generated under `output/`:
+Written to `output/{topic_slug}_{timestamp}/`:
 
 ```
-notes/notes_<id>.md      structured Markdown notes
-notes/notes_<id>.json    per-section timing sidecar (drives the video)
+notes.md                 structured Markdown notes
+timing.json              per-section timing sidecar (drives the video)
 flashcards.md            Obsidian-style spaced-repetition cards
 slides/                  per-section HTML slides + PNG screenshots
-videos/audio/            per-section TTS narration (MP3)
+audio/                   per-section TTS narration (MP3)
 study_video.mp4          final narrated study video
-notes.pdf, flashcards.pdf  PDF renders (only if pandoc + a PDF engine are present)
+notes.pdf, flashcards.pdf  PDF renders (only if pandoc + a PDF engine exist)
 ```
 
-The video stage needs `ffmpeg` on `PATH`; the PDF stage needs `pandoc` +
-a PDF engine (`tectonic`, a LaTeX engine such as MiKTeX/TeX Live, or
-`wkhtmltopdf`), which `PDFAgent` auto-detects and resolves by absolute
-path. If either dependency is missing, that stage is skipped or errors
-non-fatally — the rest of the bundle is still produced.
+### Benchmark comparison CLI
+
+```
+python benchmark_profile.py --topic "your topic" [--adk-only|--original-only|--async-only] [--no-cprofile] [--otel]
+```
+
+Writes a console comparison table plus `profiling_results_<timestamp>.json`
+(and `.prof` files unless `--no-cprofile`).
 
 ### Dashboard / API server
 
-`api_server.py` is a [FastAPI](https://fastapi.tiangolo.com/) backend that
-drives the pipeline on demand and streams progress back to a client. It is
-the server half of the profiling dashboard: it accepts a topic, spawns
-`benchmark_profile.py` as a subprocess to run one or more orchestrator
-variants, and exposes the results.
-
-> **Note:** only the **backend** lives in this repository. The dashboard's
-> web UI is a separate front-end that is **not committed here** — the server
-> enables permissive CORS (`allow_origins=["*"]`) so an external UI, or a
-> tool such as `curl`, can call it directly.
-
-The dashboard stack (`fastapi`, `uvicorn`, `numpy`, and Google's ADK for the
-`adk` / `async` run modes) is included in `requirements.txt`, so
-`pip install -r requirements.txt` already covers it.
-
-Start the server from the repository root:
+`api_server.py` accepts a topic, spawns `benchmark_profile.py` as a subprocess
+to run one or more orchestrator variants, and exposes the results over REST and
+server-sent events.
 
 ```
 uvicorn api_server:app --reload --port 8000
 ```
 
-It listens on `http://localhost:8000`. Interactive API docs are served at
-`http://localhost:8000/docs`. Key endpoints:
+Interactive API docs at `http://localhost:8000/docs`. Key endpoints:
 
 | Method & path | Purpose |
 | --- | --- |
-| `POST /run` | Start a run. Body: `{"topic": "...", "mode": "both"}` — `mode` is one of `original` (thread pool), `async`, `adk`, `both`, or `all`. |
+| `POST /run` | Start a run. Body: `{"topic": "...", "mode": "both"}` — `mode` is one of `original`, `async`, `adk`, `both`, `all`. |
 | `GET /run/{run_id}` | Poll run state (status, progress, benchmark timings). |
 | `GET /run/{run_id}/stream` | Server-sent-events live log stream. |
 | `POST /run/{run_id}/cancel` | Cancel a running job. |
 | `GET /run/{run_id}/download` | Download a ZIP of that run's output files. |
 | `GET /file/{run_id}/{filename}` | Fetch a single output file. |
 | `GET /runs` | List all past runs. |
-| `POST /auth/signup` · `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` | Optional accounts (backed by `auth_db.py` → `study_bench.db`). |
+| `POST /auth/signup`, `/auth/login`, `/auth/logout`, `GET /auth/me` | Optional accounts (`auth_db.py`, `study_bench.db`). |
 | `GET /health` | Liveness check. |
 
-Smoke-test it once the server is up:
+### Front-ends
+
+Both are Vite + React + TypeScript and proxy `/api` to the backend on port
+8000, stripping the prefix — so backend routes are unprefixed (`/run`, not
+`/api/run`).
 
 ```
-curl http://localhost:8000/health
-curl -X POST http://localhost:8000/run \
-  -H "Content-Type: application/json" \
-  -d '{"topic": "machine learning basics", "mode": "original"}'
+cd dashboard2   && npm run dev   # http://localhost:5173 — benchmarking, no auth
+cd study-bench  && npm run dev   # http://localhost:5174 — learner app, auth required
 ```
 
-Because `/run` shells out to `benchmark_profile.py`, the same runtime
-dependencies as the pipeline track apply (`ffmpeg`, and `pandoc` + a PDF
-engine for the PDF stage), and `ANTHROPIC_API_KEY` must be set in `.env`.
+`dashboard2` compares the orchestrator variants side by side. `study-bench` is
+the end-user product and always runs the async pipeline.
 
 ## Status
 
 - **Done:** parallelisation research; instrumented true vs. concurrent
-  execution; Notes -> (Flashcards ‖ Video) -> PDF pipeline on Claude via
-  `src/agents/orchestrator.py`, with `.env`-driven configuration; asyncio and
-  Google ADK orchestrator variants; `benchmark_profile.py` head-to-head
-  profiling; FastAPI dashboard backend (`api_server.py`) with SSE streaming
-  and optional accounts; semantic prompt cache.
+  execution; the Notes to (Flashcards, Video, notes PDF) to flashcards PDF
+  pipeline on Claude; asyncio and Google ADK orchestrator variants;
+  `benchmark_profile.py` head-to-head profiling; FastAPI backend with SSE
+  streaming and optional accounts; semantic prompt cache; both front-ends.
 - **In progress:** per-task model benchmarking; HTML agent; Gemini Deep
-  Research front-end; committing the dashboard web UI to the repository.
+  Research front-end; stateless vs. session-state benchmark dimension.
 - **Planned:** customisable video output (linear vs. quiz checkpoints);
   Python vs. Rust benchmark for the orchestrator.
 

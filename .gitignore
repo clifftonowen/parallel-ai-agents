@@ -1,12 +1,37 @@
-CLAUDE.md
+# ── Secrets ──────────────────────────────────────────────────────────────────
 .env
+.env.local
+.env.*.local
+!.env.example
 
-# Study Bench local accounts DB
+# ── Generated pipeline output ────────────────────────────────────────────────
+# Never commit these. Committed run artifacts (mp4/mp3/png) are what grew this
+# repo's history to ~185 MB before it was rewritten.
+output/
+*.prof
+profiling_results_*.json
+
+# ── Local accounts DB ────────────────────────────────────────────────────────
 study_bench.db
+*.db
 
-# Python bytecode cache
+# ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
 
-# MoviePy leaves stray temp-audio files behind on interrupted renders
+# ── Node (root launcher + dashboard2 + study-bench) ──────────────────────────
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# ── MoviePy leaves stray temp-audio files behind on interrupted renders ──────
 study_video*TEMP*.mp4
+
+# ── OS / editor ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

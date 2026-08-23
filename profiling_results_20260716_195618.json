@@ -1,0 +1,121 @@
+{
+  "topic": "Teach me about Gaussian Processes in Machine Learning",
+  "timestamp": "20260716_195618",
+  "original": {
+    "total_wall_s": 630.186,
+    "phases": {
+      "phase1_wall_s": 61.92,
+      "phase2_wall_s": 558.64,
+      "phase3_wall_s": 9.537
+    },
+    "agents": {
+      "notes": {
+        "duration_s": 61.92,
+        "started_at": "2026-07-16T11:56:26.837868+00:00",
+        "finished_at": "2026-07-16T11:57:28.759649+00:00"
+      },
+      "flashcard": {
+        "duration_s": 25.988,
+        "started_at": "2026-07-16T11:57:28.802250+00:00",
+        "finished_at": "2026-07-16T11:57:54.791530+00:00"
+      },
+      "video": {
+        "stage_a_s": 17.43,
+        "stage_bc_s": 37.51,
+        "assemble_s": 503.7,
+        "total_s": 558.64
+      },
+      "notes_pdf": {
+        "duration_s": 21.624,
+        "started_at": "2026-07-16T11:57:28.898805+00:00",
+        "finished_at": "2026-07-16T11:57:50.523445+00:00"
+      },
+      "flashcards_pdf": {
+        "duration_s": 9.537,
+        "started_at": "2026-07-16T12:06:47.504435+00:00",
+        "finished_at": "2026-07-16T12:06:57.041888+00:00"
+      }
+    },
+    "tokens": {
+      "total_input": 20557,
+      "total_output": 9986,
+      "llm_calls": 15,
+      "llm_total_s": 114.517
+    }
+  },
+  "adk": {
+    "total_wall_s": 856.008,
+    "phases": {
+      "phase1": 64.693,
+      "phase2": 791.18,
+      "phase3": 0.0
+    },
+    "agents": {
+      "notes": {
+        "input_tokens": 17787,
+        "output_tokens": 2917,
+        "llm_events": 7
+      },
+      "flashcard": {},
+      "video": {},
+      "notes_pdf": {},
+      "flashcards_pdf": {}
+    },
+    "tokens": {
+      "total_input": 17787,
+      "total_output": 2917,
+      "by_agent": {
+        "notes_agent": {
+          "input_tokens": 17787,
+          "output_tokens": 2917,
+          "llm_events": 7
+        }
+      }
+    },
+    "otel": {}
+  },
+  "async": {
+    "total_wall_s": 653.117,
+    "phases": {
+      "phase1_wall_s": 71.593,
+      "phase2_wall_s": 559.74,
+      "phase3_wall_s": 19.513
+    },
+    "agents": {
+      "notes": {
+        "duration_s": 71.593,
+        "started_at": "2026-07-16T12:21:13.635343+00:00",
+        "finished_at": "2026-07-16T12:22:25.229723+00:00"
+      },
+      "flashcard": {
+        "duration_s": 31.156,
+        "started_at": "2026-07-16T12:22:25.790220+00:00",
+        "finished_at": "2026-07-16T12:22:56.946825+00:00"
+      },
+      "video": {
+        "stage_a_s": 10.31,
+        "stage_bc_s": 22.2,
+        "assemble_s": 527.23,
+        "total_s": 559.74
+      },
+      "notes_pdf": {
+        "duration_s": 13.466,
+        "started_at": "2026-07-16T12:22:27.002980+00:00",
+        "finished_at": "2026-07-16T12:22:40.468854+00:00"
+      },
+      "flashcards_pdf": {
+        "duration_s": 19.513,
+        "started_at": "2026-07-16T12:31:46.712178+00:00",
+        "finished_at": "2026-07-16T12:32:06.225775+00:00"
+      }
+    },
+    "tokens": {
+      "total_input": 32460,
+      "total_output": 10734,
+      "llm_calls": 19,
+      "llm_total_s": 136.864,
+      "cache_read_tokens": 0,
+      "cache_create_tokens": 0
+    }
+  }
+}

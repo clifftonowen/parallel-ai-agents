@@ -40,6 +40,8 @@ if _ROOT not in sys.path:
 from dotenv import load_dotenv
 load_dotenv(os.path.join(_ROOT, ".env"))
 
+from src.agents.config import require_env  # noqa: E402
+
 # Suppress DeprecationWarnings from ADK's _sync session methods
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="google.adk")
 
@@ -69,8 +71,8 @@ def _make_spy_create(original_create):
 
 _PHASE_AGENTS = {
     "phase1": ["notes_agent", "notes_post_process"],
-    "phase2": ["flashcard_agent", "video_agent"],
-    "phase3": ["notes_pdf_agent", "flashcards_pdf_agent"],
+    "phase2": ["flashcard_agent", "video_agent", "notes_pdf_agent"],
+    "phase3": ["flashcards_pdf_agent"],
 }
 
 
@@ -349,10 +351,8 @@ def main() -> None:
                         help="Enable OpenTelemetry span collection for ADK path")
     args = parser.parse_args()
 
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    openai_key = os.environ.get("OPENAI_API_KEY", "")
-    if not anthropic_key:
-        sys.exit("ERROR: ANTHROPIC_API_KEY not set in environment or .env")
+    anthropic_key = require_env("ANTHROPIC_API_KEY", "Claude pipeline")
+    openai_key = require_env("OPENAI_API_KEY", "TTS + embeddings")
 
     topic = args.topic
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -416,8 +416,8 @@ def main() -> None:
             "total_wall_s": round(t_total, 3),
             "phases": {
                 "phase1_wall_s": round(notes_dur, 3),
-                "phase2_wall_s": round(max(fc_dur, vid_total), 3),
-                "phase3_wall_s": round(max(npdf_dur, fpdf_dur), 3),
+                "phase2_wall_s": round(max(fc_dur, vid_total, npdf_dur), 3),
+                "phase3_wall_s": round(fpdf_dur, 3),
             },
             "agents": {
                 "notes":          {"duration_s": notes_dur,
@@ -563,8 +563,8 @@ def main() -> None:
             "total_wall_s": round(t_total, 3),
             "phases": {
                 "phase1_wall_s": round(notes_dur, 3),
-                "phase2_wall_s": round(max(fc_dur, vid_total), 3),
-                "phase3_wall_s": round(max(npdf_dur, fpdf_dur), 3),
+                "phase2_wall_s": round(max(fc_dur, vid_total, npdf_dur), 3),
+                "phase3_wall_s": round(fpdf_dur, 3),
             },
             "agents": {
                 "notes":          {"duration_s": notes_dur,

@@ -49,6 +49,7 @@ if _PROJECT_ROOT not in sys.path:
 
 load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
+from src.agents.config import require_env  # noqa: E402
 from src.agents.adk_agents import (  # noqa: E402
     NotesPostProcessAgent,
     PDFADKAgent,
@@ -116,25 +117,28 @@ class ADKStudyOrchestrator:
                         NotesPostProcessAgent(anthropic_api_key=self.anthropic_api_key),
                     ],
                 ),
-                # Phase 2: Flashcards and Video (parallel)
+                # Phase 2: Flashcards ‖ Video ‖ notes.pdf (parallel)
                 # FlashcardAgent saves flashcards.md via after_agent_callback
                 # while VideoADKAgent is still running — no sequential save step needed.
+                # notes.pdf only depends on notes_md_path (written by Phase 1's
+                # NotesPostProcessAgent), so it runs alongside flashcards/video
+                # instead of waiting for Phase 2 to finish.
                 ParallelAgent(
                     name="phase2",
                     sub_agents=[
                         make_flashcard_agent(),
                         VideoADKAgent(name="video_agent"),
-                    ],
-                ),
-                # Phase 3: PDF conversion (parallel)
-                ParallelAgent(
-                    name="phase3",
-                    sub_agents=[
                         PDFADKAgent(
                             name="notes_pdf_agent",
                             md_state_key="notes_md_path",
                             pdf_state_key="notes_pdf_path",
                         ),
+                    ],
+                ),
+                # Phase 3: flashcards.pdf (needs flashcards_md_path from phase2)
+                ParallelAgent(
+                    name="phase3",
+                    sub_agents=[
                         PDFADKAgent(
                             name="flashcards_pdf_agent",
                             md_state_key="flashcards_md_path",
@@ -220,8 +224,8 @@ if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     orchestrator = ADKStudyOrchestrator(
-        anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
-        openai_api_key=os.environ["OPENAI_API_KEY"],
+        anthropic_api_key=require_env("ANTHROPIC_API_KEY", "Claude pipeline"),
+        openai_api_key=require_env("OPENAI_API_KEY", "TTS + embeddings"),
     )
     result = orchestrator.run(topic="machine learning basics")
     print(result)

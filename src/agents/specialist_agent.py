@@ -276,7 +276,12 @@ class FlashcardAgent(AbstractStudyAgent):
         response = self._call_api(prompt, use_tools=False)
         duration_s = round(time.monotonic() - t0, 3)
         finished_at = datetime.now(timezone.utc).isoformat()
-        flashcards_path = self._save_output(response, f"flashcards/flashcards_{self.agent_id}.md")
+        # Write into the run directory as flashcards.md — api_server.py maps
+        # "flashcards_md" -> "flashcards.md" and serves it from run_dir, so a
+        # global output/flashcards/<uuid>.md path is unreachable by the frontend.
+        flashcards_path = self._save_output(
+            response, "flashcards.md", output_dir=output_dir
+        )
         print(f"[Flashcards] Saved: {flashcards_path}")
         return {
             "status": "ok",
@@ -815,14 +820,52 @@ class PDFAgent(AbstractStudyAgent):
                 "(`winget install wkhtmltopdf.wkhtmltox`)."
             )
 
+        # Eisvogel is a LaTeX template, so only probe for it when the resolved
+        # engine is a LaTeX one. HTML engines (wkhtmltopdf/weasyprint) ignore or
+        # error on --template and on the -V geometry flags.
+        _is_latex = engine in ("xelatex", "lualatex", "pdflatex", "tectonic")
+        _eisvogel = None
+        if _is_latex:
+            _eisvogel_candidates = [
+                os.path.expandvars(r"%APPDATA%\pandoc\templates\eisvogel.latex"),
+                os.path.expandvars(r"%USERPROFILE%\.pandoc\templates\eisvogel.latex"),
+                os.path.join(
+                    os.path.expanduser("~"), ".pandoc", "templates", "eisvogel.latex"
+                ),
+            ]
+            _eisvogel = next(
+                (p for p in _eisvogel_candidates if os.path.isfile(p)), None
+            )
+
         cmd = [
             pandoc, input_md_path,
             "-o", output_pdf_path,
             f"--pdf-engine={_resolve_tool(engine)}",
         ]
-        # geometry margins only apply to LaTeX engines; HTML engines ignore/error.
-        if engine in ("xelatex", "lualatex", "pdflatex", "tectonic"):
-            cmd += ["-V", "geometry:margin=1in"]
+        if _eisvogel:
+            cmd += [
+                f"--template={_eisvogel}",
+                "-V", "geometry:margin=0.75in",
+                "-V", "linkcolor=blue",
+                "-V", "urlcolor=blue",
+                "-V", "colorlinks=true",
+                "-V", "numbersections",
+                "-V", "toc",
+                "--highlight-style=tango",
+                "--dpi=300",
+            ]
+            log.info("[PDF] Using Eisvogel template: %s", _eisvogel)
+        elif _is_latex:
+            cmd += [
+                "-V", "geometry:margin=1in",
+                "-V", "colorlinks=true",
+                "-V", "linkcolor=blue",
+                "--highlight-style=tango",
+            ]
+            log.info(
+                "[PDF] Eisvogel template not found - using basic formatting. "
+                "See the Eisvogel section in README.md to install it."
+            )
 
         t0 = time.monotonic()
         started_at = datetime.now(timezone.utc).isoformat()

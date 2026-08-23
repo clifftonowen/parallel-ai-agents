@@ -10,7 +10,7 @@ Optimizations vs StudyOrchestrator (ThreadPoolExecutor):
                       3.75x cheaper, ~4% quality gap).
   2. Prompt caching — cache_control on all system prompts reduces TTFT by
                       13-31% and input token cost by 90%.
-  3. asyncio.gather — Phase 2 (flashcard ‖ video) and Phase 3 (PDF ‖ PDF) run
+  3. asyncio.gather — Phase 2 (flashcard ‖ video ‖ notes.pdf) runs
                       concurrently without thread overhead.
 
 Pipeline structure:
@@ -18,11 +18,9 @@ Pipeline structure:
     Phase 2:  await asyncio.gather(
                   _run_flashcards(notes),       # Haiku + caching
                   _run_video(notes, timing),    # Haiku for narrations/slides
+                  _run_pdf(notes_md_path),      # only depends on Phase 1
               )
-    Phase 3:  await asyncio.gather(
-                  _run_pdf(notes_md_path),
-                  _run_pdf(flashcards_md_path),
-              )
+    Phase 3:  await _run_pdf(flashcards_md_path)  # needs flashcards.md first
 """
 
 from __future__ import annotations
@@ -48,6 +46,7 @@ if _PROJECT_ROOT not in sys.path:
 
 load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
+from src.agents.config import require_env  # noqa: E402
 from src.agents.specialist_agent import (  # noqa: E402
     FlashcardAgent,
     NotesAgent,
@@ -109,11 +108,14 @@ class AsyncStudyOrchestrator:
 
         notes_md_path: str = notes_result["md_path"]
 
-        # Phase 2: Flashcards ‖ Video (parallel)
-        _banner("Phase 2 — FlashcardAgent ‖ VideoAgent (Haiku + caching, parallel)")
-        flashcard_result, video_result = await asyncio.gather(
+        # Phase 2: Flashcards ‖ Video ‖ notes.pdf (parallel)
+        # notes.pdf only depends on notes_md_path (Phase 1's output), so it
+        # runs alongside flashcards/video instead of waiting for them.
+        _banner("Phase 2 — FlashcardAgent ‖ VideoAgent ‖ notes.pdf (Haiku + caching, parallel)")
+        flashcard_result, video_result, notes_pdf_result = await asyncio.gather(
             self._run_flashcards(notes_content, run_dir),
             self._run_video(notes_content, timing_json, run_dir),
+            self._run_pdf(notes_md_path),
             return_exceptions=True,
         )
 
@@ -123,19 +125,22 @@ class AsyncStudyOrchestrator:
         if isinstance(video_result, Exception):
             log.error("[Async] VideoAgent raised: %s", video_result)
             video_result = {}
+        if isinstance(notes_pdf_result, Exception):
+            log.error("[Async] PDFAgent (notes) raised: %s", notes_pdf_result)
+            notes_pdf_result = {}
 
         flashcards_md_path: str = (flashcard_result or {}).get("flashcards_path", "")
 
-        # Phase 3: PDF × 2 (parallel)
-        _banner("Phase 3 — PDFAgent × 2 (parallel)")
-        pdf_targets = [p for p in [notes_md_path, flashcards_md_path] if p]
-        pdf_results = await asyncio.gather(
-            *[self._run_pdf(p) for p in pdf_targets],
-            return_exceptions=True,
-        )
-
-        notes_pdf_result = pdf_results[0] if pdf_results and not isinstance(pdf_results[0], Exception) else {}
-        flashcards_pdf_result = pdf_results[1] if len(pdf_results) > 1 and not isinstance(pdf_results[1], Exception) else {}
+        # Phase 3: flashcards.pdf (needs flashcards.md to exist first)
+        _banner("Phase 3 — PDFAgent (flashcards)")
+        flashcards_pdf_result: dict = {}
+        if flashcards_md_path:
+            flashcards_pdf_result = await self._run_pdf(flashcards_md_path)
+            if isinstance(flashcards_pdf_result, Exception):
+                log.error("[Async] PDFAgent (flashcards) raised: %s", flashcards_pdf_result)
+                flashcards_pdf_result = {}
+        else:
+            log.info("[Async] Skipping flashcards PDF — no flashcard output.")
 
         summary: dict[str, Any] = {
             "topic": topic,
@@ -212,8 +217,8 @@ if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     orchestrator = AsyncStudyOrchestrator(
-        anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
-        openai_api_key=os.environ["OPENAI_API_KEY"],
+        anthropic_api_key=require_env("ANTHROPIC_API_KEY", "Claude pipeline"),
+        openai_api_key=require_env("OPENAI_API_KEY", "TTS + embeddings"),
     )
     result = orchestrator.run(topic="machine learning basics")
     print(result)
