@@ -62,7 +62,13 @@ _OUTPUT_FILES = {
 _RUN_DIR_PRIORITY = ("async", "original", "adk")
 
 
-def build_cmd(topic: str, mode: str, run_root: str, out_json: str) -> list[str]:
+def build_cmd(
+    topic: str,
+    mode: str,
+    run_root: str,
+    out_json: str,
+    include_video: bool = True,
+) -> list[str]:
     """Command line for one pipeline run.
 
     -u matters: without it the child block-buffers stdout when it is a pipe, so
@@ -79,6 +85,8 @@ def build_cmd(topic: str, mode: str, run_root: str, out_json: str) -> list[str]:
     flag = _MODE_FLAGS.get(mode)
     if flag:
         cmd.append(flag)
+    if not include_video:
+        cmd.append("--skip-video")
     return cmd
 
 
@@ -128,7 +136,10 @@ def run_worker(state: RunState) -> None:
     out_json = os.path.join(run_root, "profiling_results.json")
     os.makedirs(run_root, exist_ok=True)
 
-    cmd = build_cmd(state.topic, state.mode, run_root, out_json)
+    cmd = build_cmd(
+        state.topic, state.mode, run_root, out_json,
+        include_video=state.include_video,
+    )
     state.append_log(f"[api] Launching: {' '.join(cmd)}")
     state.set_phase("starting", 2)
 

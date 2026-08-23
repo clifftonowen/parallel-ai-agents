@@ -952,31 +952,61 @@ class PDFAgent(AbstractStudyAgent):
                 "See the Eisvogel section in README.md to install it."
             )
 
-        t0 = time.monotonic()
-        started_at = datetime.now(timezone.utc).isoformat()
-        try:
+        def _pandoc(source: str) -> None:
             # Decode output as UTF-8 with replacement: pandoc/LaTeX engines can
             # emit non-cp1252 bytes (e.g. tectonic's font diagnostics), which
             # would otherwise crash the capture thread on Windows.
             subprocess.run(
-                cmd,
+                [source if a is pandoc_input else a for a in cmd],
                 check=True,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
             )
-        except subprocess.CalledProcessError as exc:
-            raise RuntimeError(
-                f"pandoc failed (engine={engine}):\n{exc.stderr}"
-            ) from exc
-        finally:
-            # Drop the sanitised intermediate; the original .md is untouched.
-            if pandoc_input != input_md_path:
+
+        t0 = time.monotonic()
+        started_at = datetime.now(timezone.utc).isoformat()
+        text_only_path = ""
+        try:
+            try:
+                _pandoc(pandoc_input)
+            except subprocess.CalledProcessError as exc:
+                # Screening images by extension and content-type is not enough:
+                # a URL can advertise image/png and still serve bytes LaTeX
+                # cannot size, and it only shows up as "Cannot determine size of
+                # graphic" after pandoc has downloaded it. Rather than lose the
+                # document over one bad figure, retry once with every image
+                # removed. A text-only PDF beats no PDF.
+                if "size of graphic" not in (exc.stderr or "") and _is_latex:
+                    raise RuntimeError(
+                        f"pandoc failed (engine={engine}):\n{exc.stderr}"
+                    ) from exc
+                with open(input_md_path, encoding="utf-8") as _f:
+                    stripped = _MD_IMAGE_RE.sub("", _f.read())
+                text_only_path = os.path.splitext(input_md_path)[0] + ".textonly.md"
+                with open(text_only_path, "w", encoding="utf-8") as _f:
+                    _f.write(stripped)
+                log.warning(
+                    "[PDF] An image defeated the PDF engine; re-rendering %s "
+                    "without figures.",
+                    os.path.basename(output_pdf_path),
+                )
                 try:
-                    os.remove(pandoc_input)
-                except OSError:
-                    pass
+                    _pandoc(text_only_path)
+                except subprocess.CalledProcessError as exc2:
+                    raise RuntimeError(
+                        f"pandoc failed (engine={engine}), including without "
+                        f"images:\n{exc2.stderr}"
+                    ) from exc2
+        finally:
+            # Drop the intermediates; the original .md is untouched.
+            for tmp in (pandoc_input, text_only_path):
+                if tmp and tmp != input_md_path:
+                    try:
+                        os.remove(tmp)
+                    except OSError:
+                        pass
 
         duration_s = round(time.monotonic() - t0, 3)
         finished_at = datetime.now(timezone.utc).isoformat()

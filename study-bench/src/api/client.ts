@@ -26,15 +26,27 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 
 // ── Runs ────────────────────────────────────────────────────────────────────
 
-export async function startRun(topic: string): Promise<{ run_id: string; status: string }> {
+export async function startRun(
+  topic: string,
+  includeVideo = true,
+): Promise<{ run_id: string; status: string }> {
   const res = await fetch(`${BASE}/run`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ topic, mode: MODE }),
+    body: JSON.stringify({ topic, mode: MODE, include_video: includeVideo }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error((err as { detail?: string }).detail ?? "Couldn't start studying that topic.");
+    // A dead backend surfaces through the dev proxy as a 5xx with an HTML body,
+    // so res.json() fails and statusText is "Internal Server Error" - accurate
+    // but useless to a reader. Only trust a detail the API actually sent.
+    const detail = await res
+      .json()
+      .then((b) => (b as { detail?: string }).detail)
+      .catch(() => undefined);
+    throw new Error(
+      detail ??
+        "Couldn't reach the study server. Make sure the backend is running, then try again.",
+    );
   }
   return res.json();
 }

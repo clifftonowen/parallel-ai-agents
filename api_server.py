@@ -78,7 +78,10 @@ app.include_router(routes_auth.router)
 
 class StartRunRequest(BaseModel):
     topic: str
-    mode: str = "both"   # both | original | adk
+    mode: str = "both"   # both | original | adk | async | all
+    # Async pipeline only. Skipping video cuts a run from ~10 minutes to ~2,
+    # since ffmpeg assembly dominates wall time.
+    include_video: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +132,7 @@ async def start_run(req: StartRunRequest, authorization: str | None = Header(def
         mode=req.mode,
         _loop=loop,
         user_id=(user["id"] if user else None),
+        include_video=req.include_video,
     )
 
     with _runs_lock:

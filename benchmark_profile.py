@@ -347,6 +347,11 @@ def main() -> None:
                        help="Only run the async orchestrator (Haiku tiering + caching)")
     parser.add_argument("--no-cprofile", action="store_true",
                         help="Skip cProfile (faster; omits .prof files)")
+    parser.add_argument("--skip-video", action="store_true",
+                        help="Skip the video stage (async orchestrator only). "
+                             "Video assembly is 76-81%% of wall time, so this "
+                             "cuts a run from ~10 minutes to ~2 and isolates "
+                             "orchestration cost from ffmpeg encoding.")
     parser.add_argument("--run-root", default=None,
                         help="Directory to write this run's artifacts into. "
                              "Defaults to OUTPUT_ROOT. The API server passes a "
@@ -548,7 +553,7 @@ def main() -> None:
                     out_path=os.path.join(_ROOT, "async.prof"),
                 )
             else:
-                async_summary = orch_async.run(topic)
+                async_summary = orch_async.run(topic, include_video=not args.skip_video)
         t_total = time.monotonic() - t_start
 
         async_api_snapshot = list(_api_calls)

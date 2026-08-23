@@ -44,6 +44,8 @@ class RunState:
     _cancelled: bool = False
     # Owner (if the run was started by a signed-in user), for persisted history.
     user_id: int | None = None
+    # False runs the fast path: no video stage, ~2 minutes instead of ~10.
+    include_video: bool = True
     # Set when this run's materials were reused from a similar earlier prompt.
     from_cache: bool = False
     cached_topic: str | None = None

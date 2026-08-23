@@ -77,15 +77,24 @@ class AsyncStudyOrchestrator:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
 
-    def run(self, topic: str) -> dict[str, Any]:
-        """Synchronous entry point — runs the async pipeline to completion."""
-        return asyncio.run(self._run_async(topic))
+    def run(self, topic: str, include_video: bool = True) -> dict[str, Any]:
+        """Synchronous entry point — runs the async pipeline to completion.
+
+        Args:
+            include_video: When False, skip the video stage entirely. Video
+                assembly is single-threaded ffmpeg and 76-81% of wall time,
+                so skipping it turns a 6-11 minute run into roughly two
+                minutes while still producing notes, flashcards and both
+                PDFs. Used for the fast path and to isolate orchestration
+                cost when benchmarking.
+        """
+        return asyncio.run(self._run_async(topic, include_video=include_video))
 
     # ------------------------------------------------------------------
     # Async pipeline
     # ------------------------------------------------------------------
 
-    async def _run_async(self, topic: str) -> dict[str, Any]:
+    async def _run_async(self, topic: str, include_video: bool = True) -> dict[str, Any]:
         run_dir = make_run_dir(self.output_dir, topic)
         log.info("[Async] Run directory: %s", run_dir)
 
@@ -107,13 +116,25 @@ class AsyncStudyOrchestrator:
         # Phase 2: Flashcards ‖ Video ‖ notes.pdf (parallel)
         # notes.pdf only depends on notes_md_path (Phase 1's output), so it
         # runs alongside flashcards/video instead of waiting for them.
-        banner("Phase 2 — FlashcardAgent ‖ VideoAgent ‖ notes.pdf (Haiku + caching, parallel)")
-        flashcard_result, video_result, notes_pdf_result = await asyncio.gather(
-            self._run_flashcards(notes_content, run_dir),
-            self._run_video(notes_content, timing_json, run_dir),
-            self._run_pdf(notes_md_path),
-            return_exceptions=True,
-        )
+        if include_video:
+            banner("Phase 2 — FlashcardAgent ‖ VideoAgent ‖ notes.pdf (Haiku + caching, parallel)")
+            flashcard_result, video_result, notes_pdf_result = await asyncio.gather(
+                self._run_flashcards(notes_content, run_dir),
+                self._run_video(notes_content, timing_json, run_dir),
+                self._run_pdf(notes_md_path),
+                return_exceptions=True,
+            )
+        else:
+            banner("Phase 2 — FlashcardAgent ‖ notes.pdf (Haiku + caching, parallel)",
+                   detail="video skipped")
+            flashcard_result, notes_pdf_result = await asyncio.gather(
+                self._run_flashcards(notes_content, run_dir),
+                self._run_pdf(notes_md_path),
+                return_exceptions=True,
+            )
+            # Reported rather than omitted, so a consumer can tell "skipped"
+            # apart from "attempted and failed".
+            video_result = {"status": "skipped"}
 
         if isinstance(flashcard_result, Exception):
             log.error("[Async] FlashcardAgent raised: %s", flashcard_result)
