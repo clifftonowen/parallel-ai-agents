@@ -12,7 +12,7 @@ export default function AppHeader() {
       </Link>
 
       <nav style={right}>
-        <a href="http://localhost:5174" style={navLink}>
+        <a href="http://localhost:5274" style={navLink}>
           Learner App →
         </a>
       </nav>

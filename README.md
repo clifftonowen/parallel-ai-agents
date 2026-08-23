@@ -97,15 +97,15 @@ and `run(topic)`, so they are interchangeable for benchmarking:
 │   ├── parallel_agent_6.py      Six-agent fan-out
 │   ├── chat_session.py          Stateful vs. stateless chat reference
 │   └── benchmark_test.py        asyncio-vs-multiprocessing timing demo
-├── api_server.py            FastAPI dashboard backend (REST + SSE), port 8000
+├── api_server.py            FastAPI dashboard backend (REST + SSE), port 8010
 ├── auth_db.py               SQLite-backed local accounts (study_bench.db)
 ├── benchmark_profile.py     Profiles the orchestrator variants
 ├── prompt_cache.py          Semantic (embedding-similarity) prompt cache
 ├── profiling_results_*.json Captured benchmark runs
 ├── requirements.txt
 ├── package.json             Root launcher only (concurrently)
-├── dashboard2/              Benchmarking dashboard (React + Vite + TS), port 5173
-├── study-bench/             Learner-facing app (React + Vite + TS), port 5174
+├── dashboard2/              Benchmarking dashboard (React + Vite + TS), port 5273
+├── study-bench/             Learner-facing app (React + Vite + TS), port 5274
 └── src/agents/
     ├── base_agent.py            AbstractStudyAgent + tool definitions
     ├── config.py                require_env() and shared configuration helpers
@@ -211,7 +211,7 @@ CACHE_EMBED_MODEL=text-embedding-3-small
 
 ```
 npm install    # one-time; installs `concurrently` at the repo root only
-npm run dev    # api :8000, dashboard :5173, study-bench :5174
+npm run dev    # api :8010, dashboard :5273, study-bench :5274
 ```
 
 Ctrl+C stops all three. This only touches the root `package.json` — each
@@ -267,10 +267,10 @@ to run one or more orchestrator variants, and exposes the results over REST and
 server-sent events.
 
 ```
-uvicorn api_server:app --reload --port 8000
+uvicorn api_server:app --reload --port 8010
 ```
 
-Interactive API docs at `http://localhost:8000/docs`. Key endpoints:
+Interactive API docs at `http://localhost:8010/docs`. Key endpoints:
 
 | Method & path | Purpose |
 | --- | --- |
@@ -287,12 +287,12 @@ Interactive API docs at `http://localhost:8000/docs`. Key endpoints:
 ### Front-ends
 
 Both are Vite + React + TypeScript and proxy `/api` to the backend on port
-8000, stripping the prefix — so backend routes are unprefixed (`/run`, not
+8010, stripping the prefix — so backend routes are unprefixed (`/run`, not
 `/api/run`).
 
 ```
-cd dashboard2   && npm run dev   # http://localhost:5173 — benchmarking, no auth
-cd study-bench  && npm run dev   # http://localhost:5174 — learner app, auth required
+cd dashboard2   && npm run dev   # http://localhost:5273 — benchmarking, no auth
+cd study-bench  && npm run dev   # http://localhost:5274 — learner app, auth required
 ```
 
 `dashboard2` compares the orchestrator variants side by side. `study-bench` is

@@ -12,7 +12,7 @@ Endpoints:
   GET  /file/{run_id}/{filename} — serve individual output file
 
 Run with:
-  uvicorn api_server:app --reload --port 8000
+  uvicorn api_server:app --reload --port 8010
 """
 
 from __future__ import annotations
@@ -398,4 +398,4 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api_server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("api_server:app", host="0.0.0.0", port=8010, reload=True)

@@ -39,11 +39,11 @@ from `src/`.
   `SequentialAgent`/`ParallelAgent` graph over `AnthropicLlm` (not Gemini),
   wrapping the same prompt logic via `adk_agents.py` / `adk_tools.py`.
 
-**Dashboard track** — `api_server.py` (FastAPI, port 8000; shells out to
+**Dashboard track** — `api_server.py` (FastAPI, port 8010; shells out to
 `benchmark_profile.py` rather than importing the orchestrators),
 `auth_db.py` (SQLite accounts + run history), `prompt_cache.py` (semantic
 cache), and two React+Vite+TS front-ends: `dashboard2/` (benchmarking, no
-auth, :5173) and `study-bench/` (learner app, auth, :5174). The root
+auth, :5273) and `study-bench/` (learner app, auth, :5274). The root
 `package.json` is a launcher only — `npm run dev` starts all three.
 
 Pipeline shape today: Phase 1 notes (sequential) → Phase 2 flashcards +

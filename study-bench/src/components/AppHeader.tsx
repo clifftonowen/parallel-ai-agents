@@ -20,7 +20,7 @@ export default function AppHeader() {
       </Link>
 
       <nav style={right}>
-        <a href="http://localhost:5173" style={navLink}>
+        <a href="http://localhost:5273" style={navLink}>
           Benchmark Dashboard →
         </a>
         {user ? (

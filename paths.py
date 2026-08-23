@@ -41,10 +41,18 @@ def resolve_python() -> str:
     explicit = os.environ.get("PIPELINE_PYTHON", "").strip()
     if explicit and os.path.isfile(explicit):
         return explicit
-    for rel in (("Scripts", "python.exe"), ("bin", "python")):
-        cand = os.path.abspath(os.path.join(PROJECT_ROOT, "..", ".venv", *rel))
-        if os.path.isfile(cand):
-            return cand
+    venv = os.environ.get("VIRTUAL_ENV", "").strip()
+    roots = ([venv] if venv else []) + [
+        os.path.join(PROJECT_ROOT, "..", "venv"),
+        os.path.join(PROJECT_ROOT, "..", ".venv"),
+        os.path.join(PROJECT_ROOT, "venv"),
+        os.path.join(PROJECT_ROOT, ".venv"),
+    ]
+    for root in roots:
+        for rel in (("Scripts", "python.exe"), ("bin", "python")):
+            cand = os.path.abspath(os.path.join(root, *rel))
+            if os.path.isfile(cand):
+                return cand
     return sys.executable
 
 
