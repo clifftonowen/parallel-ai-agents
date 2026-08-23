@@ -35,3 +35,6 @@ study_video*TEMP*.mp4
 # ── OS / editor ──────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+
+# Internal remediation note - hand to Davin out of band, never publish
+HANDOVER-davin.md
