@@ -26,13 +26,10 @@ Pipeline structure:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
-import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 from typing import Any
 
 from dotenv import load_dotenv
@@ -46,6 +43,9 @@ if _PROJECT_ROOT not in sys.path:
 load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
 from paths import OUTPUT_ROOT  # noqa: E402
+from src.agents.run_context import (  # noqa: E402
+    banner, build_summary, load_timing_sections, make_run_dir, print_summary,
+)
 from src.agents.config import require_env  # noqa: E402
 from src.agents.specialist_agent import (  # noqa: E402
     FlashcardAgent,
@@ -86,16 +86,13 @@ class AsyncStudyOrchestrator:
     # ------------------------------------------------------------------
 
     async def _run_async(self, topic: str) -> dict[str, Any]:
-        topic_slug = re.sub(r"[^a-z0-9]+", "_", topic.lower()).strip("_")[:30]
-        run_id = f"{topic_slug}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        run_dir = os.path.join(os.path.abspath(self.output_dir), run_id)
-        os.makedirs(run_dir, exist_ok=True)
+        run_dir = make_run_dir(self.output_dir, topic)
         log.info("[Async] Run directory: %s", run_dir)
 
-        _banner("Async Pipeline — starting", detail=f"topic: {topic!r}")
+        banner("Async Pipeline — starting", detail=f"topic: {topic!r}")
 
         # Phase 1: Notes (must finish before Phase 2)
-        _banner("Phase 1 — NotesAgent (Sonnet + caching)")
+        banner("Phase 1 — NotesAgent (Sonnet + caching)")
         notes_result = await self._run_notes(topic, run_dir)
 
         if notes_result.get("status") != "ok":
@@ -103,15 +100,14 @@ class AsyncStudyOrchestrator:
 
         notes_content: str = notes_result["output"]
 
-        with open(notes_result["timing_path"], encoding="utf-8") as f:
-            timing_json: list = json.load(f).get("sections", [])
+        timing_json: list = load_timing_sections(notes_result["timing_path"])
 
         notes_md_path: str = notes_result["md_path"]
 
         # Phase 2: Flashcards ‖ Video ‖ notes.pdf (parallel)
         # notes.pdf only depends on notes_md_path (Phase 1's output), so it
         # runs alongside flashcards/video instead of waiting for them.
-        _banner("Phase 2 — FlashcardAgent ‖ VideoAgent ‖ notes.pdf (Haiku + caching, parallel)")
+        banner("Phase 2 — FlashcardAgent ‖ VideoAgent ‖ notes.pdf (Haiku + caching, parallel)")
         flashcard_result, video_result, notes_pdf_result = await asyncio.gather(
             self._run_flashcards(notes_content, run_dir),
             self._run_video(notes_content, timing_json, run_dir),
@@ -132,7 +128,7 @@ class AsyncStudyOrchestrator:
         flashcards_md_path: str = (flashcard_result or {}).get("flashcards_path", "")
 
         # Phase 3: flashcards.pdf (needs flashcards.md to exist first)
-        _banner("Phase 3 — PDFAgent (flashcards)")
+        banner("Phase 3 — PDFAgent (flashcards)")
         flashcards_pdf_result: dict = {}
         if flashcards_md_path:
             flashcards_pdf_result = await self._run_pdf(flashcards_md_path)
@@ -142,21 +138,15 @@ class AsyncStudyOrchestrator:
         else:
             log.info("[Async] Skipping flashcards PDF — no flashcard output.")
 
-        summary: dict[str, Any] = {
-            "topic": topic,
-            "run_dir": run_dir,
-            "notes_md": notes_result,
-            "flashcards_md": flashcard_result,
-            "video": video_result,
-            "notes_pdf": notes_pdf_result,
-            "flashcards_pdf": flashcards_pdf_result,
-        }
-
-        _banner("Async Pipeline — complete")
-        for key, val in summary.items():
-            status = val.get("status", "—") if isinstance(val, dict) else val
-            print(f"  {key:<20} {status}")
-        print()
+        summary: dict[str, Any] = build_summary(
+            topic, run_dir,
+            notes_md=notes_result,
+            flashcards_md=flashcard_result,
+            video=video_result,
+            notes_pdf=notes_pdf_result,
+            flashcards_pdf=flashcards_pdf_result,
+        )
+        print_summary(summary, "Async Pipeline — complete")
 
         return summary
 
@@ -206,11 +196,6 @@ class AsyncStudyOrchestrator:
         )
 
 
-def _banner(title: str, detail: str = "") -> None:
-    suffix = f"  |  {detail}" if detail else ""
-    print(f"\n{'=' * 60}")
-    print(f"  {title}{suffix}")
-    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":

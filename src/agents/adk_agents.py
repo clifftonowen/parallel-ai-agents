@@ -29,6 +29,7 @@ from google.adk.models.anthropic_llm import AnthropicLlm
 from google.adk.events import Event
 from google.genai import types
 
+from .run_context import split_notes_and_timing
 from .adk_tools import WEB_SEARCH_TOOL, IMAGE_SEARCH_TOOL
 from .specialist_agent import NotesAgent, VideoAgent, PDFAgent
 
@@ -127,22 +128,9 @@ class NotesPostProcessAgent(BaseAgent):
         run_dir: str = ctx.session.state["run_dir"]
         topic: str = ctx.session.state["topic"]
 
-        sections: list = []
-        notes_md: str = raw
-
-        if "---TIMING---" in raw:
-            notes_part, timing_raw = raw.split("---TIMING---", 1)
-            notes_md = notes_part.strip()
-            timing_raw = (
-                timing_raw.strip()
-                .lstrip("```json").lstrip("```")
-                .rstrip("```").strip()
-            )
-            try:
-                sections = json.loads(timing_raw)
-                log.info("[NotesPostProcess] Timing extracted inline.")
-            except json.JSONDecodeError:
-                log.warning("[NotesPostProcess] Inline timing JSON malformed — fallback.")
+        notes_md, sections = split_notes_and_timing(raw)
+        if sections:
+            log.info("[NotesPostProcess] Timing extracted inline.")
 
         if not sections:
             # Fallback: second LLM call via the existing NotesAgent machinery.

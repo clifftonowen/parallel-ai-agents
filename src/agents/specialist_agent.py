@@ -11,6 +11,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
+from .run_context import split_notes_and_timing
 from .base_agent import AbstractStudyAgent, TOOL_DEFINITIONS
 
 log = logging.getLogger(__name__)
@@ -121,22 +122,9 @@ class NotesAgent(AbstractStudyAgent):
 
         # Attempt to extract timing data from the combined output (saves a second LLM call).
         # build_prompt instructs Claude to append ---TIMING--- then a JSON array.
-        sections: list = []
-        if "---TIMING---" in content:
-            notes_part, timing_raw = content.split("---TIMING---", 1)
-            content = notes_part.strip()
-            timing_raw = (
-                timing_raw.strip()
-                .lstrip("```json")
-                .lstrip("```")
-                .rstrip("```")
-                .strip()
-            )
-            try:
-                sections = json.loads(timing_raw)
-                log.info("[Notes] Timing extracted inline — skipping second LLM call.")
-            except json.JSONDecodeError:
-                log.warning("[Notes] Inline timing JSON malformed — falling back to second call.")
+        content, sections = split_notes_and_timing(content)
+        if sections:
+            log.info("[Notes] Timing extracted inline — skipping second LLM call.")
 
         if not sections:
             # Fallback: dedicated second LLM call (original behaviour).

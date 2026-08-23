@@ -1,0 +1,136 @@
+"""
+run_context.py
+
+Small helpers the three orchestrators all need, kept in one place.
+
+Each of these existed as two, three or four byte-identical copies. The slug in
+particular had a fourth copy in api_server.py that independently re-derived it
+for download filenames, so changing the rule in one place silently desynced the
+ZIP name from the run directory it came from.
+
+Everything here is pure except `bootstrap`, which is kept separate precisely so
+that importing this module has no side effects.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+from datetime import datetime
+
+__all__ = [
+    "slugify_topic",
+    "make_run_dir",
+    "banner",
+    "load_timing_sections",
+    "build_summary",
+    "print_summary",
+    "split_notes_and_timing",
+]
+
+# Marker the notes agent emits between the prose and its timing sidecar.
+TIMING_MARKER = "---TIMING---"
+
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+_SLUG_MAX_LEN = 30
+
+
+def slugify_topic(topic: str) -> str:
+    """Filesystem-safe stem for a topic.
+
+    Lowercased, runs of non-alphanumerics collapsed to underscores, trimmed to
+    30 characters. Used for both run directory names and download filenames --
+    they must agree, which is why there is only one of these now.
+    """
+    return _SLUG_RE.sub("_", topic.lower()).strip("_")[:_SLUG_MAX_LEN]
+
+
+def make_run_dir(output_dir: str, topic: str, when: datetime | None = None) -> str:
+    """Create and return `output_dir/{slug}_{YYYYMMDD_HHMMSS}/`.
+
+    Every orchestrator call gets a self-contained folder so runs never mix.
+    """
+    stamp = (when or datetime.now()).strftime("%Y%m%d_%H%M%S")
+    run_dir = os.path.join(
+        os.path.abspath(output_dir), f"{slugify_topic(topic)}_{stamp}"
+    )
+    os.makedirs(run_dir, exist_ok=True)
+    return run_dir
+
+
+def banner(title: str, detail: str = "") -> None:
+    """Print a section header to stdout.
+
+    Not decoration: api_server infers run progress by regex-matching these
+    lines, so the wording is load-bearing.
+    """
+    suffix = f"  |  {detail}" if detail else ""
+    print(f"\n{'=' * 60}")
+    print(f"  {title}{suffix}")
+    print(f"{'=' * 60}")
+
+
+def load_timing_sections(timing_path: str) -> list:
+    """Read the per-section timing sidecar that paces the video narration.
+
+    Returns an empty list if the file is missing or malformed -- a bad sidecar
+    should cost the video stage, not the whole run.
+    """
+    try:
+        with open(timing_path, encoding="utf-8") as f:
+            return json.load(f).get("sections", [])
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def split_notes_and_timing(raw: str) -> tuple[str, list]:
+    """Split the notes agent's reply into markdown and parsed timing sections.
+
+    The prompt asks the model to append the marker followed by a JSON array,
+    which saves a second LLM call. Models routinely wrap that array in a
+    ```json fence anyway, so the fence is stripped before parsing.
+
+    Returns (notes_markdown, sections). `sections` is empty when the marker is
+    absent or the JSON does not parse, which callers treat as "ask separately"
+    rather than as a failure.
+    """
+    if TIMING_MARKER not in raw:
+        return raw.strip(), []
+
+    notes_part, _, timing_raw = raw.partition(TIMING_MARKER)
+    timing_raw = (
+        timing_raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+    )
+    try:
+        sections = json.loads(timing_raw)
+    except json.JSONDecodeError:
+        sections = []
+    if not isinstance(sections, list):
+        sections = []
+    return notes_part.strip(), sections
+
+
+def build_summary(topic: str, run_dir: str, **agent_results) -> dict:
+    """Assemble the dict an orchestrator returns from its per-agent results.
+
+    Key order matters only for the printed summary, not for consumers.
+    """
+    summary = {"topic": topic, "run_dir": run_dir}
+    summary.update(agent_results)
+    return summary
+
+
+def print_summary(summary: dict, title: str) -> None:
+    """Print the closing summary block.
+
+    A faithful extraction of what the orchestrators already printed, down to
+    the column width and the trailing blank line: api_server infers progress by
+    matching these lines, so "improving" the format would move the progress bar.
+    The banner title stays per-orchestrator for the same reason.
+    """
+    banner(title)
+    for key, val in summary.items():
+        status = val.get("status", "—") if isinstance(val, dict) else val
+        print(f"  {key:<20} {status}")
+    print()

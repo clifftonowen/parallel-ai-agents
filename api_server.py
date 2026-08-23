@@ -21,7 +21,6 @@ import asyncio
 import io
 import json
 import os
-import re
 from contextlib import asynccontextmanager
 import threading
 import uuid
@@ -36,6 +35,7 @@ from pydantic import BaseModel
 import auth_db
 import routes_auth
 import run_manager
+from src.agents.run_context import slugify_topic
 from run_manager import runs as _runs, runs_lock as _runs_lock
 from run_state import RunState
 from security import current_user, user_from_header_or_query
@@ -290,9 +290,11 @@ async def download_run(
 
     buf.seek(0)
     topic_str = state.topic if state is not None else persisted["topic"]
-    topic_slug = re.sub(r"[^a-z0-9]+", "_", topic_str.lower()).strip("_")[:30]
+    # Same slug rule the orchestrators use for run directories. This was a
+    # separate copy of the regex, so changing one silently desynced the
+    # download name from the directory it came from.
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{topic_slug}_{ts}.zip"
+    filename = f"{slugify_topic(topic_str)}_{ts}.zip"
 
     return StreamingResponse(
         io.BytesIO(buf.read()),
