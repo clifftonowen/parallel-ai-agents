@@ -38,6 +38,8 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 import auth_db
+import routes_auth
+from security import current_user, user_from_header_or_query
 import prompt_cache
 
 # ---------------------------------------------------------------------------
@@ -69,26 +71,7 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------------------------
-# Optional authentication helpers
-# ---------------------------------------------------------------------------
-
-def _token_from_header(authorization: str | None) -> str | None:
-    if authorization and authorization.lower().startswith("bearer "):
-        return authorization[7:].strip()
-    return None
-
-
-def current_user(authorization: str | None = Header(default=None)) -> dict | None:
-    """Returns the signed-in user for a bearer token, or None for anonymous requests.
-    Auth is optional everywhere — anonymous use keeps working exactly as before."""
-    return auth_db.user_for_token(_token_from_header(authorization))
-
-
-def user_from_header_or_query(authorization: str | None, token_q: str | None) -> dict | None:
-    """Media/download URLs (<video src>, window.open) can't send an Authorization
-    header, so those routes also accept a ?token= query param."""
-    return auth_db.user_for_token(_token_from_header(authorization) or token_q)
+app.include_router(routes_auth.router)
 
 # ---------------------------------------------------------------------------
 # In-memory run registry
@@ -677,51 +660,6 @@ async def serve_file(
             return FileResponse(candidate)
 
     raise HTTPException(status_code=404, detail=f"file '{filename}' not found for this run")
-
-
-# ---------------------------------------------------------------------------
-# Authentication (email + password; Study Bench learner app only)
-# ---------------------------------------------------------------------------
-
-class AuthRequest(BaseModel):
-    email: str
-    password: str
-
-
-@app.post("/auth/signup")
-async def signup(req: AuthRequest):
-    try:
-        user = auth_db.create_user(req.email, req.password)
-    except auth_db.AuthError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    token = auth_db.create_session(user["id"])
-    return {"token": token, "email": user["email"]}
-
-
-@app.post("/auth/login")
-async def login(req: AuthRequest):
-    try:
-        user = auth_db.verify_login(req.email, req.password)
-    except auth_db.AuthError as exc:
-        raise HTTPException(status_code=401, detail=str(exc))
-    token = auth_db.create_session(user["id"])
-    return {"token": token, "email": user["email"]}
-
-
-@app.post("/auth/logout", status_code=204)
-async def logout(authorization: str | None = Header(default=None)):
-    token = _token_from_header(authorization)
-    if token:
-        auth_db.delete_session(token)
-    return None
-
-
-@app.get("/auth/me")
-async def me(authorization: str | None = Header(default=None)):
-    user = current_user(authorization)
-    if not user:
-        raise HTTPException(status_code=401, detail="not signed in")
-    return {"email": user["email"]}
 
 
 # ---------------------------------------------------------------------------
