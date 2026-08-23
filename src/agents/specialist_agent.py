@@ -1,9 +1,13 @@
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
@@ -742,6 +746,64 @@ _EXTRA_TOOL_DIRS = [
     os.path.join(os.environ.get("LOCALAPPDATA", ""), "Tectonic"),
 ]
 
+# LaTeX engines can only size a narrow set of image formats. A .webp, .svg or
+# .gif reference makes xelatex abort the whole document with
+# "Cannot determine size of graphic", which is why a single bad image from the
+# notes research step used to take out notes.pdf entirely.
+_LATEX_SAFE_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".pdf"}
+
+_MD_IMAGE_RE = re.compile(r"!\[(?P<alt>[^\]]*)\]\((?P<url>[^)\s]+)(?P<title>\s+\"[^\"]*\")?\)")
+
+
+def _image_is_renderable(url: str, base_dir: str) -> bool:
+    """True if a LaTeX engine can actually embed this image reference.
+
+    Rejects formats LaTeX cannot size, local files that do not exist, and
+    remote URLs that do not resolve to a reachable image.
+    """
+    ext = os.path.splitext(urllib.parse.urlparse(url).path)[1].lower()
+
+    if url.startswith(("http://", "https://")):
+        if ext and ext not in _LATEX_SAFE_IMAGE_EXTS:
+            return False
+        req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "Mozilla/5.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                if resp.status != 200:
+                    return False
+                ctype = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        except Exception:
+            return False
+        return ctype in ("image/png", "image/jpeg", "image/jpg", "application/pdf")
+
+    # Local path, resolved relative to the markdown file.
+    if ext not in _LATEX_SAFE_IMAGE_EXTS:
+        return False
+    candidate = url if os.path.isabs(url) else os.path.join(base_dir, url)
+    return os.path.isfile(candidate)
+
+
+def _strip_unrenderable_images(md_text: str, base_dir: str) -> tuple[str, int]:
+    """Drop image references a LaTeX engine would choke on.
+
+    Returns the cleaned markdown and the number of images removed. The alt
+    text is kept as plain italic text so the surrounding prose still reads.
+    """
+    removed = 0
+
+    def _sub(match: "re.Match[str]") -> str:
+        nonlocal removed
+        url = match.group("url")
+        if _image_is_renderable(url, base_dir):
+            return match.group(0)
+        removed += 1
+        alt = (match.group("alt") or "").strip()
+        log.info("[PDF] Dropping unrenderable image: %s", url)
+        return f"*{alt}*" if alt else ""
+
+    return _MD_IMAGE_RE.sub(_sub, md_text), removed
+
+
 # Candidate PDF engines, in order of preference. The first one found wins.
 _PDF_ENGINES = ["xelatex", "lualatex", "pdflatex", "tectonic", "wkhtmltopdf", "weasyprint"]
 
@@ -837,8 +899,27 @@ class PDFAgent(AbstractStudyAgent):
                 (p for p in _eisvogel_candidates if os.path.isfile(p)), None
             )
 
+        # LaTeX aborts the whole document on one unsizeable image, and the notes
+        # research step routinely cites .webp/.svg or dead URLs. Render from a
+        # sanitised copy so a bad citation costs one figure, not the PDF.
+        pandoc_input = input_md_path
+        if _is_latex:
+            with open(input_md_path, encoding="utf-8") as _f:
+                _md = _f.read()
+            _clean, _removed = _strip_unrenderable_images(
+                _md, os.path.dirname(os.path.abspath(input_md_path))
+            )
+            if _removed:
+                pandoc_input = os.path.splitext(input_md_path)[0] + ".pdfsrc.md"
+                with open(pandoc_input, "w", encoding="utf-8") as _f:
+                    _f.write(_clean)
+                log.info(
+                    "[PDF] Removed %d unrenderable image(s) before rendering %s",
+                    _removed, os.path.basename(output_pdf_path),
+                )
+
         cmd = [
-            pandoc, input_md_path,
+            pandoc, pandoc_input,
             "-o", output_pdf_path,
             f"--pdf-engine={_resolve_tool(engine)}",
         ]
@@ -885,6 +966,13 @@ class PDFAgent(AbstractStudyAgent):
             raise RuntimeError(
                 f"pandoc failed (engine={engine}):\n{exc.stderr}"
             ) from exc
+        finally:
+            # Drop the sanitised intermediate; the original .md is untouched.
+            if pandoc_input != input_md_path:
+                try:
+                    os.remove(pandoc_input)
+                except OSError:
+                    pass
 
         duration_s = round(time.monotonic() - t0, 3)
         finished_at = datetime.now(timezone.utc).isoformat()
