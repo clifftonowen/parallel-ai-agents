@@ -347,6 +347,13 @@ def main() -> None:
                        help="Only run the async orchestrator (Haiku tiering + caching)")
     parser.add_argument("--no-cprofile", action="store_true",
                         help="Skip cProfile (faster; omits .prof files)")
+    parser.add_argument("--run-root", default=None,
+                        help="Directory to write this run's artifacts into. "
+                             "Defaults to OUTPUT_ROOT. The API server passes a "
+                             "per-run path so concurrent runs cannot collide.")
+    parser.add_argument("--out-json", default=None,
+                        help="Where to write the benchmark results JSON. "
+                             "Defaults to a timestamped file at the repo root.")
     parser.add_argument("--otel", action="store_true",
                         help="Enable OpenTelemetry span collection for ADK path")
     args = parser.parse_args()
@@ -356,6 +363,7 @@ def main() -> None:
 
     topic = args.topic
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    _run_root_kw = {"output_dir": args.run_root} if args.run_root else {}
     results: dict[str, Any] = {
         "topic": topic,
         "timestamp": timestamp,
@@ -380,6 +388,7 @@ def main() -> None:
         orch_orig = StudyOrchestrator(
             anthropic_api_key=anthropic_key,
             openai_api_key=openai_key,
+            **_run_root_kw,
         )
 
         t_start = time.monotonic()
@@ -412,6 +421,7 @@ def main() -> None:
         npdf_dur  = npdf_res.get("duration_s", 0) or 0
         fpdf_dur  = fpdf_res.get("duration_s", 0) or 0
 
+        results.setdefault("run_dirs", {})["original"] = orig_summary.get("run_dir", "")
         results["original"] = {
             "total_wall_s": round(t_total, 3),
             "phases": {
@@ -461,6 +471,7 @@ def main() -> None:
         orch_adk = ADKStudyOrchestrator(
             anthropic_api_key=anthropic_key,
             openai_api_key=openai_key,
+            **_run_root_kw,
         )
 
         t_start = time.monotonic()
@@ -485,6 +496,7 @@ def main() -> None:
         total_adk_input  = sum(v["input_tokens"]  for v in adk_token_by_agent.values())
         total_adk_output = sum(v["output_tokens"] for v in adk_token_by_agent.values())
 
+        results.setdefault("run_dirs", {})["adk"] = adk_summary.get("run_dir", "")
         results["adk"] = {
             "total_wall_s": round(t_total, 3),
             "phases": adk_phase_times,
@@ -522,6 +534,7 @@ def main() -> None:
         orch_async = AsyncStudyOrchestrator(
             anthropic_api_key=anthropic_key,
             openai_api_key=openai_key,
+            **_run_root_kw,
         )
 
         t_start = time.monotonic()
@@ -559,6 +572,7 @@ def main() -> None:
         cache_create = sum(getattr(c.get("_resp_usage", None), "cache_creation_input_tokens", 0) or 0
                            for c in async_api_snapshot)
 
+        results.setdefault("run_dirs", {})["async"] = async_summary.get("run_dir", "")
         results["async"] = {
             "total_wall_s": round(t_total, 3),
             "phases": {
@@ -600,7 +614,10 @@ def main() -> None:
     # Strip large content fields before serializing
     _safe = json.loads(json.dumps(results, default=str))
 
-    out_path = os.path.join(_ROOT, f"profiling_results_{timestamp}.json")
+    out_path = args.out_json or os.path.join(
+        _ROOT, f"profiling_results_{timestamp}.json"
+    )
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".", exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(_safe, f, indent=2)
     print(f"\nResults saved to: {out_path}")

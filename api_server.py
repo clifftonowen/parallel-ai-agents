@@ -18,12 +18,10 @@ Run with:
 from __future__ import annotations
 
 import asyncio
-import glob
 import io
 import json
 import os
 import re
-import subprocess
 from contextlib import asynccontextmanager
 import threading
 import uuid
@@ -37,7 +35,9 @@ from pydantic import BaseModel
 
 import auth_db
 import routes_auth
-from run_state import RunState, infer_phase
+import run_manager
+from run_manager import runs as _runs, runs_lock as _runs_lock
+from run_state import RunState
 from security import current_user, user_from_header_or_query
 import prompt_cache
 
@@ -45,7 +45,7 @@ import prompt_cache
 # Config
 # ---------------------------------------------------------------------------
 
-from paths import OUTPUT_ROOT, PROJECT_ROOT, PYTHON  # noqa: E402
+from paths import OUTPUT_ROOT  # noqa: E402
 
 
 @asynccontextmanager
@@ -71,166 +71,6 @@ app.add_middleware(
 
 
 app.include_router(routes_auth.router)
-
-# ---------------------------------------------------------------------------
-# In-memory run registry
-# ---------------------------------------------------------------------------
-
-_runs: dict[str, RunState] = {}
-_runs_lock = threading.Lock()
-
-
-# ---------------------------------------------------------------------------
-# Background worker
-# ---------------------------------------------------------------------------
-
-def _build_cmd(topic: str, mode: str) -> list[str]:
-    cmd = [PYTHON, "benchmark_profile.py", "--topic", topic, "--no-cprofile"]
-    if mode == "adk":
-        cmd.append("--adk-only")
-    elif mode == "original":
-        cmd.append("--original-only")
-    elif mode == "async":
-        cmd.append("--async-only")
-    # "both" and "all" run all paths — no extra flag needed
-    return cmd
-
-
-def _find_benchmark_json() -> str | None:
-    pattern = os.path.join(PROJECT_ROOT, "profiling_results_*.json")
-    matches = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
-    return matches[0] if matches else None
-
-
-def _collect_outputs(run_dir: str) -> dict[str, str]:
-    mapping = {
-        "notes_md": "notes.md",
-        "flashcards_md": "flashcards.md",
-        "notes_pdf": "notes.pdf",
-        "flashcards_pdf": "flashcards.pdf",
-        "video": "study_video.mp4",
-    }
-    result: dict[str, str] = {}
-    if not run_dir or not os.path.isdir(run_dir):
-        return result
-    for key, filename in mapping.items():
-        path = os.path.join(run_dir, filename)
-        if os.path.isfile(path):
-            result[key] = path
-    return result
-
-
-def _persist_run_result(state: RunState) -> None:
-    """If the run belongs to a signed-in user, save its final state to the DB so it
-    appears in their history and survives a server restart. No-op for anonymous runs."""
-    if state.user_id is None:
-        return
-    try:
-        auth_db.set_run_result(state.run_id, state.status, state.run_dir, state.outputs)
-    except Exception as exc:  # never let a DB hiccup break the run
-        state.append_log(f"[api] Warning: could not save run to history: {exc}")
-
-
-def _run_worker(state: RunState) -> None:
-    cmd = _build_cmd(state.topic, state.mode)
-    state.append_log(f"[api] Launching: {' '.join(cmd)}")
-    state.set_phase("starting", 2)
-
-    try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            cwd=PROJECT_ROOT,
-        )
-        with state._lock:
-            state._proc = proc
-
-        for raw_line in proc.stdout:
-            line = raw_line.rstrip()
-            state.append_log(line)
-            infer_phase(state, line)
-
-        proc.wait()
-        return_code = proc.returncode
-
-        # A cancel request killed the process — report it as cancelled, not an error.
-        if state._cancelled:
-            with state._lock:
-                state.status = "cancelled"
-                state.phase = "error"
-            _persist_run_result(state)
-            state._push_sse({"log": "[api] Run cancelled.", "phase": "error", "progress_pct": state.progress_pct})
-            return
-
-        if return_code != 0:
-            with state._lock:
-                state.status = "error"
-                state.error = f"Process exited with code {return_code}"
-            state.set_phase("error", state.progress_pct)
-            _persist_run_result(state)
-            state._push_sse({"log": state.error, "phase": "error", "progress_pct": state.progress_pct})
-            return
-
-        # Read benchmark JSON produced by benchmark_profile.py
-        bench_path = _find_benchmark_json()
-        if bench_path:
-            try:
-                with open(bench_path, encoding="utf-8") as f:
-                    bench = json.load(f)
-                with state._lock:
-                    state.benchmark = bench
-                state.append_log(f"[api] Benchmark JSON loaded: {bench_path}")
-            except Exception as exc:
-                state.append_log(f"[api] Warning: could not load benchmark JSON: {exc}")
-
-        # Locate most-recently-modified subdir in output/ as the run directory
-        run_dir = ""
-        output_root = os.path.join(PROJECT_ROOT, "output")
-        if os.path.isdir(output_root):
-            subdirs = [
-                os.path.join(output_root, d)
-                for d in os.listdir(output_root)
-                if os.path.isdir(os.path.join(output_root, d))
-            ]
-            if subdirs:
-                run_dir = max(subdirs, key=os.path.getmtime)
-
-        with state._lock:
-            state.run_dir = run_dir
-            state.outputs = _collect_outputs(run_dir)
-            state.status = "complete"
-            state.progress_pct = 100
-            state.phase = "done"
-
-        _persist_run_result(state)
-        # Record this fresh generation so a future similar prompt can reuse it.
-        try:
-            prompt_cache.remember(state.topic, state.run_dir, state.outputs)
-        except Exception as exc:
-            state.append_log(f"[api] Warning: could not cache this run: {exc}")
-        state._push_sse({"log": "[api] Run complete.", "phase": "done", "progress_pct": 100})
-
-    except Exception as exc:
-        with state._lock:
-            state.status = "error"
-            state.error = str(exc)
-        _persist_run_result(state)
-        state._push_sse({"log": f"[api] ERROR: {exc}", "phase": "error", "progress_pct": state.progress_pct})
-
-    finally:
-        # Signal all SSE subscribers that the stream is done
-        sentinel = json.dumps({"done": True})
-        for q in list(state._queues):
-            try:
-                if state._loop:
-                    state._loop.call_soon_threadsafe(q.put_nowait, sentinel)
-            except Exception:
-                pass
-
 
 # ---------------------------------------------------------------------------
 # Request / response models
@@ -301,7 +141,7 @@ async def start_run(req: StartRunRequest, authorization: str | None = Header(def
         except Exception:
             pass
 
-    thread = threading.Thread(target=_run_worker, args=(state,), daemon=True)
+    thread = threading.Thread(target=run_manager.run_worker, args=(state,), daemon=True)
     thread.start()
 
     return {"run_id": run_id, "status": "running"}
@@ -441,10 +281,12 @@ async def download_run(
             if os.path.isfile(path):
                 zf.write(path, arcname=os.path.basename(path))
 
-        # Include benchmark JSON if available
-        bench_path = _find_benchmark_json()
-        if bench_path and os.path.isfile(bench_path):
-            zf.write(bench_path, arcname=os.path.basename(bench_path))
+        # This run's own benchmark JSON, if it produced one. Previously this
+        # attached whichever profiling_results_*.json was newest at the repo
+        # root, which under concurrent runs was somebody else's.
+        bench_path = run_manager.benchmark_json_path(run_id)
+        if os.path.isfile(bench_path):
+            zf.write(bench_path, arcname="profiling_results.json")
 
     buf.seek(0)
     topic_str = state.topic if state is not None else persisted["topic"]
