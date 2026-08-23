@@ -70,11 +70,27 @@ def discover_bundles() -> list[dict]:
     if not os.path.isdir(OUTPUT_ROOT):
         return found
 
+    # Two layouts coexist. Older runs sit directly under output/ as
+    # {slug}_{timestamp}/. Newer ones sit under output/{run_id}/{slug}_{ts}/,
+    # because the server now names the parent after the run id so concurrent
+    # runs cannot collide. Look one level deep to catch both.
+    candidates: list[str] = []
     for name in sorted(os.listdir(OUTPUT_ROOT)):
-        run_dir = os.path.join(OUTPUT_ROOT, name)
-        timing = os.path.join(run_dir, "timing.json")
-        if not os.path.isdir(run_dir) or not os.path.isfile(timing):
+        top = os.path.join(OUTPUT_ROOT, name)
+        if not os.path.isdir(top) or name.startswith("_"):
             continue
+        candidates.append(top)
+        candidates.extend(
+            os.path.join(top, sub)
+            for sub in sorted(os.listdir(top))
+            if os.path.isdir(os.path.join(top, sub))
+        )
+
+    for run_dir in candidates:
+        timing = os.path.join(run_dir, "timing.json")
+        if not os.path.isfile(timing):
+            continue
+        name = os.path.basename(run_dir)
         try:
             with open(timing, encoding="utf-8") as f:
                 topic = (json.load(f).get("topic") or "").strip()

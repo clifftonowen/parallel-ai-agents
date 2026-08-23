@@ -40,6 +40,7 @@ export interface RunState {
   error: string | null;
   // Set when these materials were reused from a similar earlier prompt.
   from_cache?: boolean;
+  include_video?: boolean;
   cached_topic?: string | null;
 }
 

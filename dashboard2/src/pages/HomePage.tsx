@@ -25,7 +25,10 @@ function statusWord(s: string) {
 export default function HomePage() {
   const navigate = useNavigate();
   const [topic, setTopic] = useState("");
-  const [mode, setMode] = useState<RunMode>("all");
+  // Defaults to a single orchestrator. "All three" runs them sequentially,
+  // which is ~36 minutes and 3x the token spend - not something a stray
+  // click should start.
+  const [mode, setMode] = useState<RunMode>("async");
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<RunSummary[]>([]);
@@ -53,7 +56,14 @@ export default function HomePage() {
       const { run_id } = await startRun(topic.trim(), mode);
       navigate(`/run/${run_id}`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to start run. Is the API server running on port 8000?");
+      // Only surface a detail the API actually sent; a dead backend through
+      // the dev proxy yields a 5xx whose statusText is "Internal Server
+      // Error", which tells the reader nothing.
+      setError(
+        err instanceof Error && !/internal server error|failed to fetch/i.test(err.message)
+          ? err.message
+          : "Couldn't reach the benchmark server. Make sure the backend is running, then try again.",
+      );
     } finally {
       setLaunching(false);
     }

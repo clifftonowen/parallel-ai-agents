@@ -127,6 +127,8 @@ class RunState:
                 "error": self.error,
                 "from_cache": self.from_cache,
                 "cached_topic": self.cached_topic,
+                # So the client can stop promising a video this run never makes.
+                "include_video": self.include_video,
             }
 
 
@@ -138,17 +140,28 @@ class RunState:
 # these patterns are coupled to log wording in the agents. Order matters: the
 # first match wins.
 PHASE_PATTERNS: list[tuple[re.Pattern, str, int]] = [
-    (re.compile(r"ADK Pipeline|Original Pipeline|Starting|study_generator", re.I), "starting", 2),
-    (re.compile(r"\[Notes\]|notes_agent|Phase 1|phase1|NotesAgent|Generating notes", re.I), "phase1", 10),
-    (re.compile(r"NotesPost|timing|notes\.md saved|Notes saved", re.I), "phase1", 30),
-    (re.compile(r"\[Flashcard\]|flashcard_agent|FlashcardAgent|Generating flashcard", re.I), "phase2", 40),
-    (re.compile(r"\[Video\]|VideoAgent|video_agent|Stage A|Stage B", re.I), "phase2", 50),
-    (re.compile(r"study_video|video.*saved|mp4", re.I), "phase2", 65),
-    (re.compile(r"\[PDF\]|PDFAgent|notes_pdf|flashcards_pdf|pandoc", re.I), "phase3", 75),
-    (re.compile(r"PDF.*saved|pdf_path", re.I), "phase3", 85),
-    (re.compile(r"BENCHMARK RESULTS|profiling_results|Comparison", re.I), "profiling", 90),
-    (re.compile(r"ADK Pipeline.*complete|Original Pipeline.*complete|Pipeline.*done", re.I), "done", 95),
+    # The phase banners are the backbone: they are deliberate, ordered, and
+    # printed by run_context.banner. Requiring the dash separator keeps them
+    # from matching the "Phase 1  (Notes)" rows of the closing results table,
+    # which arrive at the end and would otherwise look like a phase change.
+    (re.compile(r"Pipeline\s*[—\-]\s*starting|Original Pipeline|ADK Pipeline", re.I), "starting", 3),
+    (re.compile(r"Phase 1\s*[—\-]", re.I), "phase1", 12),
+    (re.compile(r"\[Notes\] Saved", re.I), "phase1", 32),
+    (re.compile(r"Phase 2\s*[—\-]", re.I), "phase2", 42),
+    (re.compile(r"\[Flashcards\] Saved", re.I), "phase2", 58),
+    # Video only. Absent on a --skip-video run, which simply moves on.
+    (re.compile(r"\[Video\]\s*(Benchmark|stage)|stage-A|stage-BC", re.I), "phase2", 72),
+    (re.compile(r"study_video\.mp4", re.I), "phase2", 85),
+    (re.compile(r"Phase 3\s*[—\-]", re.I), "phase3", 90),
+    (re.compile(r"BENCHMARK RESULTS", re.I), "profiling", 95),
+    (re.compile(r"Pipeline\s*[—\-]\s*complete|Pipeline.*done", re.I), "done", 97),
 ]
+
+# Lines the API server itself writes into the log. They are not pipeline output
+# and must never drive progress -- the launch line contains the --out-json path,
+# which used to match the "profiling_results" pattern and pin the bar at 90%
+# from the very first line of every run.
+_SERVER_LINE = re.compile(r"^\s*\[api\]")
 
 
 def infer_phase(state: RunState, line: str) -> None:
@@ -157,6 +170,8 @@ def infer_phase(state: RunState, line: str) -> None:
     Monotonic on purpose: a late-arriving line from an earlier stage must not
     walk the progress bar backwards.
     """
+    if _SERVER_LINE.match(line):
+        return
     for pattern, phase, pct in PHASE_PATTERNS:
         if pattern.search(line):
             if pct > state.progress_pct:
