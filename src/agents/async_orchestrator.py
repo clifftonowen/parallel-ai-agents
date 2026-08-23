@@ -45,6 +45,7 @@ if _PROJECT_ROOT not in sys.path:
 
 load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
+from paths import OUTPUT_ROOT  # noqa: E402
 from src.agents.config import require_env  # noqa: E402
 from src.agents.specialist_agent import (  # noqa: E402
     FlashcardAgent,
@@ -69,7 +70,7 @@ class AsyncStudyOrchestrator:
         self,
         anthropic_api_key: str,
         openai_api_key: str,
-        output_dir: str = "output",
+        output_dir: str = OUTPUT_ROOT,
     ) -> None:
         self.anthropic_api_key = anthropic_api_key
         self.openai_api_key = openai_api_key

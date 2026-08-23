@@ -25,6 +25,7 @@ import os
 import re
 import subprocess
 import sys
+from contextlib import asynccontextmanager
 import threading
 import uuid
 import zipfile
@@ -43,29 +44,22 @@ import prompt_cache
 # Config
 # ---------------------------------------------------------------------------
 
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+from paths import OUTPUT_ROOT, PROJECT_ROOT, PYTHON  # noqa: E402
 
-def _resolve_python() -> str:
-    """Interpreter used to spawn benchmark_profile.py.
 
-    Prefers an explicit override, then a sibling venv in either the Windows
-    or POSIX layout, then the running interpreter. In a container the app
-    python IS the pipeline python, so the sys.executable fallback is the
-    normal path rather than a degraded one.
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Create the schema on startup rather than at import.
+
+    Doing this at import meant any importer -- including a test collector --
+    created a database file as a side effect.
     """
-    explicit = os.environ.get("PIPELINE_PYTHON", "").strip()
-    if explicit and os.path.isfile(explicit):
-        return explicit
-    for rel in ("Scripts/python.exe", "bin/python"):
-        cand = os.path.abspath(os.path.join(PROJECT_ROOT, "..", ".venv", *rel.split("/")))
-        if os.path.isfile(cand):
-            return cand
-    return sys.executable
+    os.makedirs(OUTPUT_ROOT, exist_ok=True)
+    auth_db.init_db()
+    yield
 
 
-PYTHON = _resolve_python()
-
-app = FastAPI(title="parallel-ai-agents dashboard")
+app = FastAPI(title="parallel-ai-agents dashboard", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -73,8 +67,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-auth_db.init_db()
 
 
 # ---------------------------------------------------------------------------
