@@ -240,7 +240,7 @@ class AbstractStudyAgent(ABC):
     def _web_search(self, query: str) -> str:
         """Search the web and return the top 3 results as formatted text.
 
-        Uses the duckduckgo_search package. Falls back to an informative
+        Uses the ddgs package. Falls back to an informative
         error string if the package is not installed.
 
         Args:
@@ -272,7 +272,7 @@ class AbstractStudyAgent(ABC):
     def _image_search(self, query: str, max_results: int = 3) -> str:
         """Search for images and return Markdown image links.
 
-        Uses DuckDuckGo image search via the duckduckgo_search package.
+        Uses DuckDuckGo image search via the ddgs package.
 
         Args:
             query:       Image search query, e.g. 'gradient descent diagram'.

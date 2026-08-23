@@ -2,6 +2,7 @@
 anthropic
 google-cloud-aiplatform
 moviepy
+python-pptx
 openai
 playwright
 python-dotenv

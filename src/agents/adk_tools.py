@@ -20,7 +20,7 @@ from google.adk.tools import FunctionTool
 
 def _web_search_sync(query: str) -> str:
     try:
-        from duckduckgo_search import DDGS
+        from ddgs import DDGS
 
         results: list[str] = []
         with DDGS() as ddgs:
@@ -32,14 +32,14 @@ def _web_search_sync(query: str) -> str:
                 )
         return "\n".join(results) or "No results found."
     except ImportError:
-        return "[web_search] duckduckgo_search not installed. Run: pip install duckduckgo_search"
+        return "[web_search] ddgs not installed. Run: pip install ddgs"
     except Exception as exc:
         return f"[web_search error] {exc}"
 
 
 def _image_search_sync(query: str, max_results: int = 3) -> str:
     try:
-        from duckduckgo_search import DDGS
+        from ddgs import DDGS
 
         lines: list[str] = []
         with DDGS() as ddgs:
@@ -50,7 +50,7 @@ def _image_search_sync(query: str, max_results: int = 3) -> str:
                     lines.append(f"![{title}]({url})")
         return "\n".join(lines) or "No images found."
     except ImportError:
-        return "[image_search] duckduckgo_search not installed. Run: pip install duckduckgo_search"
+        return "[image_search] ddgs not installed. Run: pip install ddgs"
     except Exception as exc:
         return f"[image_search error] {exc}"
 
