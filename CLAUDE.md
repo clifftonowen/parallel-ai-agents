@@ -42,9 +42,15 @@ from `src/`.
 **Dashboard track** — `api_server.py` (FastAPI, port 8010; shells out to
 `benchmark_profile.py` rather than importing the orchestrators),
 `auth_db.py` (SQLite accounts + run history), `prompt_cache.py` (semantic
-cache), and two React+Vite+TS front-ends: `dashboard2/` (benchmarking, no
-auth, :5273) and `study-bench/` (learner app, auth, :5274). The root
-`package.json` is a launcher only — `npm run dev` starts all three.
+cache), and one React+Vite+TS front-end: `web/` (:5273). The root
+`package.json` is a launcher only — `npm run dev` starts both. `API_PORT`
+moves the backend and the Vite proxy together.
+
+`web/` was two apps (`dashboard2/`, `study-bench/`) until they were merged.
+Routes: `/` dashboard, `/library`, `/run/:id`, `/session/:id`, `/benchmark`,
+`/benchmark/:id`, `/signin`. Design tokens are ported from the "broadsheet"
+Claude Design system — `src/theme.ts` and `src/index.css` mirror each other,
+so a value changed in one must change in the other.
 
 Pipeline shape today: Phase 1 notes (sequential) → Phase 2 flashcards +
 video + notes.pdf (parallel) → Phase 3 flashcards.pdf (sequential).
@@ -171,6 +177,6 @@ Davin:
 - `benchmark_profile.py` head-to-head profiling.
 - FastAPI backend with SSE streaming and optional accounts.
 - Semantic prompt cache.
-- Both front-ends (`dashboard2/`, `study-bench/`).
+- Both front-ends, later merged into the single `web/` app.
 - Front-end input for topic (replaced the hardcoded topic in the old
   `src/main.py`, which no longer exists).
