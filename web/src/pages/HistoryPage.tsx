@@ -14,7 +14,7 @@ export default function HistoryPage() {
 
   // Requires an account; send anonymous visitors to sign in, remembering where to return.
   useEffect(() => {
-    if (ready && !user) navigate("/signin", { state: { from: "/history" }, replace: true });
+    if (ready && !user) navigate("/signin", { state: { from: "/library" }, replace: true });
   }, [ready, user, navigate]);
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function HistoryPage() {
   if (!user) return null;
 
   const openRun = (r: RunSummary) =>
-    navigate(r.status === "complete" ? `/package/${r.run_id}` : `/run/${r.run_id}`);
+    navigate(r.status === "complete" ? `/session/${r.run_id}` : `/run/${r.run_id}`);
 
   return (
     <main style={page}>

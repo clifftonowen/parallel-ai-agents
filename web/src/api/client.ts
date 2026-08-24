@@ -1,9 +1,12 @@
-import type { AuthResponse, RunState, RunSummary, SSEEvent, User } from "../types";
+import type { AuthResponse, RunMode, RunState, RunSummary, SSEEvent, User } from "../types";
 
 const BASE = "/api";
 
-// This app always runs the async pipeline — the fastest, cache/tiering-optimized path.
-const MODE = "async";
+// Async is the default: the fastest path, and the only one with --skip-video.
+// The other modes exist for the benchmark comparison; "all" runs three
+// orchestrators in sequence, which is roughly 36 minutes and 3x the spend, so
+// it is never the default.
+const DEFAULT_MODE: RunMode = "async";
 
 // ── Auth token ───────────────────────────────────────────────────────────────
 // Held in memory and mirrored to localStorage by AuthContext. Threaded into every
@@ -29,11 +32,12 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 export async function startRun(
   topic: string,
   includeVideo = true,
+  mode: RunMode = DEFAULT_MODE,
 ): Promise<{ run_id: string; status: string }> {
   const res = await fetch(`${BASE}/run`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ topic, mode: MODE, include_video: includeVideo }),
+    body: JSON.stringify({ topic, mode, include_video: includeVideo }),
   });
   if (!res.ok) {
     // A dead backend surfaces through the dev proxy as a 5xx with an HTML body,

@@ -96,7 +96,7 @@ export default function RunPage() {
           setStatus(s.status);
           if (s.status === "complete") {
             setPhase("done");
-            setTimeout(() => navigate(`/package/${run_id}`), 1100);
+            setTimeout(() => navigate(`/session/${run_id}`), 1100);
           } else if (s.status === "error" || s.status === "cancelled") {
             setPhase("error");
             setError(s.error ?? "The session ended before it finished.");
@@ -235,7 +235,7 @@ export default function RunPage() {
           </ul>
 
           {status === "complete" && (
-            <button onClick={() => navigate(`/package/${run_id}`)} style={openBtn}>
+            <button onClick={() => navigate(`/session/${run_id}`)} style={openBtn}>
               Open your study materials →
             </button>
           )}

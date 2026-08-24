@@ -2,8 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listRuns, startRun } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import type { RunSummary } from "../types";
+import type { RunMode, RunSummary } from "../types";
 import { c, font, eyebrow, hairline, layout, size, space, display } from "../theme";
+
+// Which orchestrator runs the pipeline. Carried over from the benchmark
+// dashboard, which was the only place this could be chosen before the two
+// front-ends merged. "All three" runs them in sequence — roughly 36 minutes
+// and 3x the token spend — so it is never the default.
+const MODES: { value: RunMode; label: string; note: string }[] = [
+  { value: "async", label: "Async", note: "asyncio — the default path" },
+  { value: "adk", label: "ADK", note: "Google ADK agent graph" },
+  { value: "original", label: "Threads", note: "ThreadPoolExecutor baseline" },
+  { value: "all", label: "All three", note: "sequential — slow and expensive" },
+];
 
 const EXAMPLES = [
   "How logistic regression actually works",
@@ -22,6 +33,7 @@ export default function SubmitPage() {
   // instead of ten, which is the difference between watching it work and
   // walking away.
   const [includeVideo, setIncludeVideo] = useState(false);
+  const [mode, setMode] = useState<RunMode>("async");
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<RunSummary[]>([]);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -51,7 +63,7 @@ export default function SubmitPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const { run_id } = await startRun(t, includeVideo);
+      const { run_id } = await startRun(t, includeVideo, mode);
       navigate(`/run/${run_id}`);
     } catch (err: unknown) {
       setError(
@@ -120,6 +132,20 @@ export default function SubmitPage() {
           </p>
         )}
 
+        <div style={modeRow} role="radiogroup" aria-label="Orchestrator">
+          {MODES.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => setMode(m.value)}
+              title={m.note}
+              aria-pressed={mode === m.value}
+              style={{ ...modeBtn, ...(mode === m.value ? modeBtnActive : {}) }}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
         <label style={videoToggle}>
           <input
             type="checkbox"
@@ -145,7 +171,7 @@ export default function SubmitPage() {
         <div style={ledgerHead}>
           <span style={eyebrow}>{user ? "Your topics" : "Recent topics"}</span>
           {user ? (
-            <button onClick={() => navigate("/history")} style={ledgerRefresh}>
+            <button onClick={() => navigate("/library")} style={ledgerRefresh}>
               see all
             </button>
           ) : (
@@ -167,7 +193,7 @@ export default function SubmitPage() {
               <li key={r.run_id}>
                 <button
                   onClick={() =>
-                    navigate(r.status === "complete" ? `/package/${r.run_id}` : `/run/${r.run_id}`)
+                    navigate(r.status === "complete" ? `/session/${r.run_id}` : `/run/${r.run_id}`)
                   }
                   style={ledgerRow}
                 >
@@ -283,6 +309,28 @@ const chip: React.CSSProperties = {
   padding: `${space.sm}px ${space.md}px`,
   lineHeight: 1.3,
   transition: "border-color 0.15s, color 0.15s",
+};
+
+const modeRow: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: space.sm,
+  marginTop: space.base,
+};
+
+const modeBtn: React.CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: size.small,
+  color: c.inkSoft,
+  border: `1px solid ${c.rule}`,
+  padding: `${space.sm}px ${space.md}px`,
+  transition: "border-color 0.15s, color 0.15s, background-color 0.15s",
+};
+
+const modeBtnActive: React.CSSProperties = {
+  backgroundColor: c.reagent,
+  color: c.paper,
+  borderColor: c.reagent,
 };
 
 const errorLine: React.CSSProperties = {

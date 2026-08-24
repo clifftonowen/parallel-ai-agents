@@ -4,6 +4,7 @@ import { downloadZip, getRun } from "../api/client";
 import BarChart from "../components/BarChart";
 import FileCard from "../components/FileCard";
 import TokenTable from "../components/TokenTable";
+import { hasBenchmarkData } from "../types";
 import type { AsyncMetrics, BenchmarkReport, RunState } from "../types";
 import { c, font, hairline, layout, size } from "../theme";
 
@@ -240,7 +241,7 @@ export default function ResultsPage() {
     );
   }
 
-  const report = runState.benchmark as BenchmarkReport | null;
+  const report = (runState.benchmark ?? null) as BenchmarkReport | null;
 
   return (
     <div style={styles.container}>
@@ -269,7 +270,7 @@ export default function ResultsPage() {
       {/* Tab content */}
       <div style={styles.tabContent}>
         {activeTab === "benchmark" &&
-          (report && (report.original || report.adk) ? (
+          (hasBenchmarkData(report) ? (
             <BenchmarkTab report={report} />
           ) : (
             <p style={{ color: c.inkFaint, textAlign: "center", padding: "24px 0" }}>

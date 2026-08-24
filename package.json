@@ -2,10 +2,9 @@
   "name": "parallel-ai-agents",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n api,dashboard,study-bench -c blue,magenta,green \"npm:dev:api\" \"npm:dev:dashboard\" \"npm:dev:study-bench\"",
+    "dev": "concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "node scripts/dev_api.mjs",
-    "dev:dashboard": "npm run dev --prefix dashboard2",
-    "dev:study-bench": "npm run dev --prefix study-bench"
+    "dev:web": "npm run dev --prefix web"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

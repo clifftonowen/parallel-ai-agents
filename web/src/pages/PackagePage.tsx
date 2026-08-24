@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { downloadZip, getRun } from "../api/client";
 import MaterialViewer, { type Material } from "../components/MaterialViewer";
 import type { OutputPaths, RunState } from "../types";
-import { c, font, eyebrow, hairline, layout, size, display } from "../theme";
+import { c, font, eyebrow, hairline, layout, size, space, display } from "../theme";
 
 const basename = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
@@ -80,7 +80,15 @@ export default function PackagePage() {
         <button onClick={() => navigate("/")} style={backLink}>
           ← new topic
         </button>
-        <div style={{ ...eyebrow, color: c.reagent }}>· ready to study</div>
+        <div style={headRight}>
+          <div style={{ ...eyebrow, color: c.reagent }}>· ready to study</div>
+          {/* The timing and token numbers for this run. Only runs started
+              through benchmark_profile.py carry a report, so this is a link
+              rather than an inline panel. */}
+          <button onClick={() => navigate(`/benchmark/${run.run_id}`)} style={benchLink}>
+            benchmark →
+          </button>
+        </div>
       </header>
 
       <h1 style={title} className="animate-rise">
@@ -147,6 +155,20 @@ function Centered({ children, tone }: { children: React.ReactNode; tone?: "flag"
 }
 
 // ── styles ────────────────────────────────────────────────────────────────────
+
+const headRight: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: space.base,
+};
+
+const benchLink: React.CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: size.micro,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  color: c.inkSoft,
+};
 
 const page: React.CSSProperties = { maxWidth: layout.shell, margin: "0 auto", padding: "34px 22px 90px" };
 
