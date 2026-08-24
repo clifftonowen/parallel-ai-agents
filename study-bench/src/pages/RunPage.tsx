@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cancelRun, getRun, streamRun } from "../api/client";
 import type { RunPhase, RunState, SSEEvent } from "../types";
-import { c, font, eyebrow } from "../theme";
+import { c, font, eyebrow, layout, size, display } from "../theme";
 
 // The learner waits here while their materials are made. This screen's only job is
 // to reassure — so it speaks in deliverables ("your flashcards are ready"), never in
@@ -247,12 +247,12 @@ export default function RunPage() {
 
 // ── styles ────────────────────────────────────────────────────────────────────
 
-const page: React.CSSProperties = { maxWidth: 640, margin: "0 auto", padding: "40px 22px 90px" };
+const page: React.CSSProperties = { maxWidth: layout.shell, margin: "0 auto", padding: "40px 22px 90px" };
 
 const head: React.CSSProperties = { display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16 };
 const backLink: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
   color: c.inkSoft,
@@ -269,7 +269,7 @@ const stopBar: React.CSSProperties = {
 };
 const stopLink: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   fontWeight: 700,
   letterSpacing: "0.12em",
   textTransform: "uppercase",
@@ -277,11 +277,11 @@ const stopLink: React.CSSProperties = {
   borderBottom: `1px solid ${c.rule}`,
   paddingBottom: 2,
 };
-const confirmText: React.CSSProperties = { fontSize: 14, color: c.ink, flex: 1, minWidth: 180 };
+const confirmText: React.CSSProperties = { fontSize: size.body, color: c.ink, flex: 1, minWidth: 180 };
 const confirmActions: React.CSSProperties = { display: "flex", gap: 8, flexShrink: 0 };
 const keepBtn: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   fontWeight: 700,
   letterSpacing: "0.08em",
   textTransform: "uppercase",
@@ -291,7 +291,7 @@ const keepBtn: React.CSSProperties = {
 };
 const confirmStopBtn: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   fontWeight: 700,
   letterSpacing: "0.08em",
   textTransform: "uppercase",
@@ -302,7 +302,7 @@ const confirmStopBtn: React.CSSProperties = {
 const clock: React.CSSProperties = {
   marginLeft: "auto",
   fontFamily: font.mono,
-  fontSize: 14,
+  fontSize: size.body,
   fontWeight: 700,
   color: c.ink,
 };
@@ -322,7 +322,7 @@ const focalDot: React.CSSProperties = {
 
 const title: React.CSSProperties = {
   fontFamily: font.display,
-  fontSize: "clamp(30px, 5.5vw, 46px)",
+  fontSize: display,
   fontWeight: 600,
   lineHeight: 1.04,
   letterSpacing: "-0.015em",
@@ -330,7 +330,7 @@ const title: React.CSSProperties = {
   textAlign: "center",
 };
 const statusLine: React.CSSProperties = {
-  fontSize: 16,
+  fontSize: size.lead,
   color: c.inkSoft,
   marginTop: 12,
   textAlign: "center",
@@ -355,21 +355,21 @@ const mark: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   color: c.paper,
-  fontSize: 12,
+  fontSize: size.small,
   fontWeight: 700,
   flexShrink: 0,
 };
 const rowLabel: React.CSSProperties = {
   fontFamily: font.display,
-  fontSize: 20,
+  fontSize: size.title,
   fontWeight: 600,
   display: "block",
   lineHeight: 1.15,
 };
-const rowBlurb: React.CSSProperties = { fontSize: 13.5, color: c.inkFaint };
+const rowBlurb: React.CSSProperties = { fontSize: size.small, color: c.inkFaint };
 const rowState: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
   flexShrink: 0,
@@ -381,7 +381,7 @@ const openBtn: React.CSSProperties = {
   backgroundColor: c.reagent,
   color: c.paper,
   fontFamily: font.body,
-  fontSize: 17,
+  fontSize: size.lead,
   fontWeight: 600,
   padding: "16px 20px",
 };
@@ -389,7 +389,7 @@ const openBtn: React.CSSProperties = {
 const errorBox: React.CSSProperties = { marginTop: 28, textAlign: "center" };
 const retryBtn: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   fontWeight: 700,
   letterSpacing: "0.08em",
   textTransform: "uppercase",

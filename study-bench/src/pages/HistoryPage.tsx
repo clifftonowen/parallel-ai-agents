@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { listRuns } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { RunSummary } from "../types";
-import { c, font, hairline } from "../theme";
+import { c, font, hairline, layout, size, display } from "../theme";
 
 // Your filed topics. A ruled ledger — numbered because it's a real sequence over time.
 export default function HistoryPage() {
@@ -92,10 +92,10 @@ function statusWord(s: string) {
 
 // ── styles ────────────────────────────────────────────────────────────────────
 
-const page: React.CSSProperties = { maxWidth: 680, margin: "0 auto", padding: "34px 22px 90px" };
+const page: React.CSSProperties = { maxWidth: layout.shell, margin: "0 auto", padding: "34px 22px 90px" };
 const backLink: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
   color: c.inkSoft,
@@ -104,14 +104,14 @@ const backLink: React.CSSProperties = {
 };
 const title: React.CSSProperties = {
   fontFamily: font.display,
-  fontSize: "clamp(32px, 6vw, 48px)",
+  fontSize: display,
   fontWeight: 600,
   lineHeight: 1.02,
   letterSpacing: "-0.02em",
   color: c.ink,
 };
-const sub: React.CSSProperties = { fontSize: 15, color: c.inkSoft, marginTop: 10 };
-const errorLine: React.CSSProperties = { color: c.flag, fontFamily: font.mono, fontSize: 13, marginTop: 16 };
+const sub: React.CSSProperties = { fontSize: size.body, color: c.inkSoft, marginTop: 10 };
+const errorLine: React.CSSProperties = { color: c.flag, fontFamily: font.mono, fontSize: size.small, marginTop: 16 };
 
 const list: React.CSSProperties = { listStyle: "none", marginTop: 30, borderTop: hairline };
 const row: React.CSSProperties = {
@@ -123,11 +123,11 @@ const row: React.CSSProperties = {
   borderBottom: `1px solid ${c.ruleSoft}`,
   textAlign: "left",
 };
-const num: React.CSSProperties = { fontFamily: font.mono, fontSize: 12, color: c.inkFaint, flexShrink: 0 };
+const num: React.CSSProperties = { fontFamily: font.mono, fontSize: size.small, color: c.inkFaint, flexShrink: 0 };
 const topic: React.CSSProperties = {
   flex: 1,
   minWidth: 0,
-  fontSize: 16,
+  fontSize: size.lead,
   color: c.ink,
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -135,7 +135,7 @@ const topic: React.CSSProperties = {
 };
 const state: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
   flexShrink: 0,
@@ -144,17 +144,17 @@ const state: React.CSSProperties = {
 const emptyBox: React.CSSProperties = { marginTop: 40, borderTop: hairline, paddingTop: 28 };
 const emptyLead: React.CSSProperties = {
   fontFamily: font.display,
-  fontSize: 24,
+  fontSize: size.head,
   fontWeight: 600,
   color: c.ink,
 };
-const emptyBody: React.CSSProperties = { fontSize: 15, color: c.inkSoft, marginTop: 8, maxWidth: 420 };
+const emptyBody: React.CSSProperties = { fontSize: size.body, color: c.inkSoft, marginTop: 8, maxWidth: 420 };
 const emptyCta: React.CSSProperties = {
   marginTop: 20,
   backgroundColor: c.reagent,
   color: c.paper,
   fontFamily: font.body,
-  fontSize: 15,
+  fontSize: size.body,
   fontWeight: 600,
   padding: "12px 22px",
 };

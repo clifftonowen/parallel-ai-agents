@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { marked } from "marked";
-import { c, font } from "../theme";
+import { c, font, size } from "../theme";
 
 // Renders notes.md / flashcards.md as readable prose rather than a raw <pre> dump.
 // marked handles the parsing; the styling below is scoped via a wrapper class so it
@@ -17,7 +17,7 @@ export default function Markdown({ source }: { source: string }) {
 
 const wrap: React.CSSProperties = {
   fontFamily: font.body,
-  fontSize: 15,
+  fontSize: size.body,
   lineHeight: 1.72,
   color: c.ink,
 };

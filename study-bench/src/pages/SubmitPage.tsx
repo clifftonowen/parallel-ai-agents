@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { listRuns, startRun } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { RunSummary } from "../types";
-import { c, font, eyebrow, hairline } from "../theme";
+import { c, font, eyebrow, hairline, layout, size, space, display } from "../theme";
 
 const EXAMPLES = [
   "How logistic regression actually works",
@@ -73,7 +73,7 @@ export default function SubmitPage() {
       <header style={masthead} className="animate-rise">
         <div style={mastheadTop}>
           <span style={eyebrow}>Study Bench</span>
-          <span style={{ ...eyebrow, color: c.reagent }}>· learn anything</span>
+          <span style={{ ...eyebrow, color: c.inkFaint }}>· learn anything</span>
         </div>
         <div style={topRule} className="rule-draw" />
       </header>
@@ -199,17 +199,17 @@ function statusWord(s: string) {
 // ── styles ────────────────────────────────────────────────────────────────────
 
 const page: React.CSSProperties = {
-  maxWidth: 760,
+  maxWidth: layout.shell,
   margin: "0 auto",
-  padding: "40px 22px 80px",
+  padding: `${space.lg}px ${layout.gutter}px ${space.page}px`,
 };
 
-const masthead: React.CSSProperties = { marginBottom: 44 };
+const masthead: React.CSSProperties = { marginBottom: space.xxl };
 const mastheadTop: React.CSSProperties = {
   display: "flex",
   alignItems: "baseline",
-  gap: 8,
-  marginBottom: 10,
+  gap: space.sm,
+  marginBottom: space.md,
 };
 const topRule: React.CSSProperties = {
   height: 2,
@@ -217,42 +217,42 @@ const topRule: React.CSSProperties = {
   transformOrigin: "left",
 };
 
-const intake: React.CSSProperties = { marginBottom: 56 };
+const intake: React.CSSProperties = { marginBottom: space.section };
 
 const intakeLead: React.CSSProperties = {
   display: "block",
   fontFamily: font.display,
-  fontSize: "clamp(40px, 8vw, 68px)",
+  fontSize: display,
   fontWeight: 600,
   lineHeight: 0.98,
   letterSpacing: "-0.02em",
   color: c.ink,
-  marginBottom: 18,
+  marginBottom: space.base,
   overflowWrap: "break-word",
 };
 
 const intakeSub: React.CSSProperties = {
-  fontSize: 16,
+  fontSize: size.lead,
   color: c.inkSoft,
-  maxWidth: 520,
-  marginBottom: 26,
+  maxWidth: layout.measure,
+  marginBottom: space.lg,
 };
 
 const slip: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
-  gap: 12,
+  gap: space.md,
   border: `1px solid ${c.ink}`,
   backgroundColor: c.paperCard,
-  padding: "16px 18px",
+  padding: `${space.base}px ${space.base}px`,
 };
 
 const slipTick: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 13,
+  fontSize: size.small,
   fontWeight: 700,
-  color: c.reagent,
-  paddingTop: 4,
+  color: c.inkFaint,
+  paddingTop: space.xs,
   flexShrink: 0,
 };
 
@@ -263,7 +263,7 @@ const textarea: React.CSSProperties = {
   resize: "none",
   background: "transparent",
   fontFamily: font.body,
-  fontSize: 19,
+  fontSize: size.title,
   lineHeight: 1.4,
   color: c.ink,
 };
@@ -271,16 +271,16 @@ const textarea: React.CSSProperties = {
 const exampleRow: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: 8,
-  marginTop: 14,
+  gap: space.sm,
+  marginTop: space.base,
 };
 
 const chip: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: 12,
+  fontFamily: font.body,
+  fontSize: size.body,
   color: c.inkSoft,
   border: `1px solid ${c.rule}`,
-  padding: "9px 12px",
+  padding: `${space.sm}px ${space.md}px`,
   lineHeight: 1.3,
   transition: "border-color 0.15s, color 0.15s",
 };
@@ -288,17 +288,17 @@ const chip: React.CSSProperties = {
 const errorLine: React.CSSProperties = {
   color: c.flag,
   fontFamily: font.mono,
-  fontSize: 13,
-  marginTop: 18,
+  fontSize: size.small,
+  marginTop: space.base,
 };
 
 const videoToggle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
-  margin: "14px 0 4px",
-  fontFamily: font.mono,
-  fontSize: 12,
+  gap: space.sm,
+  margin: `${space.base}px 0 ${space.xs}px`,
+  fontFamily: font.body,
+  fontSize: size.body,
   color: c.inkSoft,
   cursor: "pointer",
 };
@@ -308,58 +308,65 @@ const videoToggleHint: React.CSSProperties = {
 };
 
 const cta: React.CSSProperties = {
-  marginTop: 26,
-  width: "100%",
+  marginTop: space.lg,
   backgroundColor: c.reagent,
   color: c.paper,
   fontFamily: font.body,
-  fontSize: 17,
+  fontSize: size.lead,
   fontWeight: 600,
-  padding: "16px 20px",
-  display: "flex",
+  padding: `${space.md}px ${space.xl}px`,
+  display: "inline-flex",
   alignItems: "center",
-  justifyContent: "center",
-  gap: 10,
+  gap: space.md,
   transition: "background-color 0.15s",
 };
 
 const ctaHint: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   opacity: 0.7,
 };
 
-const ledger: React.CSSProperties = { borderTop: hairline, paddingTop: 22 };
+const ledger: React.CSSProperties = { borderTop: hairline, paddingTop: space.lg };
 const ledgerHead: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "baseline",
-  marginBottom: 12,
+  marginBottom: space.md,
 };
 const ledgerRefresh: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   letterSpacing: "0.12em",
   textTransform: "uppercase",
-  color: c.reagent,
+  color: c.inkSoft,
 };
-const emptyLedger: React.CSSProperties = { color: c.inkFaint, fontSize: 14, padding: "8px 0" };
+const emptyLedger: React.CSSProperties = {
+  color: c.inkFaint,
+  fontSize: size.body,
+  padding: `${space.sm}px 0`,
+};
 
 const ledgerList: React.CSSProperties = { listStyle: "none" };
 const ledgerRow: React.CSSProperties = {
   width: "100%",
   display: "flex",
   alignItems: "center",
-  gap: 14,
-  padding: "11px 0",
+  gap: space.base,
+  padding: `${space.md}px 0`,
   borderBottom: `1px solid ${c.ruleSoft}`,
   textAlign: "left",
 };
-const ledgerNum: React.CSSProperties = { fontFamily: font.mono, fontSize: 12, color: c.inkFaint, flexShrink: 0 };
+const ledgerNum: React.CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: size.small,
+  color: c.inkFaint,
+  flexShrink: 0,
+};
 const ledgerTopic: React.CSSProperties = {
   flex: 1,
   minWidth: 0,
-  fontSize: 15,
+  fontSize: size.body,
   color: c.ink,
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -367,7 +374,7 @@ const ledgerTopic: React.CSSProperties = {
 };
 const ledgerStatus: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
   flexShrink: 0,

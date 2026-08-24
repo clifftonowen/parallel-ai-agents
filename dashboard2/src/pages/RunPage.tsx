@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getRun, streamRun } from "../api/client";
 import PhaseBar from "../components/PhaseBar";
 import type { RunPhase, SSEEvent } from "../types";
-import { c, font, eyebrow } from "../theme";
+import { c, font, eyebrow, layout, size } from "../theme";
 
 const PHASES: { key: string; label: string; activeOn: RunPhase[] }[] = [
   { key: "phase1", label: "Phase 1 — Notes", activeOn: ["phase1"] },
@@ -146,7 +146,7 @@ export default function RunPage() {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    maxWidth: 900,
+    maxWidth: layout.shell,
     margin: "0 auto",
     padding: "20px 20px 24px",
     display: "flex",
@@ -162,14 +162,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     fontFamily: font.display,
-    fontSize: 24,
+    fontSize: size.head,
     fontWeight: 600,
     color: c.ink,
     flex: 1,
   },
   statusBadge: {
     fontFamily: font.mono,
-    fontSize: 11,
+    fontSize: size.micro,
     fontWeight: 700,
     letterSpacing: "0.1em",
     textTransform: "uppercase",
@@ -200,13 +200,13 @@ const styles: Record<string, React.CSSProperties> = {
   progressPct: {
     fontFamily: font.mono,
     color: c.inkSoft,
-    fontSize: 12,
+    fontSize: size.small,
     width: 38,
     textAlign: "right",
   },
   statusText: {
     color: c.inkSoft,
-    fontSize: 13,
+    fontSize: size.small,
     textAlign: "center",
     marginBottom: 14,
   },
@@ -215,7 +215,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderLeft: `3px solid ${c.flag}`,
     padding: 12,
     color: c.ink,
-    fontSize: 13,
+    fontSize: size.small,
     marginBottom: 16,
   },
   resultsBtn: {
@@ -223,7 +223,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: c.paper,
     fontFamily: font.body,
     padding: "13px 26px",
-    fontSize: 15,
+    fontSize: size.body,
     fontWeight: 600,
     marginBottom: 16,
     alignSelf: "center",
@@ -242,7 +242,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "auto",
     color: c.paperDeep,
     fontFamily: font.mono,
-    fontSize: 11,
+    fontSize: size.micro,
     lineHeight: 1.65,
     whiteSpace: "pre-wrap",
     wordBreak: "break-all",

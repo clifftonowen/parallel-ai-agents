@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { downloadFile, fetchFileText, fileUrl } from "../api/client";
 import Markdown, { markdownStyles } from "./Markdown";
-import { c, font, eyebrow } from "../theme";
+import { c, font, eyebrow, size, displaySmall } from "../theme";
 
 // A download option offered on a material (e.g. Markdown, PDF, or the mp4 itself).
 export interface DownloadOption {
@@ -154,7 +154,7 @@ const header: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   fontFamily: font.display,
-  fontSize: "clamp(24px, 4vw, 32px)",
+  fontSize: displaySmall,
   fontWeight: 600,
   color: c.ink,
   marginTop: 2,
@@ -165,7 +165,7 @@ const actions: React.CSSProperties = { display: "flex", alignItems: "center", ga
 
 const dlBtn: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   fontWeight: 700,
   letterSpacing: "0.08em",
   textTransform: "uppercase",
@@ -190,14 +190,14 @@ const menuItem: React.CSSProperties = {
   textAlign: "left",
   padding: "10px 14px",
   fontFamily: font.body,
-  fontSize: 14,
+  fontSize: size.body,
   color: c.ink,
   borderBottom: `1px solid ${c.ruleSoft}`,
 };
 
 const closeBtn: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   fontWeight: 700,
   letterSpacing: "0.08em",
   color: c.ink,
@@ -206,5 +206,5 @@ const closeBtn: React.CSSProperties = {
 const body: React.CSSProperties = { overflowY: "auto", padding: "24px 26px" };
 
 const video: React.CSSProperties = { width: "100%", display: "block", backgroundColor: "#000" };
-const loadingText: React.CSSProperties = { fontFamily: font.mono, fontSize: 13, color: c.inkFaint };
-const errText: React.CSSProperties = { fontFamily: font.mono, fontSize: 13, color: c.flag };
+const loadingText: React.CSSProperties = { fontFamily: font.mono, fontSize: size.small, color: c.inkFaint };
+const errText: React.CSSProperties = { fontFamily: font.mono, fontSize: size.small, color: c.flag };

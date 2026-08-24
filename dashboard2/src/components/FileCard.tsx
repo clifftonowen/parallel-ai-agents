@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { downloadFile, fetchFileText } from "../api/client";
-import { c, font, hairline } from "../theme";
+import { c, font, hairline, size } from "../theme";
 
 interface Props {
   run_id: string;
@@ -42,8 +42,8 @@ export default function FileCard({ run_id, label, filename, icon, previewable }:
     <>
       <div style={cardStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <span style={{ fontSize: 22 }}>{icon}</span>
-          <span style={{ color: c.ink, fontWeight: 600, fontSize: 14 }}>{label}</span>
+          <span style={{ fontSize: size.title }}>{icon}</span>
+          <span style={{ color: c.ink, fontWeight: 600, fontSize: size.body }}>{label}</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {previewable && (
@@ -59,7 +59,7 @@ export default function FileCard({ run_id, label, filename, icon, previewable }:
             ↓ Download
           </button>
         </div>
-        {error && <p style={{ color: c.flag, fontSize: 11, marginTop: 6 }}>{error}</p>}
+        {error && <p style={{ color: c.flag, fontSize: size.micro, marginTop: 6 }}>{error}</p>}
       </div>
 
       {/* Preview dialog */}
@@ -70,7 +70,7 @@ export default function FileCard({ run_id, label, filename, icon, previewable }:
         >
           <div style={dialogStyle}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ fontFamily: font.display, color: c.ink, fontSize: 18, fontWeight: 600 }}>{label}</h3>
+              <h3 style={{ fontFamily: font.display, color: c.ink, fontSize: size.lead, fontWeight: 600 }}>{label}</h3>
               <button onClick={() => setPreviewOpen(false)} style={closeBtnStyle}>✕ Close</button>
             </div>
             <pre style={preStyle}>{previewContent}</pre>
@@ -94,7 +94,7 @@ const previewBtnStyle: React.CSSProperties = {
   color: c.inkSoft,
   border: `1px solid ${c.rule}`,
   padding: "8px 12px",
-  fontSize: 13,
+  fontSize: size.small,
   fontWeight: 600,
 };
 
@@ -103,7 +103,7 @@ const dlBtnStyle: React.CSSProperties = {
   backgroundColor: c.reagent,
   color: c.paper,
   padding: "8px 12px",
-  fontSize: 13,
+  fontSize: size.small,
   fontWeight: 600,
 };
 
@@ -134,7 +134,7 @@ const preStyle: React.CSSProperties = {
   overflow: "auto",
   color: c.inkSoft,
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   lineHeight: 1.7,
   whiteSpace: "pre-wrap",
   wordBreak: "break-word",
@@ -143,6 +143,6 @@ const preStyle: React.CSSProperties = {
 const closeBtnStyle: React.CSSProperties = {
   backgroundColor: "transparent",
   color: c.reagent,
-  fontSize: 14,
+  fontSize: size.body,
   fontWeight: 600,
 };

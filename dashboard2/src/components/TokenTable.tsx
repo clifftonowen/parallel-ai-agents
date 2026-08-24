@@ -1,4 +1,4 @@
-import { c, font, hairline, hairlineSoft } from "../theme";
+import { c, font, hairline, hairlineSoft, size, space } from "../theme";
 
 interface Row {
   label: string;
@@ -14,34 +14,45 @@ interface Props {
 
 export default function TokenTable({ rows, showAsync = false }: Props) {
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", border: hairline }}>
-      <thead>
-        <tr style={{ backgroundColor: c.paperCard }}>
-          <th style={thStyle}>Metric</th>
-          <th style={{ ...thStyle, color: c.inkSoft }}>Original</th>
-          <th style={{ ...thStyle, color: c.reagent }}>ADK</th>
-          {showAsync && <th style={{ ...thStyle, color: c.reagentSoft }}>Async</th>}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, i) => (
-          <tr key={i} style={{ backgroundColor: i % 2 === 0 ? c.paper : c.paperCard }}>
-            <td style={tdLabelStyle}>{row.label}</td>
-            <td style={tdStyle}>{row.original != null ? String(row.original) : "—"}</td>
-            <td style={tdStyle}>{row.adk != null ? String(row.adk) : "—"}</td>
-            {showAsync && <td style={tdStyle}>{row.async != null ? String(row.async) : "—"}</td>}
+    <div style={scroller}>
+      <table style={tableStyle}>
+        <thead>
+          <tr style={{ backgroundColor: c.paperCard }}>
+            <th style={thStyle}>Metric</th>
+            <th style={{ ...thStyle, color: c.inkSoft }}>Original</th>
+            <th style={{ ...thStyle, color: c.reagent }}>ADK</th>
+            {showAsync && <th style={{ ...thStyle, color: c.reagentSoft }}>Async</th>}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} style={{ backgroundColor: i % 2 === 0 ? c.paper : c.paperCard }}>
+              <td style={tdLabelStyle}>{row.label}</td>
+              <td style={tdStyle}>{row.original != null ? String(row.original) : "—"}</td>
+              <td style={tdStyle}>{row.adk != null ? String(row.adk) : "—"}</td>
+              {showAsync && <td style={tdStyle}>{row.async != null ? String(row.async) : "—"}</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
+const scroller: React.CSSProperties = { overflowX: "auto" };
+
+const tableStyle: React.CSSProperties = {
+  width: "100%",
+  minWidth: 420,
+  borderCollapse: "collapse",
+  border: hairline,
+};
+
 const thStyle: React.CSSProperties = {
-  padding: "9px 12px",
+  padding: `${space.sm}px ${space.md}px`,
   textAlign: "left",
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   fontWeight: 700,
   letterSpacing: "0.06em",
   textTransform: "uppercase",
@@ -50,8 +61,8 @@ const thStyle: React.CSSProperties = {
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: "9px 12px",
-  fontSize: 12,
+  padding: `${space.sm}px ${space.md}px`,
+  fontSize: size.small,
   color: c.inkSoft,
   borderBottom: hairlineSoft,
 };

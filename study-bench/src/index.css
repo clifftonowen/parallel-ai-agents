@@ -1,6 +1,6 @@
 :root {
-  --paper: #f1ece0;
-  --paper-deep: #e4dccb;
+  --paper: #ede7d9;
+  --paper-deep: #e0d8c5;
   --paper-card: #f7f3ea;
   --ink: #17150f;
   --ink-soft: #5a5341;
@@ -39,12 +39,12 @@ body {
     to bottom,
     transparent,
     transparent 31px,
-    rgba(198, 188, 165, 0.28) 31px,
-    rgba(198, 188, 165, 0.28) 32px
+    rgba(198, 188, 165, 0.16) 31px,
+    rgba(198, 188, 165, 0.16) 32px
   );
   color: var(--ink);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -88,6 +88,11 @@ video {
 :focus-visible {
   outline: 2px solid var(--reagent);
   outline-offset: 2px;
+}
+
+pre,
+code {
+  font-family: "Space Mono", "Cascadia Code", "Consolas", monospace;
 }
 
 ::selection {
@@ -185,6 +190,12 @@ video {
 }
 .rule-draw {
   animation: rule-draw 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

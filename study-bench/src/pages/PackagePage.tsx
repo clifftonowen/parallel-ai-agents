@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { downloadZip, getRun } from "../api/client";
 import MaterialViewer, { type Material } from "../components/MaterialViewer";
 import type { OutputPaths, RunState } from "../types";
-import { c, font, eyebrow, hairline } from "../theme";
+import { c, font, eyebrow, hairline, layout, size, display } from "../theme";
 
 const basename = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
@@ -138,7 +138,7 @@ function Centered({ children, tone }: { children: React.ReactNode; tone?: "flag"
         padding: "80px 20px",
         color: tone === "flag" ? c.flag : c.inkSoft,
         fontFamily: font.mono,
-        fontSize: 14,
+        fontSize: size.body,
       }}
     >
       {children}
@@ -148,12 +148,12 @@ function Centered({ children, tone }: { children: React.ReactNode; tone?: "flag"
 
 // ── styles ────────────────────────────────────────────────────────────────────
 
-const page: React.CSSProperties = { maxWidth: 680, margin: "0 auto", padding: "34px 22px 90px" };
+const page: React.CSSProperties = { maxWidth: layout.shell, margin: "0 auto", padding: "34px 22px 90px" };
 
 const headRow: React.CSSProperties = { display: "flex", alignItems: "baseline", gap: 10, marginBottom: 24 };
 const backLink: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
   color: c.inkSoft,
@@ -161,21 +161,21 @@ const backLink: React.CSSProperties = {
 
 const title: React.CSSProperties = {
   fontFamily: font.display,
-  fontSize: "clamp(32px, 6vw, 52px)",
+  fontSize: display,
   fontWeight: 600,
   lineHeight: 1.02,
   letterSpacing: "-0.02em",
   color: c.ink,
 };
-const sub: React.CSSProperties = { fontSize: 16, color: c.inkSoft, marginTop: 12, maxWidth: 460 };
+const sub: React.CSSProperties = { fontSize: size.lead, color: c.inkSoft, marginTop: 12, maxWidth: 460 };
 const cacheNote: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   color: c.reagent,
   marginTop: 10,
   letterSpacing: "0.01em",
 };
-const emptyNote: React.CSSProperties = { marginTop: 24, color: c.inkFaint, fontSize: 15 };
+const emptyNote: React.CSSProperties = { marginTop: 24, color: c.inkFaint, fontSize: size.body };
 
 const list: React.CSSProperties = { listStyle: "none", marginTop: 34, borderTop: hairline };
 const row: React.CSSProperties = {
@@ -187,17 +187,17 @@ const row: React.CSSProperties = {
 };
 const mTitle: React.CSSProperties = {
   fontFamily: font.display,
-  fontSize: 26,
+  fontSize: size.head,
   fontWeight: 600,
   lineHeight: 1.05,
   color: c.ink,
 };
-const mBlurb: React.CSSProperties = { fontSize: 14.5, color: c.inkSoft, marginTop: 4 };
+const mBlurb: React.CSSProperties = { fontSize: size.body, color: c.inkSoft, marginTop: 4 };
 
 const rowActions: React.CSSProperties = { flexShrink: 0 };
 const openBtn: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   fontWeight: 700,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
@@ -214,7 +214,7 @@ const zipBtn: React.CSSProperties = {
   backgroundColor: "transparent",
   color: c.ink,
   fontFamily: font.mono,
-  fontSize: 13,
+  fontSize: size.small,
   fontWeight: 700,
   letterSpacing: "0.12em",
   textTransform: "uppercase",
