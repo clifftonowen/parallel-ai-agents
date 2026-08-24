@@ -1,56 +1,78 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { downloadZip, getRun } from "../api/client";
-import MaterialViewer, { type Material } from "../components/MaterialViewer";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { downloadFile, downloadZip, fetchFileText, fileUrl, getRun } from "../api/client";
+import Markdown from "../components/Markdown";
+import { parseFlashcards } from "../lib/flashcards";
 import type { OutputPaths, RunState } from "../types";
-import { c, font, eyebrow, hairline, layout, size, space, display } from "../theme";
+import {
+  c, display, font, headingWeight, layout, muted, mutedFaint, size, space,
+} from "../theme";
 
 const basename = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
-// Build the three learner-facing materials from the raw outputs. PDFs are NOT their
-// own rows — they're just another way to download the notes or flashcards.
-function buildMaterials(outputs: OutputPaths): Material[] {
-  const out: Material[] = [];
+type Tab = "notes" | "flashcards" | "video" | "pdf";
 
-  if (outputs.notes_md) {
-    const downloads = [{ label: "Markdown", filename: basename(outputs.notes_md) }];
-    if (outputs.notes_pdf) downloads.push({ label: "PDF (print)", filename: basename(outputs.notes_pdf) });
-    out.push({
-      key: "notes",
-      title: "Notes",
-      blurb: "The topic, written out clearly — read it start to finish.",
-      kind: "doc",
-      sourceFilename: basename(outputs.notes_md),
-      downloads,
-    });
+function DocTab({ run_id, filename }: { run_id: string; filename: string }) {
+  const [text, setText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setText(null);
+    setError(null);
+    fetchFileText(run_id, filename)
+      .then(setText)
+      .catch(() => setError("Couldn't load that file."));
+  }, [run_id, filename]);
+
+  if (error) return <p style={{ color: c.flagDeep }}>{error}</p>;
+  if (text === null) return <p style={{ color: muted }}>Loading…</p>;
+  return (
+    <div style={{ maxWidth: layout.measure }}>
+      <Markdown source={text} />
+    </div>
+  );
+}
+
+function FlashcardsTab({ run_id, filename }: { run_id: string; filename: string }) {
+  const [text, setText] = useState<string | null>(null);
+  const [flipped, setFlipped] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    fetchFileText(run_id, filename).then(setText).catch(() => setText(""));
+  }, [run_id, filename]);
+
+  const cards = useMemo(() => (text ? parseFlashcards(text) : []), [text]);
+
+  if (text === null) return <p style={{ color: muted }}>Loading…</p>;
+  if (cards.length === 0) {
+    return <DocTab run_id={run_id} filename={filename} />;
   }
 
-  if (outputs.flashcards_md) {
-    const downloads = [{ label: "Markdown", filename: basename(outputs.flashcards_md) }];
-    if (outputs.flashcards_pdf)
-      downloads.push({ label: "PDF (print)", filename: basename(outputs.flashcards_pdf) });
-    out.push({
-      key: "flashcards",
-      title: "Flashcards",
-      blurb: "Question-and-answer prompts to test what stuck.",
-      kind: "doc",
-      sourceFilename: basename(outputs.flashcards_md),
-      downloads,
-    });
-  }
-
-  if (outputs.video) {
-    out.push({
-      key: "video",
-      title: "Video",
-      blurb: "A short narrated walkthrough with slides.",
-      kind: "video",
-      sourceFilename: basename(outputs.video),
-      downloads: [{ label: "Video (mp4)", filename: basename(outputs.video) }],
-    });
-  }
-
-  return out;
+  return (
+    <>
+      <p style={hint}>Click a card to turn it over.</p>
+      <div style={cardGrid}>
+        {cards.map((card, i) => {
+          const isBack = !!flipped[i];
+          return (
+            <button
+              key={i}
+              className="card elev-sm card-link"
+              aria-expanded={isBack}
+              onClick={() => setFlipped((f) => ({ ...f, [i]: !f[i] }))}
+              style={{
+                ...flipCard,
+                background: isBack ? c.reagentWash : c.paperCard,
+              }}
+            >
+              <span className="card-kicker">{isBack ? "Answer" : "Question"}</span>
+              <span style={isBack ? cardAnswer : cardQuestion}>{isBack ? card.a : card.q}</span>
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
 }
 
 export default function PackagePage() {
@@ -59,186 +81,219 @@ export default function PackagePage() {
   const [run, setRun] = useState<RunState | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [open, setOpen] = useState<Material | null>(null);
+  const [tab, setTab] = useState<Tab>("notes");
 
   useEffect(() => {
     if (!run_id) return;
     getRun(run_id)
       .then(setRun)
-      .catch((e: unknown) => setErr(e instanceof Error ? e.message : "Couldn't load your materials."))
+      .catch((e: unknown) =>
+        setErr(e instanceof Error ? e.message : "Couldn't load your materials.")
+      )
       .finally(() => setLoading(false));
   }, [run_id]);
 
-  const materials = useMemo(() => (run ? buildMaterials(run.outputs) : []), [run]);
+  const outputs: OutputPaths = useMemo(() => run?.outputs ?? {}, [run]);
+  const tabs = useMemo(() => {
+    const t: { key: Tab; label: string }[] = [];
+    if (outputs.notes_md) t.push({ key: "notes", label: "Notes" });
+    if (outputs.flashcards_md) t.push({ key: "flashcards", label: "Flashcards" });
+    if (outputs.video) t.push({ key: "video", label: "Video" });
+    if (outputs.notes_pdf || outputs.flashcards_pdf) t.push({ key: "pdf", label: "PDF" });
+    return t;
+  }, [outputs]);
 
-  if (loading) return <Centered>Opening your study materials…</Centered>;
-  if (err || !run) return <Centered tone="flag">{err ?? "Nothing to show here."}</Centered>;
+  useEffect(() => {
+    if (tabs.length && !tabs.some((t) => t.key === tab)) setTab(tabs[0].key);
+  }, [tabs, tab]);
+
+  if (loading) return <p style={{ color: muted }}>Opening your study materials…</p>;
+  if (err || !run) return <p style={{ color: c.flagDeep }}>{err ?? "Nothing to show here."}</p>;
+
+  const pdfs = [
+    outputs.notes_pdf && { label: "Notes", filename: basename(outputs.notes_pdf) },
+    outputs.flashcards_pdf && {
+      label: "Flashcards",
+      filename: basename(outputs.flashcards_pdf),
+    },
+  ].filter(Boolean) as { label: string; filename: string }[];
 
   return (
     <main style={page}>
-      <header style={headRow}>
-        <button onClick={() => navigate("/")} style={backLink}>
-          ← new topic
-        </button>
-        <div style={headRight}>
-          <div style={{ ...eyebrow, color: c.reagent }}>· ready to study</div>
-          {/* The timing and token numbers for this run. Only runs started
-              through benchmark_profile.py carry a report, so this is a link
-              rather than an inline panel. */}
-          <button onClick={() => navigate(`/benchmark/${run.run_id}`)} style={benchLink}>
-            benchmark →
-          </button>
+      <div style={head}>
+        <div style={{ minWidth: 0 }}>
+          <span style={kicker}>Session</span>
+          <h1 style={heading}>{run.topic}</h1>
+          <div style={metaRow}>
+            <span className="tag tag-outline">{run.mode ?? "async"}</span>
+            <Link to={`/benchmark/${run.run_id}`} style={metaLink}>
+              timings and tokens →
+            </Link>
+          </div>
         </div>
-      </header>
+        <button className="btn btn-secondary" onClick={() => downloadZip(run.run_id)}>
+          Download all (.zip)
+        </button>
+      </div>
 
-      <h1 style={title} className="animate-rise">
-        {run.topic}
-      </h1>
       {run.from_cache && (
         <p style={cacheNote}>
           Ready instantly — reused from a similar topic studied earlier
           {run.cached_topic ? ` (“${run.cached_topic}”)` : ""}.
         </p>
       )}
-      <p style={sub}>Your materials are ready. Open any one to read or watch it, or save it for later.</p>
 
-      {materials.length === 0 ? (
-        <p style={emptyNote}>
-          This session finished, but no materials came back. Try studying the topic again.
+      {tabs.length === 0 ? (
+        <p style={{ color: muted }}>
+          This session finished, but no materials came back. Try the topic again.
         </p>
       ) : (
         <>
-          <ul style={list}>
-            {materials.map((m) => (
-              <li key={m.key} style={row}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={mTitle}>{m.title}</div>
-                  <div style={mBlurb}>{m.blurb}</div>
-                </div>
-                <div style={rowActions}>
-                  <button onClick={() => setOpen(m)} style={openBtn}>
-                    {m.kind === "video" ? "Watch" : "Read"}
+          <div className="seg" role="tablist" style={{ marginBottom: space.xl }}>
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                className="seg-opt"
+                aria-pressed={tab === t.key}
+                aria-selected={tab === t.key}
+                onClick={() => setTab(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {tab === "notes" && outputs.notes_md && (
+            <DocTab run_id={run.run_id} filename={basename(outputs.notes_md)} />
+          )}
+
+          {tab === "flashcards" && outputs.flashcards_md && (
+            <FlashcardsTab run_id={run.run_id} filename={basename(outputs.flashcards_md)} />
+          )}
+
+          {tab === "video" && outputs.video && (
+            <div style={{ maxWidth: 720 }}>
+              <video
+                controls
+                src={fileUrl(run.run_id, basename(outputs.video))}
+                style={{ width: "100%", background: c.ink }}
+              />
+              <p style={hint}>A short narrated walkthrough with slides.</p>
+            </div>
+          )}
+
+          {tab === "pdf" && (
+            <div style={pdfRow}>
+              {pdfs.map((p) => (
+                <div key={p.filename} className="card elev-sm" style={{ width: 240 }}>
+                  <div className="card-kicker">Print</div>
+                  <div className="card-title">{p.label}</div>
+                  <p className="card-body">Generated from the markdown via pandoc.</p>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => downloadFile(run.run_id, p.filename)}
+                  >
+                    Download PDF
                   </button>
                 </div>
-              </li>
-            ))}
-          </ul>
-
-          <button onClick={() => run_id && downloadZip(run_id)} style={zipBtn}>
-            Download everything (.zip)
-          </button>
+              ))}
+            </div>
+          )}
         </>
       )}
 
-      {open && run_id && (
-        <MaterialViewer run_id={run_id} material={open} onClose={() => setOpen(null)} />
-      )}
+      <button className="btn btn-ghost" style={{ marginTop: space.section }} onClick={() => navigate("/")}>
+        ← Start another session
+      </button>
     </main>
   );
 }
 
-function Centered({ children, tone }: { children: React.ReactNode; tone?: "flag" }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        padding: "80px 20px",
-        color: tone === "flag" ? c.flag : c.inkSoft,
-        fontFamily: font.mono,
-        fontSize: size.body,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+// ── styles ──────────────────────────────────────────────────────────────────
 
-// ── styles ────────────────────────────────────────────────────────────────────
+const page: React.CSSProperties = { maxWidth: layout.shell };
 
-const headRight: React.CSSProperties = {
+const head: React.CSSProperties = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
   gap: space.base,
+  marginBottom: space.lg,
+  flexWrap: "wrap",
 };
 
-const benchLink: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.micro,
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  color: c.inkSoft,
-};
-
-const page: React.CSSProperties = { maxWidth: layout.shell, margin: "0 auto", padding: "34px 22px 90px" };
-
-const headRow: React.CSSProperties = { display: "flex", alignItems: "baseline", gap: 10, marginBottom: 24 };
-const backLink: React.CSSProperties = {
-  fontFamily: font.mono,
+const kicker: React.CSSProperties = {
+  display: "block",
   fontSize: size.small,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase",
-  color: c.inkSoft,
+  fontStyle: "italic",
+  color: c.reagentDeep,
+  marginBottom: space.xs,
 };
 
-const title: React.CSSProperties = {
+const heading: React.CSSProperties = {
   fontFamily: font.display,
+  fontWeight: headingWeight,
   fontSize: display,
-  fontWeight: 600,
-  lineHeight: 1.02,
-  letterSpacing: "-0.02em",
-  color: c.ink,
+  lineHeight: 1.05,
+  margin: `0 0 ${space.sm}px`,
 };
-const sub: React.CSSProperties = { fontSize: size.lead, color: c.inkSoft, marginTop: 12, maxWidth: 460 };
-const cacheNote: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.small,
-  color: c.reagent,
-  marginTop: 10,
-  letterSpacing: "0.01em",
-};
-const emptyNote: React.CSSProperties = { marginTop: 24, color: c.inkFaint, fontSize: size.body };
 
-const list: React.CSSProperties = { listStyle: "none", marginTop: 34, borderTop: hairline };
-const row: React.CSSProperties = {
+const metaRow: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 16,
-  padding: "22px 2px",
-  borderBottom: `1px solid ${c.rule}`,
+  gap: space.md,
+  flexWrap: "wrap",
 };
-const mTitle: React.CSSProperties = {
+
+const metaLink: React.CSSProperties = {
+  fontSize: size.small,
+  fontStyle: "italic",
+};
+
+const cacheNote: React.CSSProperties = {
+  fontSize: size.small,
+  fontStyle: "italic",
+  color: mutedFaint,
+  marginBottom: space.base,
+};
+
+const hint: React.CSSProperties = {
+  fontSize: size.small,
+  fontStyle: "italic",
+  color: mutedFaint,
+  margin: `${space.md}px 0`,
+};
+
+const cardGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+  gap: space.base,
+  alignItems: "start",
+};
+
+const flipCard: React.CSSProperties = {
+  cursor: "pointer",
+  textAlign: "left",
+  minHeight: 140,
+  transition: "background-color 0.15s, box-shadow 0.15s",
+};
+
+const cardQuestion: React.CSSProperties = {
   fontFamily: font.display,
-  fontSize: size.head,
-  fontWeight: 600,
-  lineHeight: 1.05,
-  color: c.ink,
-};
-const mBlurb: React.CSSProperties = { fontSize: size.body, color: c.inkSoft, marginTop: 4 };
-
-const rowActions: React.CSSProperties = { flexShrink: 0 };
-const openBtn: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.small,
-  fontWeight: 700,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase",
-  border: `1px solid ${c.ink}`,
-  backgroundColor: c.reagent,
-  color: c.paper,
-  padding: "11px 20px",
+  fontWeight: headingWeight,
+  fontSize: size.lead,
+  lineHeight: 1.3,
 };
 
-const zipBtn: React.CSSProperties = {
-  marginTop: 32,
-  width: "100%",
-  border: `1px solid ${c.ink}`,
-  backgroundColor: "transparent",
+const cardAnswer: React.CSSProperties = {
+  fontSize: size.body,
+  lineHeight: 1.5,
   color: c.ink,
-  fontFamily: font.mono,
-  fontSize: size.small,
-  fontWeight: 700,
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  padding: "15px 20px",
+};
+
+const pdfRow: React.CSSProperties = {
+  display: "flex",
+  gap: space.base,
+  flexWrap: "wrap",
 };

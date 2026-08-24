@@ -140,9 +140,6 @@ export default function RunPage() {
   return (
     <main style={page}>
       <header style={head}>
-        <button onClick={() => navigate("/")} style={backLink}>
-          ← new topic
-        </button>
         <div style={{ ...eyebrow, color: errored ? c.flag : c.reagent }}>
           {cancelled ? "· stopped" : status === "error" ? "· didn't finish" : status === "complete" ? "· ready" : "· preparing"}
         </div>
@@ -157,16 +154,16 @@ export default function RunPage() {
             <>
               <span style={confirmText}>Stop now? You'll lose what's been made so far.</span>
               <span style={confirmActions}>
-                <button onClick={() => setConfirmingStop(false)} style={keepBtn} disabled={stopping}>
+                <button className="btn btn-secondary" onClick={() => setConfirmingStop(false)} disabled={stopping}>
                   Keep going
                 </button>
-                <button onClick={handleStop} style={confirmStopBtn} disabled={stopping}>
+                <button className="btn btn-danger" onClick={handleStop} disabled={stopping}>
                   {stopping ? "Stopping…" : "Stop & go home"}
                 </button>
               </span>
             </>
           ) : (
-            <button onClick={() => setConfirmingStop(true)} style={stopLink}>
+            <button className="btn btn-danger" onClick={() => setConfirmingStop(true)}>
               Stop generating
             </button>
           )}
@@ -193,7 +190,7 @@ export default function RunPage() {
 
       {errored ? (
         <div style={errorBox} role="alert">
-          <button onClick={() => navigate("/")} style={retryBtn}>
+          <button className="btn btn-primary" onClick={() => navigate("/")}>
             Try another topic
           </button>
         </div>
@@ -206,7 +203,7 @@ export default function RunPage() {
           </div>
 
           {/* Preparing checklist — deliverables, ticking to "ready" as they truly finish. */}
-          <ul style={list}>
+          <ul style={list} className="card elev-sm">
             {deliverables.map((d) => {
               const ready = phase === "done" || rank >= d.readyAfter + 1;
               const working = !ready && rank >= d.readyAfter; // being made right now
@@ -235,7 +232,7 @@ export default function RunPage() {
           </ul>
 
           {status === "complete" && (
-            <button onClick={() => navigate(`/session/${run_id}`)} style={openBtn}>
+            <button className="btn btn-primary" onClick={() => navigate(`/session/${run_id}`)}>
               Open your study materials →
             </button>
           )}
@@ -247,16 +244,9 @@ export default function RunPage() {
 
 // ── styles ────────────────────────────────────────────────────────────────────
 
-const page: React.CSSProperties = { maxWidth: layout.shell, margin: "0 auto", padding: "40px 22px 90px" };
+const page: React.CSSProperties = { maxWidth: layout.shell };
 
 const head: React.CSSProperties = { display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16 };
-const backLink: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.small,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase",
-  color: c.inkSoft,
-};
 
 // Stop control lives just under the header, quiet until asked to commit.
 const stopBar: React.CSSProperties = {
@@ -267,38 +257,8 @@ const stopBar: React.CSSProperties = {
   minHeight: 34,
   marginBottom: 24,
 };
-const stopLink: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.micro,
-  fontWeight: 700,
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  color: c.inkFaint,
-  borderBottom: `1px solid ${c.rule}`,
-  paddingBottom: 2,
-};
 const confirmText: React.CSSProperties = { fontSize: size.body, color: c.ink, flex: 1, minWidth: 180 };
 const confirmActions: React.CSSProperties = { display: "flex", gap: 8, flexShrink: 0 };
-const keepBtn: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.micro,
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  border: `1px solid ${c.ink}`,
-  color: c.ink,
-  padding: "8px 12px",
-};
-const confirmStopBtn: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.micro,
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  backgroundColor: c.flag,
-  color: c.paper,
-  padding: "8px 12px",
-};
 const clock: React.CSSProperties = {
   marginLeft: "auto",
   fontFamily: font.mono,
@@ -375,25 +335,5 @@ const rowState: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const openBtn: React.CSSProperties = {
-  marginTop: 32,
-  width: "100%",
-  backgroundColor: c.reagent,
-  color: c.paper,
-  fontFamily: font.body,
-  fontSize: size.lead,
-  fontWeight: 600,
-  padding: "16px 20px",
-};
 
 const errorBox: React.CSSProperties = { marginTop: 28, textAlign: "center" };
-const retryBtn: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.small,
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  border: `1px solid ${c.ink}`,
-  padding: "10px 18px",
-  color: c.ink,
-};

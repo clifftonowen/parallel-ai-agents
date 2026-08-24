@@ -286,12 +286,11 @@ export default function ResultsPage() {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
+    // The shell supplies the page padding and the scroll container, so this
+    // no longer centres itself or pins its own viewport height.
     maxWidth: layout.shell,
-    margin: "0 auto",
-    padding: "20px 20px 24px",
     display: "flex",
     flexDirection: "column",
-    height: "calc(100vh - 52px)",
   },
   header: {
     display: "flex",

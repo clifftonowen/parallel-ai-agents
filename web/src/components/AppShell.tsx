@@ -4,8 +4,7 @@ import { listRuns, stats as fetchStats } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { RunSummary, Stats } from "../types";
 import {
-  c, display, eyebrow, font, hairline, headingWeight, layout, muted,
-  mutedFaint, size, space,
+  c, eyebrow, font, headingWeight, layout, muted, mutedFaint, size, space,
 } from "../theme";
 
 /** The four agents the pipeline actually runs, in pipeline order.
@@ -95,8 +94,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div style={frame}>
-      <aside style={rail}>
+    <div className="shell">
+      <aside className="shell-rail">
         <div style={{ marginBottom: space.lg }}>
           <Link to="/" style={wordmark}>UROP</Link>
           <div style={tagline}>Multi-agent content lab</div>
@@ -128,7 +127,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           New session
         </button>
 
-        <nav style={nav}>
+        <nav className="shell-nav">
           {NAV.map((n) => {
             const on = n.to === pathname;
             return (
@@ -149,8 +148,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div style={{ ...eyebrow, marginBottom: space.sm }}>Agents</div>
-        <div style={agentList}>
+        <div className="rail-secondary" style={{ ...eyebrow, marginBottom: space.sm }}>Agents</div>
+        <div className="rail-secondary" style={agentList}>
           {AGENTS.map((a) => {
             const live = activeRun?.phase === a.phase;
             return (
@@ -166,9 +165,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </div>
 
-        <div style={{ flex: 1, minHeight: space.xl }} />
+        <div className="rail-spacer" style={{ flex: 1, minHeight: space.xl }} />
 
-        <div style={{ ...eyebrow, marginBottom: space.md }}>This machine</div>
+        <div className="rail-secondary" style={{ ...eyebrow, marginBottom: space.md }}>This machine</div>
+        <div className="rail-secondary">
         <Meter
           label="Sessions"
           value={stats?.runs_complete ?? 0}
@@ -186,6 +186,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <p style={meterFoot}>
           Counts from this machine's database. No plan, no quota.
         </p>
+        </div>
 
         {user && (
           <button className="btn btn-secondary btn-block" onClick={signOut}>
@@ -194,7 +195,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </aside>
 
-      <div style={main}>
+      <div className="shell-main">
         <div style={topbar}>
           <div style={topbarTitle}>{section}</div>
           {activeRun && (
@@ -211,21 +212,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 // ── styles ──────────────────────────────────────────────────────────────────
 
-const frame: React.CSSProperties = {
-  display: "flex",
-  minHeight: "100vh",
-  background: c.paper,
-  color: c.ink,
-};
 
-const rail: React.CSSProperties = {
-  width: layout.sidebar,
-  flex: "none",
-  display: "flex",
-  flexDirection: "column",
-  padding: `${space.xl}px ${space.xl}px ${space.lg}px`,
-  borderRight: hairline,
-};
 
 const wordmark: React.CSSProperties = {
   fontFamily: font.display,
@@ -282,12 +269,6 @@ const accountSub: React.CSSProperties = {
   color: muted,
 };
 
-const nav: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 2,
-  marginBottom: space.lg,
-};
 
 const navItem: React.CSSProperties = {
   padding: "8px 10px",
@@ -342,12 +323,6 @@ const meterFoot: React.CSSProperties = {
   marginBottom: space.md,
 };
 
-const main: React.CSSProperties = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  minWidth: 0,
-};
 
 const topbar: React.CSSProperties = {
   display: "flex",
@@ -369,14 +344,4 @@ const topbarTitle: React.CSSProperties = {
 const scroller: React.CSSProperties = {
   flex: 1,
   padding: `0 ${layout.gutter}px ${space.section}px`,
-};
-
-// Referenced so the fluid heading token stays wired to the shell's scale.
-export const pageHeading: React.CSSProperties = {
-  fontFamily: font.display,
-  fontWeight: headingWeight,
-  fontSize: display,
-  lineHeight: 1.05,
-  letterSpacing: "-0.015em",
-  color: c.ink,
 };

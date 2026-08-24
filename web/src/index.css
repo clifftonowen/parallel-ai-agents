@@ -387,6 +387,64 @@ textarea.input {
   background: color-mix(in srgb, var(--color-text) 4%, transparent);
 }
 
+/* — the shell —
+   The rail is a fixed 264px column on a desktop. On a phone that would eat two
+   thirds of a 390px viewport, so below 900px it becomes a band across the top
+   and the parts that are reference rather than navigation (agent status, the
+   meters) are dropped. Layout lives here rather than in inline styles because
+   inline styles cannot express a media query. */
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+.shell-rail {
+  width: 264px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6) var(--space-6) var(--space-5);
+  border-right: 1px solid var(--color-divider);
+}
+.shell-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.shell-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 900px) {
+  .shell {
+    flex-direction: column;
+  }
+  .shell-rail {
+    width: 100%;
+    padding: var(--space-4);
+    border-right: none;
+    border-bottom: 1px solid var(--color-divider);
+  }
+  /* Reference, not navigation — the phone keeps the wordmark, the action and
+     the nav, and drops the rest. !important because these blocks carry an
+     inline `display: flex`, and an inline style beats a class on its own. */
+  .rail-secondary {
+    display: none !important;
+  }
+  .shell-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-bottom: 0;
+  }
+  .rail-spacer {
+    display: none;
+  }
+}
+
 /* Wide content scrolls inside its own box; the page never scrolls sideways. */
 .scroll-x {
   overflow-x: auto;
