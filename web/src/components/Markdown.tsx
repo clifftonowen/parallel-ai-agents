@@ -1,15 +1,12 @@
 import { useMemo } from "react";
-import { marked } from "marked";
+import { renderMarkdown } from "../lib/markdown";
 import { c, font, size } from "../theme";
 
-// Renders notes.md / flashcards.md as readable prose rather than a raw <pre> dump.
-// marked handles the parsing; the styling below is scoped via a wrapper class so it
-// reads like a page from the worksheet, not a generic markdown blob.
-
-marked.setOptions({ gfm: true, breaks: false });
-
+// Renders notes.md / flashcards.md as readable prose rather than a raw <pre>
+// dump. The HTML is sanitised in lib/markdown.ts before it gets here — see the
+// note there on why this input is untrusted despite being our own output.
 export default function Markdown({ source }: { source: string }) {
-  const html = useMemo(() => marked.parse(source) as string, [source]);
+  const html = useMemo(() => renderMarkdown(source), [source]);
   return (
     <div className="md" style={wrap} dangerouslySetInnerHTML={{ __html: html }} />
   );

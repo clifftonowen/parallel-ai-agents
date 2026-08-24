@@ -3,10 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { c, font, eyebrow, layout, size, displaySmall } from "../theme";
 
-// ── The borrower's card ──────────────────────────────────────────────────────
+// ── Sign in ─────────────────────────────────────────────────────────────────
 // A login page is where generic templates take over (centered box, two inputs, a
-// Google button). Instead this is a library borrower's card: signing in files the
-// topics you study under your name. The card is the one bold element; everything
+// Google button). Signing in is what makes a session survive a restart, so the
+// copy says that rather than selling an account. The card is the one bold element; everything
 // else on the page stays quiet.
 
 type Mode = "in" | "up";
@@ -42,12 +42,6 @@ export default function SignInPage() {
     }
   };
 
-  const issued = new Date().toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-
   return (
     <main style={page}>
       <button onClick={() => navigate("/")} style={backLink}>
@@ -57,23 +51,23 @@ export default function SignInPage() {
       <div style={card} className="animate-rise">
         {/* Card header — stamped like a catalog card. */}
         <div style={cardHead}>
-          <span style={eyebrow}>Study Bench</span>
-          <span style={{ ...eyebrow, color: c.inkFaint }}>· borrower's card</span>
+          <span style={eyebrow}>UROP</span>
+          <span style={{ ...eyebrow, color: c.inkFaint }}>· sign in</span>
         </div>
         <div style={cardRule} />
 
         <h1 style={cardTitle}>
-          {mode === "in" ? "Sign in to your card" : "Open your card"}
+          {mode === "in" ? "Sign in" : "Create an account"}
         </h1>
         <p style={cardSub}>
           {mode === "in"
             ? "Your studied topics are filed here, waiting for you."
-            : "One card keeps every topic you study in one place — private to you."}
+            : "An account keeps every session in one place, private to you."}
         </p>
 
         <form onSubmit={submit} noValidate>
           <label style={fieldLabel} htmlFor="email">
-            Name on card
+            Email
           </label>
           <input
             id="email"
@@ -88,7 +82,7 @@ export default function SignInPage() {
           />
 
           <label style={fieldLabel} htmlFor="password">
-            Passphrase
+            Password
           </label>
           <input
             id="password"
@@ -96,7 +90,7 @@ export default function SignInPage() {
             autoComplete={mode === "up" ? "new-password" : "current-password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={mode === "up" ? "at least 8 characters" : "your passphrase"}
+            placeholder={mode === "up" ? "at least 8 characters" : "your password"}
             style={field}
           />
 
@@ -107,7 +101,7 @@ export default function SignInPage() {
           )}
 
           <button type="submit" disabled={busy} style={{ ...primary, opacity: busy ? 0.6 : 1 }}>
-            {busy ? "One moment…" : mode === "in" ? "Sign in" : "Create my card"}
+            {busy ? "One moment…" : mode === "in" ? "Sign in" : "Create account"}
           </button>
         </form>
 
@@ -117,9 +111,9 @@ export default function SignInPage() {
           <span style={soonTag}>soon</span>
         </button>
 
-        {/* Card footer — the "date issued" line, and the mode switch. */}
+        {/* Footer: what signing in is actually for, and the mode switch. */}
         <div style={cardFoot}>
-          <span style={issuedLine}>Issued {issued}</span>
+          <span style={issuedLine}>Optional — runs work signed out too</span>
           <button
             type="button"
             onClick={() => {
@@ -128,7 +122,7 @@ export default function SignInPage() {
             }}
             style={switchLink}
           >
-            {mode === "in" ? "New here? Open a card" : "Already have a card? Sign in"}
+            {mode === "in" ? "New here? Create an account" : "Already have an account? Sign in"}
           </button>
         </div>
       </div>

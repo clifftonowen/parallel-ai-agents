@@ -17,6 +17,18 @@ const MODES: { value: RunMode; label: string; note: string }[] = [
   { value: "all", label: "All three", note: "sequential — slow and expensive" },
 ];
 
+/** Whether this orchestrator can actually skip the video stage.
+ *
+ *  --skip-video is threaded through the thread-pool and asyncio arms, but
+ *  ADKStudyOrchestrator.run() takes no include_video argument at all and
+ *  benchmark_profile calls it without one, so the flag is silently ignored
+ *  there. Offering the checkbox for ADK would promise a two-minute run and
+ *  deliver a ten-minute one. "All three" includes the ADK leg, so it is out
+ *  for the same reason. */
+function canSkipVideo(mode: RunMode): boolean {
+  return mode === "async" || mode === "original";
+}
+
 const EXAMPLES = [
   "How logistic regression actually works",
   "The French Revolution, cause to consequence",
@@ -63,7 +75,7 @@ export default function SubmitPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const { run_id } = await startRun(t, includeVideo, mode);
+      const { run_id } = await startRun(t, canSkipVideo(mode) ? includeVideo : true, mode);
       navigate(`/run/${run_id}`);
     } catch (err: unknown) {
       setError(
@@ -146,13 +158,16 @@ export default function SubmitPage() {
           <label style={videoToggle}>
             <input
               type="checkbox"
-              checked={includeVideo}
+              checked={canSkipVideo(mode) ? includeVideo : true}
+              disabled={!canSkipVideo(mode)}
               onChange={(e) => setIncludeVideo(e.target.checked)}
             />
             <span>
               Include narrated video
               <span style={{ color: mutedFaint }}>
-                {includeVideo
+                {!canSkipVideo(mode)
+                  ? " — always on for this orchestrator; only Async and Threads can skip it"
+                  : includeVideo
                   ? " — adds roughly 8 minutes of ffmpeg"
                   : " — about 2 minutes without it"}
               </span>

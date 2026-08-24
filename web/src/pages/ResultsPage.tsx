@@ -125,7 +125,10 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
       </div>
 
       {/* Video sub-phases */}
-      {(orig?.agents?.video || adk?.agents?.video || asyn?.agents?.video) && (
+      {/* A --skip-video run still carries an `agents.video` key, but as `{}` —
+          and `{}` is truthy, so guarding on the object rendered three labelled
+          charts with no bars. Guard on a value actually being present. */}
+      {[orig, adk, asyn].some((arm) => arm?.agents?.video?.total_s != null) && (
         <>
           <p style={tabStyles.sectionTitle}>Video Sub-Phases</p>
           <div style={tabStyles.chartBlock}>
