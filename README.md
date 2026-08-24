@@ -21,7 +21,7 @@ The repository hosts three complementary tracks:
 3. **Dashboard & orchestration-variants track.** A FastAPI backend
    (`api_server.py`) that runs the pipeline on demand and streams progress,
    three interchangeable orchestrator implementations benchmarked head-to-head
-   by `benchmark_profile.py`, and two React front-ends. A semantic prompt cache
+   by `benchmark_profile.py`, and one React front-end. A semantic prompt cache
    (`prompt_cache.py`) and a local accounts store (`auth_db.py`) support it.
 
 ## Pipeline
@@ -104,8 +104,7 @@ and `run(topic)`, so they are interchangeable for benchmarking:
 ├── profiling_results_*.json Captured benchmark runs
 ├── requirements.txt
 ├── package.json             Root launcher only (concurrently)
-├── dashboard2/              Benchmarking dashboard (React + Vite + TS), port 5273
-├── study-bench/             Learner-facing app (React + Vite + TS), port 5274
+├── web/                     The front-end (React + Vite + TS), port 5273
 └── src/agents/
     ├── base_agent.py            AbstractStudyAgent + tool definitions
     ├── config.py                require_env() and shared configuration helpers
@@ -211,12 +210,15 @@ CACHE_EMBED_MODEL=text-embedding-3-small
 
 ```
 npm install    # one-time; installs `concurrently` at the repo root only
-npm run dev    # api :8010, dashboard :5273, study-bench :5274
+npm run dev    # api :8010, web :5273
 ```
 
-Ctrl+C stops all three. This only touches the root `package.json` — each
-front-end keeps its own `node_modules`, which must already be installed
-(`npm install` inside `dashboard2/` and `study-bench/`).
+Ctrl+C stops both. This only touches the root `package.json` — the front-end
+keeps its own `node_modules`, which must already be installed (`npm install`
+inside `web/`).
+
+If something else already holds 8010, `API_PORT=8011 npm run dev` moves the
+backend and the Vite proxy together.
 
 ### Benchmark track (Gemini)
 
@@ -291,12 +293,15 @@ Both are Vite + React + TypeScript and proxy `/api` to the backend on port
 `/api/run`).
 
 ```
-cd dashboard2   && npm run dev   # http://localhost:5273 — benchmarking, no auth
-cd study-bench  && npm run dev   # http://localhost:5274 — learner app, auth required
+cd web && npm run dev   # http://localhost:5273
 ```
 
-`dashboard2` compares the orchestrator variants side by side. `study-bench` is
-the end-user product and always runs the async pipeline.
+One app, one port. The sidebar splits it into Dashboard (start a session),
+Library (past sessions) and Benchmark (the orchestrator comparison). Signing in
+is optional, but a session is only kept across restarts if you do.
+
+It was two separate apps on 5273 and 5274 until they were merged; the old
+`dashboard2/` and `study-bench/` directories are gone.
 
 ## Status
 
@@ -304,7 +309,7 @@ the end-user product and always runs the async pipeline.
   execution; the Notes to (Flashcards, Video, notes PDF) to flashcards PDF
   pipeline on Claude; asyncio and Google ADK orchestrator variants;
   `benchmark_profile.py` head-to-head profiling; FastAPI backend with SSE
-  streaming and optional accounts; semantic prompt cache; both front-ends.
+  streaming and optional accounts; semantic prompt cache; the front-end.
 - **In progress:** per-task model benchmarking; HTML agent; Gemini Deep
   Research front-end; stateless vs. session-state benchmark dimension.
 - **Planned:** customisable video output (linear vs. quiz checkpoints);
