@@ -81,11 +81,15 @@ class StudyOrchestrator:
         )
         self.pdf_agent = PDFAgent(api_key=anthropic_api_key)
 
-    def run(self, topic: str) -> dict[str, Any]:
+    def run(self, topic: str, include_video: bool = True) -> dict[str, Any]:
         """Execute the full three-phase study material generation pipeline.
 
         Args:
             topic: The subject to generate study materials about.
+            include_video: When False, skip the video stage. Video assembly
+                is single-threaded ffmpeg and dominates wall time, so
+                skipping it isolates orchestration cost -- which is what the
+                benchmark is actually trying to measure.
 
         Returns:
             Summary dict with keys:
@@ -133,10 +137,13 @@ class StudyOrchestrator:
         # notes.pdf only depends on notes.md (Phase 1's output), so it runs
         # alongside flashcards/video instead of waiting for them.
         banner(
-            "Phase 2 — FlashcardAgent + VideoAgent + notes.pdf",
-            detail="parallel",
+            "Phase 2 — FlashcardAgent + VideoAgent + notes.pdf"
+            if include_video
+            else "Phase 2 — FlashcardAgent + notes.pdf",
+            detail="parallel" if include_video else "parallel, video skipped",
         )
 
+        vid_future: Future | None = None
         try:
             with ThreadPoolExecutor(max_workers=3) as pool:
                 fc_future: Future = pool.submit(
@@ -144,12 +151,13 @@ class StudyOrchestrator:
                     notes_content=notes_content,
                     output_dir=run_dir,
                 )
-                vid_future: Future = pool.submit(
-                    self.video_agent.run,
-                    notes_content=notes_content,
-                    timing_json=timing_json,
-                    output_dir=run_dir,
-                )
+                if include_video:
+                    vid_future = pool.submit(
+                        self.video_agent.run,
+                        notes_content=notes_content,
+                        timing_json=timing_json,
+                        output_dir=run_dir,
+                    )
                 npdf_future: Future = pool.submit(
                     self.pdf_agent.run,
                     input_md_path=notes_path,
@@ -167,12 +175,15 @@ class StudyOrchestrator:
             log.error("FlashcardAgent raised: %s", exc)
             print(f"[Orchestrator] FlashcardAgent error (non-fatal): {exc}")
 
-        video_result: dict = {}
-        try:
-            video_result = vid_future.result()
-        except Exception as exc:
-            log.error("VideoAgent raised: %s", exc)
-            print(f"[Orchestrator] VideoAgent error (non-fatal): {exc}")
+        # Reported as skipped rather than omitted, so a consumer can tell it
+        # apart from a stage that ran and failed.
+        video_result: dict = {} if include_video else {"status": "skipped"}
+        if vid_future is not None:
+            try:
+                video_result = vid_future.result()
+            except Exception as exc:
+                log.error("VideoAgent raised: %s", exc)
+                print(f"[Orchestrator] VideoAgent error (non-fatal): {exc}")
 
         notes_pdf_result: dict = {}
         try:

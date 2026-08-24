@@ -1,17 +1,29 @@
 """
 async_orchestrator.py
 ---------------------
-AsyncStudyOrchestrator — pure asyncio pipeline with model tiering and
-Anthropic prompt caching.
+AsyncStudyOrchestrator — pure asyncio variant of the pipeline.
 
-Optimizations vs StudyOrchestrator (ThreadPoolExecutor):
-  1. Model tiering  — NotesAgent keeps claude-sonnet-4-6; FlashcardAgent and
-                      VideoAgent use claude-haiku-4-5-20251001 (2x throughput,
-                      3.75x cheaper, ~4% quality gap).
-  2. Prompt caching — cache_control on all system prompts reduces TTFT by
-                      13-31% and input token cost by 90%.
-  3. asyncio.gather — Phase 2 (flashcard ‖ video ‖ notes.pdf) runs
-                      concurrently without thread overhead.
+The single difference from StudyOrchestrator (ThreadPoolExecutor):
+  asyncio.gather — Phase 2 (flashcard ‖ video ‖ notes.pdf) runs concurrently
+                   without thread overhead.
+
+Two things this file used to claim as advantages, corrected after measuring:
+
+  Model tiering is NOT a difference between the orchestrators. Neither passes
+  model= anywhere, so both use the agent class defaults — Sonnet for notes,
+  Haiku for flashcards and video. The tiering is real, but it lives in the
+  agent definitions and applies equally to both arms.
+
+  Prompt caching does not currently engage. cache_control is attached
+  correctly (see run_context.notes_system_block), but Haiku 4.5 requires a
+  4096-token prefix and typical notes produce ~1700. Measured on this
+  pipeline: no cache at 3918 tokens, caching from 4655. Since the agents with
+  the repeatable calls worth caching are exactly the Haiku ones, caching only
+  begins to pay off for unusually long notes (~13k characters and up).
+
+  That tension is itself the interesting result: the cheaper model carries a
+  4x higher cache threshold, so model tiering and prompt caching pull against
+  each other. Sonnet's minimum is 1024, so the same block caches there.
 
 Pipeline structure:
     Phase 1:  await _run_notes(topic)           # Sonnet + caching + tools

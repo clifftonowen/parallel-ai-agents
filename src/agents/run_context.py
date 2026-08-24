@@ -111,6 +111,41 @@ def split_notes_and_timing(raw: str) -> tuple[str, list]:
     return notes_part.strip(), sections
 
 
+def notes_system_block(notes_content: str) -> str:
+    """The cacheable system prompt shared by every agent downstream of notes.
+
+    Anthropic caches on an exact prefix match, so this must be byte-identical
+    across agents for them to share one cache entry rather than each paying to
+    create their own. That is the whole point: FlashcardAgent writes the entry,
+    and VideoAgent's per-section narration and slide calls -- dozens of them,
+    each of which previously repeated the full notes in its user prompt -- read
+    it back.
+
+    Measured caveat, so nobody "fixes" this later without the numbers:
+    Anthropic's minimum cacheable prefix is model-dependent, and Haiku 4.5's is
+    4096 tokens against Sonnet's 1024. FlashcardAgent and VideoAgent both
+    default to Haiku, and typical notes here produce a ~1700-token block -- so
+    on normal-length notes this **does not cache**, silently, with no error.
+    Verified against the live API: no cache entry at 3918 tokens, cached from
+    4655.
+
+    It is still the right structure. It caches on Sonnet, it caches on Haiku
+    once notes exceed roughly 13k characters, and it stops the narration loop
+    repeating the full notes inside every per-section user prompt. But do not
+    expect a cache hit on a short topic, and do not pad this block to reach the
+    threshold -- that would buy a benchmark number with tokens rather than
+    design.
+    """
+    return (
+        "You are generating study materials from a fixed set of notes.\n"
+        "The complete notes follow. Every instruction you receive in this "
+        "session refers to them.\n\n"
+        "----- BEGIN NOTES -----\n"
+        f"{notes_content}\n"
+        "----- END NOTES -----"
+    )
+
+
 def build_summary(topic: str, run_dir: str, **agent_results) -> dict:
     """Assemble the dict an orchestrator returns from its per-agent results.
 
