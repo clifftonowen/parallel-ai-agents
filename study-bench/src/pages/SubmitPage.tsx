@@ -17,6 +17,11 @@ export default function SubmitPage() {
   const { user } = useAuth();
   const [topic, setTopic] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Video assembly is single-threaded ffmpeg and ~80% of a run's wall time.
+  // Off by default: notes, flashcards and both PDFs land in about two minutes
+  // instead of ten, which is the difference between watching it work and
+  // walking away.
+  const [includeVideo, setIncludeVideo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<RunSummary[]>([]);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -46,13 +51,13 @@ export default function SubmitPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const { run_id } = await startRun(t);
+      const { run_id } = await startRun(t, includeVideo);
       navigate(`/run/${run_id}`);
     } catch (err: unknown) {
       setError(
         err instanceof Error
           ? err.message
-          : "Couldn't reach the study server. Check it's running on port 8000, then try again."
+          : "Couldn't reach the study server. Make sure the backend is running, then try again."
       );
       setSubmitting(false);
     }
@@ -115,6 +120,19 @@ export default function SubmitPage() {
           </p>
         )}
 
+        <label style={videoToggle}>
+          <input
+            type="checkbox"
+            checked={includeVideo}
+            onChange={(e) => setIncludeVideo(e.target.checked)}
+          />
+          <span>
+            Include narrated video
+            <span style={videoToggleHint}>
+              {includeVideo ? " — adds roughly 8 minutes" : " — about 2 minutes without it"}
+            </span>
+          </span>
+        </label>
         <button onClick={submit} disabled={submitting} style={{ ...cta, opacity: submitting ? 0.6 : 1 }}>
           {submitting ? "Starting…" : "Study this →"}
           <span style={ctaHint}>⌘↵</span>
@@ -272,6 +290,21 @@ const errorLine: React.CSSProperties = {
   fontFamily: font.mono,
   fontSize: 13,
   marginTop: 18,
+};
+
+const videoToggle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  margin: "14px 0 4px",
+  fontFamily: font.mono,
+  fontSize: 12,
+  color: c.inkSoft,
+  cursor: "pointer",
+};
+
+const videoToggleHint: React.CSSProperties = {
+  color: c.inkFaint,
 };
 
 const cta: React.CSSProperties = {

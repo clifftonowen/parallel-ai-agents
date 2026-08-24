@@ -13,9 +13,10 @@ Two collaborators:
 Three tracks live side by side. `README.md` is the user-facing doc and is
 kept accurate; this file is the working context.
 
-**Benchmark track (Vertex AI / Gemini)** — root-level scripts:
-`parallel_agent.py` (3 agents), `parallel_agent_6.py` (6 agents),
-`chat_session.py` (stateful vs. stateless chat), `benchmark_test.py`.
+**Benchmark track (Vertex AI / Gemini)** — standalone scripts under `examples/`:
+`examples/parallel_agent.py` (3 agents), `examples/parallel_agent_6.py`
+(6 agents), `examples/chat_session.py` (stateful vs. stateless chat),
+`examples/benchmark_test.py`.
 These compare `asyncio` against `multiprocessing.Pool` and are the reference
 points for the eventual Rust comparison. Keep them as separate standalone
 files — they are the benchmark targets, and they deliberately do not import
@@ -38,11 +39,11 @@ from `src/`.
   `SequentialAgent`/`ParallelAgent` graph over `AnthropicLlm` (not Gemini),
   wrapping the same prompt logic via `adk_agents.py` / `adk_tools.py`.
 
-**Dashboard track** — `api_server.py` (FastAPI, port 8000; shells out to
+**Dashboard track** — `api_server.py` (FastAPI, port 8010; shells out to
 `benchmark_profile.py` rather than importing the orchestrators),
 `auth_db.py` (SQLite accounts + run history), `prompt_cache.py` (semantic
 cache), and two React+Vite+TS front-ends: `dashboard2/` (benchmarking, no
-auth, :5173) and `study-bench/` (learner app, auth, :5174). The root
+auth, :5273) and `study-bench/` (learner app, auth, :5274). The root
 `package.json` is a launcher only — `npm run dev` starts all three.
 
 Pipeline shape today: Phase 1 notes (sequential) → Phase 2 flashcards +
@@ -83,7 +84,7 @@ video + notes.pdf (parallel) → Phase 3 flashcards.pdf (sequential).
    artifacts as function arguments to stateless one-shot calls. So
    ADK-vs-thread conflates framework with state model — the clean experiment
    adds a stateful arm to `StudyOrchestrator` and holds the framework
-   constant. `chat_session.py` is the prior art for both arms.
+   constant. `examples/chat_session.py` is the prior art for both arms.
 5. **Per-task model benchmarking** — comparison table plus an abstract base
    class capturing each model's capabilities, strengths and weaknesses, used
    to decide which model handles which stage.
@@ -136,7 +137,7 @@ subgraphs, CrewAI, Google ADK.
 ### Week 9
 Distinguished true (multiprocessing) vs. false (asyncio / threading)
 parallelisation; instrumented PID/thread tracking and timing in
-`parallel_agent.py` and `parallel_agent_6.py`. Integrated the parallel run
+`examples/parallel_agent.py` and `examples/parallel_agent_6.py`. Integrated
 with the generation script. Davin handled image-as-base64 from agent output.
 
 ### Week 12

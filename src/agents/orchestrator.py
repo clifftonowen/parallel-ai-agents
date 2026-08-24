@@ -12,13 +12,10 @@ Phase 3 (sequential): PDFAgent renders flashcards.md → flashcards.pdf,
                       once flashcards.md exists.
 """
 
-import json
 import logging
 import os
-import re
 import sys
 from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime
 from typing import Any
 
 from dotenv import load_dotenv
@@ -31,6 +28,10 @@ if _PROJECT_ROOT not in sys.path:
 
 load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
+from paths import OUTPUT_ROOT  # noqa: E402
+from src.agents.run_context import (  # noqa: E402
+    banner, build_summary, load_timing_sections, make_run_dir, print_summary,
+)
 from src.agents.config import require_env  # noqa: E402
 from src.agents.specialist_agent import (  # noqa: E402
     FlashcardAgent,
@@ -59,7 +60,7 @@ class StudyOrchestrator:
         self,
         anthropic_api_key: str,
         openai_api_key: str,
-        output_dir: str = "output",
+        output_dir: str = OUTPUT_ROOT,
     ) -> None:
         """Initialise all agents and ensure the output directory exists.
 
@@ -100,15 +101,12 @@ class StudyOrchestrator:
         # -------------------------------------------------------- #
         # PHASE 1 — Notes (sequential)                             #
         # -------------------------------------------------------- #
-        _banner("Phase 1 — NotesAgent", detail=f"topic: {topic!r}")
+        banner("Phase 1 — NotesAgent", detail=f"topic: {topic!r}")
 
         # Build a timestamped run directory so every orchestrator call
         # produces a self-contained folder:
         #   output/{topic_slug}_{YYYYMMDD_HHMMSS}/
-        topic_slug = re.sub(r"[^a-z0-9]+", "_", topic.lower()).strip("_")[:30]
-        run_id = f"{topic_slug}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        run_dir = os.path.join(os.path.abspath(self.output_dir), run_id)
-        os.makedirs(run_dir, exist_ok=True)
+        run_dir = make_run_dir(self.output_dir, topic)
         log.info("Run directory: %s", run_dir)
 
         notes_result = self.notes_agent.run(topic=topic, output_dir=run_dir)
@@ -127,15 +125,14 @@ class StudyOrchestrator:
         notes_content: str = notes_result["output"]
         notes_path: str = notes_result["md_path"]
 
-        with open(notes_result["timing_path"], encoding="utf-8") as _f:
-            timing_json: list = json.load(_f).get("sections", [])
+        timing_json: list = load_timing_sections(notes_result["timing_path"])
 
         # -------------------------------------------------------- #
         # PHASE 2 — Flashcards + Video + notes.pdf (parallel)      #
         # -------------------------------------------------------- #
         # notes.pdf only depends on notes.md (Phase 1's output), so it runs
         # alongside flashcards/video instead of waiting for them.
-        _banner(
+        banner(
             "Phase 2 — FlashcardAgent + VideoAgent + notes.pdf",
             detail="parallel",
         )
@@ -187,7 +184,7 @@ class StudyOrchestrator:
         # -------------------------------------------------------- #
         # PHASE 3 — flashcards.pdf (sequential, after flashcards)  #
         # -------------------------------------------------------- #
-        _banner("Phase 3 — PDFAgent (flashcards)")
+        banner("Phase 3 — PDFAgent (flashcards)")
 
         flashcards_pdf_result: dict = {}
         if flashcard_result.get("flashcards_path"):
@@ -204,36 +201,22 @@ class StudyOrchestrator:
         # -------------------------------------------------------- #
         # Summary                                                   #
         # -------------------------------------------------------- #
-        summary: dict[str, Any] = {
-            "topic": topic,
-            "run_dir": run_dir,
-            "notes_md": notes_result,
-            "flashcards_md": flashcard_result,
-            "video": video_result,
-            "notes_pdf": notes_pdf_result,
-            "flashcards_pdf": flashcards_pdf_result,
-        }
-
-        _banner("Pipeline complete")
-        for key, val in summary.items():
-            status = val.get("status", "—") if isinstance(val, dict) else val
-            print(f"  {key:<20} {status}")
-        print()
+        summary: dict[str, Any] = build_summary(
+            topic, run_dir,
+            notes_md=notes_result,
+            flashcards_md=flashcard_result,
+            video=video_result,
+            notes_pdf=notes_pdf_result,
+            flashcards_pdf=flashcards_pdf_result,
+        )
+        print_summary(summary, "Pipeline complete")
 
         return summary
 
 
-def _banner(title: str, detail: str = "") -> None:
-    """Print a formatted section header to stdout."""
-    suffix = f"  |  {detail}" if detail else ""
-    print(f"\n{'=' * 60}")
-    print(f"  {title}{suffix}")
-    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":
-    import os
-    import sys
 
     # Windows cp1252 terminals can't encode all Unicode chars the LLM may emit.
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")

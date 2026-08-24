@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same ref cancels the previous run — these builds are cheap
+# but the docker job added later is not.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: web (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Independent apps — one failing should not hide the other's result.
+      fail-fast: false
+      matrix:
+        app: [dashboard2, study-bench]
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+
+      - run: npm ci
+
+      # "build" is `tsc -b && vite build`, so this is a real typecheck, not just
+      # a bundle. It is the only type gate the frontends have.
+      - name: build (typecheck + bundle)
+        run: npm run build
+
+      - name: lint
+        run: npm run lint

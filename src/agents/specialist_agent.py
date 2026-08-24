@@ -4,13 +4,14 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
+from .run_context import split_notes_and_timing
 from .base_agent import AbstractStudyAgent, TOOL_DEFINITIONS
 
 log = logging.getLogger(__name__)
@@ -121,22 +122,9 @@ class NotesAgent(AbstractStudyAgent):
 
         # Attempt to extract timing data from the combined output (saves a second LLM call).
         # build_prompt instructs Claude to append ---TIMING--- then a JSON array.
-        sections: list = []
-        if "---TIMING---" in content:
-            notes_part, timing_raw = content.split("---TIMING---", 1)
-            content = notes_part.strip()
-            timing_raw = (
-                timing_raw.strip()
-                .lstrip("```json")
-                .lstrip("```")
-                .rstrip("```")
-                .strip()
-            )
-            try:
-                sections = json.loads(timing_raw)
-                log.info("[Notes] Timing extracted inline — skipping second LLM call.")
-            except json.JSONDecodeError:
-                log.warning("[Notes] Inline timing JSON malformed — falling back to second call.")
+        content, sections = split_notes_and_timing(content)
+        if sections:
+            log.info("[Notes] Timing extracted inline — skipping second LLM call.")
 
         if not sections:
             # Fallback: dedicated second LLM call (original behaviour).
@@ -400,8 +388,8 @@ class VideoAgent(AbstractStudyAgent):
             _slide_fut = _stage_a.submit(self._generate_html_slides, timing_json, notes_content, output_dir)
             narrations  = _narr_fut.result()
             frame_paths = _slide_fut.result()
-        dt_narrations = time.monotonic() - t  # combined wall-clock for stage A
-        dt_slides = dt_narrations              # same wall-clock (ran in parallel)
+        # One wall-clock for the whole stage: narrations and slides ran in parallel.
+        dt_narrations = time.monotonic() - t
 
         assert len(frame_paths) == len(narrations), (
             f"Frame/narration count mismatch: {len(frame_paths)} frames vs "
@@ -415,8 +403,8 @@ class VideoAgent(AbstractStudyAgent):
             _pptx_fut  = _stage_bc.submit(self._export_pptx, frame_paths, timing_json, output_dir)
             audio_paths = _audio_fut.result()
             pptx_path   = _pptx_fut.result()
-        dt_audio = time.monotonic() - t  # combined wall-clock for stage B+C
-        dt_pptx  = dt_audio              # same wall-clock (ran in parallel)
+        # One wall-clock for the whole stage: audio and pptx ran in parallel.
+        dt_audio = time.monotonic() - t
 
         # Stage D: video assembly needs both frame_paths and audio_paths
         t = time.monotonic()
@@ -737,13 +725,23 @@ class VideoAgent(AbstractStudyAgent):
 # are not always reflected in the *current process'* PATH (e.g. when a terminal
 # was launched before the installer updated the environment). We search these
 # explicitly so a stale PATH can never break PDF generation again.
-_EXTRA_TOOL_DIRS = [
-    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Pandoc"),
-    os.path.join(os.environ.get("ProgramFiles", ""), "Pandoc"),
-    os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Pandoc"),
-    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links"),
-    os.path.join(os.environ.get("USERPROFILE", ""), "scoop", "shims"),
-    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Tectonic"),
+# These are Windows install locations only. On Linux the env vars are unset,
+# so this list is empty and _resolve_tool degrades to a plain shutil.which --
+# meaning every binary MUST be on PATH there. Gated explicitly so it does not
+# read as a working fallback on platforms where it does nothing.
+_EXTRA_TOOL_DIRS: list[str] = []
+if sys.platform == "win32":
+    _EXTRA_TOOL_DIRS = [
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Pandoc"),
+        os.path.join(os.environ.get("ProgramFiles", ""), "Pandoc"),
+        os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Pandoc"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links"),
+        os.path.join(os.environ.get("USERPROFILE", ""), "scoop", "shims"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Tectonic"),
+    ]
+# Extra colon/semicolon-separated dirs, for images that install tools oddly.
+_EXTRA_TOOL_DIRS += [
+    p for p in os.environ.get("EXTRA_TOOL_DIRS", "").split(os.pathsep) if p.strip()
 ]
 
 # LaTeX engines can only size a narrow set of image formats. A .webp, .svg or
@@ -889,14 +887,20 @@ class PDFAgent(AbstractStudyAgent):
         _eisvogel = None
         if _is_latex:
             _eisvogel_candidates = [
+                # Explicit override first - how a container points at its copy.
+                os.environ.get("EISVOGEL_TEMPLATE", ""),
+                # Windows. expandvars only understands %VAR% on win32, so these
+                # stay literal elsewhere and simply fail the isfile check.
                 os.path.expandvars(r"%APPDATA%\pandoc\templates\eisvogel.latex"),
                 os.path.expandvars(r"%USERPROFILE%\.pandoc\templates\eisvogel.latex"),
+                # POSIX: per-user, then the system-wide path a Docker image uses.
                 os.path.join(
                     os.path.expanduser("~"), ".pandoc", "templates", "eisvogel.latex"
                 ),
+                "/usr/share/pandoc/templates/eisvogel.latex",
             ]
             _eisvogel = next(
-                (p for p in _eisvogel_candidates if os.path.isfile(p)), None
+                (p for p in _eisvogel_candidates if p and os.path.isfile(p)), None
             )
 
         # LaTeX aborts the whole document on one unsizeable image, and the notes
@@ -948,31 +952,61 @@ class PDFAgent(AbstractStudyAgent):
                 "See the Eisvogel section in README.md to install it."
             )
 
-        t0 = time.monotonic()
-        started_at = datetime.now(timezone.utc).isoformat()
-        try:
+        def _pandoc(source: str) -> None:
             # Decode output as UTF-8 with replacement: pandoc/LaTeX engines can
             # emit non-cp1252 bytes (e.g. tectonic's font diagnostics), which
             # would otherwise crash the capture thread on Windows.
             subprocess.run(
-                cmd,
+                [source if a is pandoc_input else a for a in cmd],
                 check=True,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
             )
-        except subprocess.CalledProcessError as exc:
-            raise RuntimeError(
-                f"pandoc failed (engine={engine}):\n{exc.stderr}"
-            ) from exc
-        finally:
-            # Drop the sanitised intermediate; the original .md is untouched.
-            if pandoc_input != input_md_path:
+
+        t0 = time.monotonic()
+        started_at = datetime.now(timezone.utc).isoformat()
+        text_only_path = ""
+        try:
+            try:
+                _pandoc(pandoc_input)
+            except subprocess.CalledProcessError as exc:
+                # Screening images by extension and content-type is not enough:
+                # a URL can advertise image/png and still serve bytes LaTeX
+                # cannot size, and it only shows up as "Cannot determine size of
+                # graphic" after pandoc has downloaded it. Rather than lose the
+                # document over one bad figure, retry once with every image
+                # removed. A text-only PDF beats no PDF.
+                if "size of graphic" not in (exc.stderr or "") and _is_latex:
+                    raise RuntimeError(
+                        f"pandoc failed (engine={engine}):\n{exc.stderr}"
+                    ) from exc
+                with open(input_md_path, encoding="utf-8") as _f:
+                    stripped = _MD_IMAGE_RE.sub("", _f.read())
+                text_only_path = os.path.splitext(input_md_path)[0] + ".textonly.md"
+                with open(text_only_path, "w", encoding="utf-8") as _f:
+                    _f.write(stripped)
+                log.warning(
+                    "[PDF] An image defeated the PDF engine; re-rendering %s "
+                    "without figures.",
+                    os.path.basename(output_pdf_path),
+                )
                 try:
-                    os.remove(pandoc_input)
-                except OSError:
-                    pass
+                    _pandoc(text_only_path)
+                except subprocess.CalledProcessError as exc2:
+                    raise RuntimeError(
+                        f"pandoc failed (engine={engine}), including without "
+                        f"images:\n{exc2.stderr}"
+                    ) from exc2
+        finally:
+            # Drop the intermediates; the original .md is untouched.
+            for tmp in (pandoc_input, text_only_path):
+                if tmp and tmp != input_md_path:
+                    try:
+                        os.remove(tmp)
+                    except OSError:
+                        pass
 
         duration_s = round(time.monotonic() - t0, 3)
         finished_at = datetime.now(timezone.utc).isoformat()

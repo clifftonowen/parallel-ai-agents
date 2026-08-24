@@ -26,11 +26,30 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 
-_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "study_bench.db")
+from paths import DB_PATH as _DB_PATH
 
-_conn = sqlite3.connect(_DB_PATH, check_same_thread=False)
-_conn.row_factory = sqlite3.Row
+# The connection is created on first use, not at import.
+#
+# It used to be opened at module scope, which meant that merely importing this
+# module -- or importing anything that imports it -- created a database file.
+# `pytest --collect-only` was enough to do it, and in a container it happened
+# before the volume was necessarily ready.
+_conn: sqlite3.Connection | None = None
+_conn_lock = threading.Lock()
 _lock = threading.Lock()
+
+
+def _get_conn() -> sqlite3.Connection:
+    """Return the process-wide SQLite connection, opening it on first call."""
+    global _conn
+    if _conn is None:
+        with _conn_lock:
+            if _conn is None:  # re-check: another thread may have won the race
+                os.makedirs(os.path.dirname(_DB_PATH) or ".", exist_ok=True)
+                conn = sqlite3.connect(_DB_PATH, check_same_thread=False)
+                conn.row_factory = sqlite3.Row
+                _conn = conn
+    return _conn
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -41,7 +60,7 @@ def _now() -> str:
 
 def init_db() -> None:
     with _lock:
-        _conn.executescript(
+        _get_conn().executescript(
             """
             CREATE TABLE IF NOT EXISTS users (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +96,7 @@ def init_db() -> None:
             );
             """
         )
-        _conn.commit()
+        _get_conn().commit()
 
 
 # ── password hashing (scrypt) ────────────────────────────────────────────────
@@ -107,21 +126,21 @@ def create_user(email: str, password: str) -> dict:
     salt = secrets.token_bytes(16)
     pw_hash = _hash_password(password, salt)
     with _lock:
-        existing = _conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        existing = _get_conn().execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
         if existing:
             raise AuthError("That email's already registered — sign in instead.")
-        cur = _conn.execute(
+        cur = _get_conn().execute(
             "INSERT INTO users (email, pw_hash, salt, created_at) VALUES (?, ?, ?, ?)",
             (email, pw_hash, salt.hex(), _now()),
         )
-        _conn.commit()
+        _get_conn().commit()
         return {"id": cur.lastrowid, "email": email}
 
 
 def verify_login(email: str, password: str) -> dict:
     email = (email or "").strip().lower()
     with _lock:
-        row = _conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        row = _get_conn().execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     if row is None:
         raise AuthError("No account uses that email. Create one to get started.")
     salt = bytes.fromhex(row["salt"])
@@ -133,25 +152,25 @@ def verify_login(email: str, password: str) -> dict:
 def create_session(user_id: int) -> str:
     token = secrets.token_urlsafe(32)
     with _lock:
-        _conn.execute(
+        _get_conn().execute(
             "INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)",
             (token, user_id, _now()),
         )
-        _conn.commit()
+        _get_conn().commit()
     return token
 
 
 def delete_session(token: str) -> None:
     with _lock:
-        _conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
-        _conn.commit()
+        _get_conn().execute("DELETE FROM sessions WHERE token = ?", (token,))
+        _get_conn().commit()
 
 
 def user_for_token(token: str | None) -> dict | None:
     if not token:
         return None
     with _lock:
-        row = _conn.execute(
+        row = _get_conn().execute(
             """
             SELECT u.id AS id, u.email AS email
             FROM sessions s JOIN users u ON u.id = s.user_id
@@ -166,7 +185,7 @@ def user_for_token(token: str | None) -> dict | None:
 
 def upsert_run(run_id: str, user_id: int, topic: str, status: str, started_at: str) -> None:
     with _lock:
-        _conn.execute(
+        _get_conn().execute(
             """
             INSERT INTO runs (run_id, user_id, topic, status, started_at)
             VALUES (?, ?, ?, ?, ?)
@@ -174,27 +193,27 @@ def upsert_run(run_id: str, user_id: int, topic: str, status: str, started_at: s
             """,
             (run_id, user_id, topic, status, started_at),
         )
-        _conn.commit()
+        _get_conn().commit()
 
 
 def set_run_result(run_id: str, status: str, run_dir: str, outputs: dict) -> None:
     with _lock:
-        _conn.execute(
+        _get_conn().execute(
             "UPDATE runs SET status = ?, run_dir = ?, outputs_json = ? WHERE run_id = ?",
             (status, run_dir, json.dumps(outputs), run_id),
         )
-        _conn.commit()
+        _get_conn().commit()
 
 
 def owner_of_run(run_id: str) -> int | None:
     with _lock:
-        row = _conn.execute("SELECT user_id FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+        row = _get_conn().execute("SELECT user_id FROM runs WHERE run_id = ?", (run_id,)).fetchone()
     return row["user_id"] if row else None
 
 
 def get_run(run_id: str) -> dict | None:
     with _lock:
-        row = _conn.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+        row = _get_conn().execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
     if row is None:
         return None
     return {
@@ -210,7 +229,7 @@ def get_run(run_id: str) -> dict | None:
 
 def runs_for_user(user_id: int) -> list[dict]:
     with _lock:
-        rows = _conn.execute(
+        rows = _get_conn().execute(
             "SELECT * FROM runs WHERE user_id = ? ORDER BY started_at DESC",
             (user_id,),
         ).fetchall()
@@ -231,19 +250,19 @@ def runs_for_user(user_id: int) -> list[dict]:
 
 def add_cache_entry(topic: str, embedding: list[float], run_dir: str, outputs: dict) -> None:
     with _lock:
-        _conn.execute(
+        _get_conn().execute(
             """
             INSERT INTO prompt_cache (topic, embedding_json, run_dir, outputs_json, created_at)
             VALUES (?, ?, ?, ?, ?)
             """,
             (topic, json.dumps(embedding), run_dir, json.dumps(outputs), _now()),
         )
-        _conn.commit()
+        _get_conn().commit()
 
 
 def all_cache_entries() -> list[dict]:
     with _lock:
-        rows = _conn.execute(
+        rows = _get_conn().execute(
             "SELECT id, topic, embedding_json, run_dir, outputs_json FROM prompt_cache"
         ).fetchall()
     return [
@@ -260,5 +279,5 @@ def all_cache_entries() -> list[dict]:
 
 def bump_cache_hit(entry_id: int) -> None:
     with _lock:
-        _conn.execute("UPDATE prompt_cache SET hits = hits + 1 WHERE id = ?", (entry_id,))
-        _conn.commit()
+        _get_conn().execute("UPDATE prompt_cache SET hits = hits + 1 WHERE id = ?", (entry_id,))
+        _get_conn().commit()

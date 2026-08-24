@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently -n api,dashboard,study-bench -c blue,magenta,green \"npm:dev:api\" \"npm:dev:dashboard\" \"npm:dev:study-bench\"",
-    "dev:api": "python -m uvicorn api_server:app --reload --port 8000",
+    "dev:api": "node scripts/dev_api.mjs",
     "dev:dashboard": "npm run dev --prefix dashboard2",
     "dev:study-bench": "npm run dev --prefix study-bench"
   },

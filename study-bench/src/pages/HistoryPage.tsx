@@ -24,6 +24,13 @@ export default function HistoryPage() {
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Couldn't load your history."));
   }, [user]);
 
+  if (!ready) {
+    return (
+      <main style={page}>
+        <p style={sub}>Opening your card…</p>
+      </main>
+    );
+  }
   if (!user) return null;
 
   const openRun = (r: RunSummary) =>
@@ -42,7 +49,9 @@ export default function HistoryPage() {
 
       {error && <p style={errorLine}>{error}</p>}
 
-      {runs && runs.length === 0 ? (
+      {runs === null ? (
+        <p style={sub}>Fetching your topics…</p>
+      ) : runs.length === 0 ? (
         <div style={emptyBox}>
           <p style={emptyLead}>Your card is empty for now.</p>
           <p style={emptyBody}>

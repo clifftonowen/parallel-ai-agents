@@ -30,9 +30,7 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import sys
-from datetime import datetime
 from typing import Any
 
 from dotenv import load_dotenv
@@ -49,6 +47,8 @@ if _PROJECT_ROOT not in sys.path:
 
 load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
+from paths import OUTPUT_ROOT  # noqa: E402
+from src.agents.run_context import banner, make_run_dir  # noqa: E402
 from src.agents.config import require_env  # noqa: E402
 from src.agents.adk_agents import (  # noqa: E402
     NotesPostProcessAgent,
@@ -80,7 +80,7 @@ class ADKStudyOrchestrator:
         self,
         anthropic_api_key: str,
         openai_api_key: str,
-        output_dir: str = "output",
+        output_dir: str = OUTPUT_ROOT,
     ) -> None:
         self.anthropic_api_key = anthropic_api_key
         self.openai_api_key = openai_api_key
@@ -99,10 +99,7 @@ class ADKStudyOrchestrator:
             pptx_path, notes_pdf_path, flashcards_pdf_path.
         """
         # Build timestamped run directory (same convention as StudyOrchestrator)
-        topic_slug = re.sub(r"[^a-z0-9]+", "_", topic.lower()).strip("_")[:30]
-        run_id = f"{topic_slug}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        run_dir = os.path.join(os.path.abspath(self.output_dir), run_id)
-        os.makedirs(run_dir, exist_ok=True)
+        run_dir = make_run_dir(self.output_dir, topic)
         log.info("ADK run directory: %s", run_dir)
 
         # Build pipeline — notes_agent is topic-specific so constructed here
@@ -167,7 +164,7 @@ class ADKStudyOrchestrator:
             },
         )
 
-        _banner("ADK Pipeline — starting", detail=f"topic: {topic!r}")
+        banner("ADK Pipeline — starting", detail=f"topic: {topic!r}")
 
         # Drive the runner; collect events for downstream profiling/timing analysis
         _collected_events: list = []
@@ -205,7 +202,7 @@ class ADKStudyOrchestrator:
             "_adk_events":         _collected_events,
         }
 
-        _banner("ADK Pipeline — complete")
+        banner("ADK Pipeline — complete")
         for key, val in summary.items():
             print(f"  {key:<25} {val}")
         print()
@@ -213,11 +210,6 @@ class ADKStudyOrchestrator:
         return summary
 
 
-def _banner(title: str, detail: str = "") -> None:
-    suffix = f"  |  {detail}" if detail else ""
-    print(f"\n{'=' * 60}")
-    print(f"  {title}{suffix}")
-    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":

@@ -57,6 +57,9 @@ export default function RunPage() {
   const [phase, setPhase] = useState<RunPhase>("starting");
   const [status, setStatus] = useState<RunState["status"]>("running");
   const [topic, setTopic] = useState("");
+  // Whether this run is making a video. Read from the run rather than assumed,
+  // so the checklist promises only what will actually exist.
+  const [hasVideo, setHasVideo] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [confirmingStop, setConfirmingStop] = useState(false);
@@ -76,6 +79,7 @@ export default function RunPage() {
     getRun(run_id)
       .then((s) => {
         setTopic(s.topic);
+        setHasVideo(s.include_video !== false);
         if (s.started_at) startRef.current = new Date(s.started_at).getTime();
       })
       .catch(() => {});
@@ -128,7 +132,10 @@ export default function RunPage() {
   const cancelled = status === "cancelled";
   const errored = status === "error" || cancelled;
   const rank = phaseRank(phase);
-  const readyCount = errored ? 0 : DELIVERABLES.filter((d) => rank >= d.readyAfter + 1 || phase === "done").length;
+  // A --skip-video run produces no video, so promising one and then
+  // ticking it 'ready' would be the UI lying about what exists.
+  const deliverables = DELIVERABLES.filter((d) => d.key !== "video" || hasVideo);
+  const readyCount = errored ? 0 : deliverables.filter((d) => rank >= d.readyAfter + 1 || phase === "done").length;
 
   return (
     <main style={page}>
@@ -194,13 +201,13 @@ export default function RunPage() {
         <>
           <div style={progressNote}>
             <span style={eyebrow}>
-              {phase === "done" ? "All set" : `${readyCount} of ${DELIVERABLES.length} ready`}
+              {phase === "done" ? "All set" : `${readyCount} of ${deliverables.length} ready`}
             </span>
           </div>
 
           {/* Preparing checklist — deliverables, ticking to "ready" as they truly finish. */}
           <ul style={list}>
-            {DELIVERABLES.map((d) => {
+            {deliverables.map((d) => {
               const ready = phase === "done" || rank >= d.readyAfter + 1;
               const working = !ready && rank >= d.readyAfter; // being made right now
               return (

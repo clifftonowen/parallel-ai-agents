@@ -1,18 +1,36 @@
-# Core pipeline (Notes -> Flashcards -> Video -> PDF)
-anthropic
-google-cloud-aiplatform
-moviepy
-python-pptx
-openai
-playwright
-python-dotenv
-ddgs
+# Human-editable dependency contract: floors we rely on, ceilings at the next
+# major. The reproducible build uses requirements.lock.txt, which is generated
+# from this file ON LINUX (pip freeze on Windows injects pywin32 and breaks the
+# container build).
 
-# Dashboard / API server (api_server.py) + semantic prompt cache
-fastapi
-uvicorn[standard]
-numpy
+# ── Core pipeline (notes -> flashcards -> video -> PDF) ──────────────────────
+anthropic>=0.40,<1
+openai>=1.40,<3
+# MUST be >=2. The code does `from moviepy import AudioFileClip, ImageClip,
+# concatenate_videoclips` and uses .with_duration()/.with_audio(). MoviePy 1.x
+# exposed those through moviepy.editor with .set_duration()/.set_audio() and
+# fails at import here.
+moviepy>=2.0,<3
+python-pptx>=1.0,<2
+# Keep in lockstep with the `playwright install chromium` step in the image --
+# a pip/browser version skew surfaces as "Executable doesn't exist" mid-run.
+playwright>=1.47,<2
+python-dotenv>=1.0,<2
+# The renamed package. NOT duckduckgo_search, which is the deprecated name and
+# would make every web/image search return an install-hint string instead of
+# results.
+ddgs>=9,<10
 
-# Google ADK orchestrator variant (adk / async run modes)
-google-adk
-google-genai
+# ── API server + semantic prompt cache ──────────────────────────────────────
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+numpy>=1.26,<3
+
+# ── Google ADK orchestrator variant ─────────────────────────────────────────
+google-adk>=1.0,<3
+google-genai>=1.0,<2
+google-cloud-aiplatform>=1.60,<2
+
+# ── Optional tracing, imported by benchmark_profile.py under --otel ─────────
+# Guarded by try/ImportError, but was previously undeclared entirely.
+opentelemetry-sdk>=1.25,<2

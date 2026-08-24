@@ -12,25 +12,20 @@ Endpoints:
   GET  /file/{run_id}/{filename} — serve individual output file
 
 Run with:
-  uvicorn api_server:app --reload --port 8000
+  uvicorn api_server:app --reload --port 8010
 """
 
 from __future__ import annotations
 
 import asyncio
-import glob
 import io
 import json
 import os
-import re
-import subprocess
-import sys
+from contextlib import asynccontextmanager
 import threading
 import uuid
 import zipfile
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any
+from datetime import datetime
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,19 +33,34 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 import auth_db
+import routes_auth
+import run_manager
+from src.agents.run_context import slugify_topic
+from run_manager import runs as _runs, runs_lock as _runs_lock
+from run_state import RunState
+from security import current_user, user_from_header_or_query
 import prompt_cache
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
 
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+from paths import OUTPUT_ROOT  # noqa: E402
 
-# Prefer the project venv python; fall back to sys.executable
-_VENV_PYTHON = os.path.join(PROJECT_ROOT, "..", ".venv", "Scripts", "python.exe")
-PYTHON = os.path.abspath(_VENV_PYTHON) if os.path.isfile(os.path.abspath(_VENV_PYTHON)) else sys.executable
 
-app = FastAPI(title="parallel-ai-agents dashboard")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Create the schema on startup rather than at import.
+
+    Doing this at import meant any importer -- including a test collector --
+    created a database file as a side effect.
+    """
+    os.makedirs(OUTPUT_ROOT, exist_ok=True)
+    auth_db.init_db()
+    yield
+
+
+app = FastAPI(title="parallel-ai-agents dashboard", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,307 +69,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-auth_db.init_db()
 
-
-# ---------------------------------------------------------------------------
-# Optional authentication helpers
-# ---------------------------------------------------------------------------
-
-def _token_from_header(authorization: str | None) -> str | None:
-    if authorization and authorization.lower().startswith("bearer "):
-        return authorization[7:].strip()
-    return None
-
-
-def current_user(authorization: str | None = Header(default=None)) -> dict | None:
-    """Returns the signed-in user for a bearer token, or None for anonymous requests.
-    Auth is optional everywhere — anonymous use keeps working exactly as before."""
-    return auth_db.user_for_token(_token_from_header(authorization))
-
-
-def user_from_header_or_query(authorization: str | None, token_q: str | None) -> dict | None:
-    """Media/download URLs (<video src>, window.open) can't send an Authorization
-    header, so those routes also accept a ?token= query param."""
-    return auth_db.user_for_token(_token_from_header(authorization) or token_q)
-
-# ---------------------------------------------------------------------------
-# In-memory run registry
-# ---------------------------------------------------------------------------
-
-_runs: dict[str, "RunState"] = {}
-_runs_lock = threading.Lock()
-
-
-@dataclass
-class RunState:
-    run_id: str
-    topic: str
-    mode: str
-    started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    status: str = "running"       # running | complete | error | cancelled
-    phase: str = "starting"
-    progress_pct: int = 0
-    log_lines: list[str] = field(default_factory=list)
-    benchmark: dict = field(default_factory=dict)
-    outputs: dict = field(default_factory=dict)
-    run_dir: str = ""
-    error: str | None = None
-    _lock: threading.Lock = field(default_factory=threading.Lock)
-    # Handle to the generation subprocess, so a cancel request can terminate it.
-    _proc: "subprocess.Popen | None" = None
-    _cancelled: bool = False
-    # Owner (if the run was started by a signed-in user), for persisted history.
-    user_id: "int | None" = None
-    # Set when this run's materials were reused from a similar earlier prompt.
-    from_cache: bool = False
-    cached_topic: "str | None" = None
-    # SSE subscribers: list of asyncio.Queue (one per connected client)
-    _queues: list[asyncio.Queue] = field(default_factory=list)
-    _loop: asyncio.AbstractEventLoop | None = None
-
-    def append_log(self, line: str) -> None:
-        with self._lock:
-            self.log_lines.append(line)
-        self._push_sse({"log": line, "phase": self.phase, "progress_pct": self.progress_pct})
-
-    def set_phase(self, phase: str, pct: int) -> None:
-        with self._lock:
-            self.phase = phase
-            self.progress_pct = pct
-        self._push_sse({"log": None, "phase": phase, "progress_pct": pct})
-
-    def cancel(self) -> bool:
-        """Stop the generation subprocess (and its child processes). Returns True if
-        a running process was signalled. Safe to call more than once."""
-        with self._lock:
-            proc = self._proc
-            if self.status != "running":
-                return False
-            self._cancelled = True
-        if proc is None or proc.poll() is not None:
-            return False
-        try:
-            if sys.platform == "win32":
-                # The generator spawns children (playwright, pandoc, ffmpeg); kill the tree.
-                subprocess.run(
-                    ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
-                    capture_output=True,
-                )
-            else:
-                proc.terminate()
-        except Exception:
-            try:
-                proc.kill()
-            except Exception:
-                pass
-        return True
-
-    def _push_sse(self, event: dict) -> None:
-        if self._loop is None:
-            return
-        payload = json.dumps(event)
-        for q in list(self._queues):
-            self._loop.call_soon_threadsafe(q.put_nowait, payload)
-
-    def to_dict(self) -> dict:
-        with self._lock:
-            return {
-                "run_id": self.run_id,
-                "topic": self.topic,
-                "mode": self.mode,
-                "started_at": self.started_at,
-                "status": self.status,
-                "phase": self.phase,
-                "progress_pct": self.progress_pct,
-                "log_lines": list(self.log_lines),
-                "benchmark": self.benchmark,
-                "outputs": self.outputs,
-                "run_dir": self.run_dir,
-                "error": self.error,
-                "from_cache": self.from_cache,
-                "cached_topic": self.cached_topic,
-            }
-
-
-# ---------------------------------------------------------------------------
-# Phase detection from stdout lines
-# ---------------------------------------------------------------------------
-
-# Maps regex patterns in stdout to (phase_name, progress_pct)
-_PHASE_PATTERNS: list[tuple[re.Pattern, str, int]] = [
-    (re.compile(r"ADK Pipeline|Original Pipeline|Starting|study_generator", re.I), "starting", 2),
-    (re.compile(r"\[Notes\]|notes_agent|Phase 1|phase1|NotesAgent|Generating notes", re.I), "phase1", 10),
-    (re.compile(r"NotesPost|timing|notes\.md saved|Notes saved", re.I), "phase1", 30),
-    (re.compile(r"\[Flashcard\]|flashcard_agent|FlashcardAgent|Generating flashcard", re.I), "phase2", 40),
-    (re.compile(r"\[Video\]|VideoAgent|video_agent|Stage A|Stage B", re.I), "phase2", 50),
-    (re.compile(r"study_video|video.*saved|mp4", re.I), "phase2", 65),
-    (re.compile(r"\[PDF\]|PDFAgent|notes_pdf|flashcards_pdf|pandoc", re.I), "phase3", 75),
-    (re.compile(r"PDF.*saved|pdf_path", re.I), "phase3", 85),
-    (re.compile(r"BENCHMARK RESULTS|profiling_results|Comparison", re.I), "profiling", 90),
-    (re.compile(r"ADK Pipeline.*complete|Original Pipeline.*complete|Pipeline.*done", re.I), "done", 95),
-]
-
-
-def _infer_phase(state: RunState, line: str) -> None:
-    for pattern, phase, pct in _PHASE_PATTERNS:
-        if pattern.search(line):
-            if pct > state.progress_pct:
-                state.set_phase(phase, pct)
-            break
-
-
-# ---------------------------------------------------------------------------
-# Background worker
-# ---------------------------------------------------------------------------
-
-def _build_cmd(topic: str, mode: str) -> list[str]:
-    cmd = [PYTHON, "benchmark_profile.py", "--topic", topic, "--no-cprofile"]
-    if mode == "adk":
-        cmd.append("--adk-only")
-    elif mode == "original":
-        cmd.append("--original-only")
-    elif mode == "async":
-        cmd.append("--async-only")
-    # "both" and "all" run all paths — no extra flag needed
-    return cmd
-
-
-def _find_benchmark_json() -> str | None:
-    pattern = os.path.join(PROJECT_ROOT, "profiling_results_*.json")
-    matches = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
-    return matches[0] if matches else None
-
-
-def _collect_outputs(run_dir: str) -> dict[str, str]:
-    mapping = {
-        "notes_md": "notes.md",
-        "flashcards_md": "flashcards.md",
-        "notes_pdf": "notes.pdf",
-        "flashcards_pdf": "flashcards.pdf",
-        "video": "study_video.mp4",
-    }
-    result: dict[str, str] = {}
-    if not run_dir or not os.path.isdir(run_dir):
-        return result
-    for key, filename in mapping.items():
-        path = os.path.join(run_dir, filename)
-        if os.path.isfile(path):
-            result[key] = path
-    return result
-
-
-def _persist_run_result(state: RunState) -> None:
-    """If the run belongs to a signed-in user, save its final state to the DB so it
-    appears in their history and survives a server restart. No-op for anonymous runs."""
-    if state.user_id is None:
-        return
-    try:
-        auth_db.set_run_result(state.run_id, state.status, state.run_dir, state.outputs)
-    except Exception as exc:  # never let a DB hiccup break the run
-        state.append_log(f"[api] Warning: could not save run to history: {exc}")
-
-
-def _run_worker(state: RunState) -> None:
-    cmd = _build_cmd(state.topic, state.mode)
-    state.append_log(f"[api] Launching: {' '.join(cmd)}")
-    state.set_phase("starting", 2)
-
-    try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            cwd=PROJECT_ROOT,
-        )
-        with state._lock:
-            state._proc = proc
-
-        for raw_line in proc.stdout:
-            line = raw_line.rstrip()
-            state.append_log(line)
-            _infer_phase(state, line)
-
-        proc.wait()
-        return_code = proc.returncode
-
-        # A cancel request killed the process — report it as cancelled, not an error.
-        if state._cancelled:
-            with state._lock:
-                state.status = "cancelled"
-                state.phase = "error"
-            _persist_run_result(state)
-            state._push_sse({"log": "[api] Run cancelled.", "phase": "error", "progress_pct": state.progress_pct})
-            return
-
-        if return_code != 0:
-            with state._lock:
-                state.status = "error"
-                state.error = f"Process exited with code {return_code}"
-            state.set_phase("error", state.progress_pct)
-            _persist_run_result(state)
-            state._push_sse({"log": state.error, "phase": "error", "progress_pct": state.progress_pct})
-            return
-
-        # Read benchmark JSON produced by benchmark_profile.py
-        bench_path = _find_benchmark_json()
-        if bench_path:
-            try:
-                with open(bench_path, encoding="utf-8") as f:
-                    bench = json.load(f)
-                with state._lock:
-                    state.benchmark = bench
-                state.append_log(f"[api] Benchmark JSON loaded: {bench_path}")
-            except Exception as exc:
-                state.append_log(f"[api] Warning: could not load benchmark JSON: {exc}")
-
-        # Locate most-recently-modified subdir in output/ as the run directory
-        run_dir = ""
-        output_root = os.path.join(PROJECT_ROOT, "output")
-        if os.path.isdir(output_root):
-            subdirs = [
-                os.path.join(output_root, d)
-                for d in os.listdir(output_root)
-                if os.path.isdir(os.path.join(output_root, d))
-            ]
-            if subdirs:
-                run_dir = max(subdirs, key=os.path.getmtime)
-
-        with state._lock:
-            state.run_dir = run_dir
-            state.outputs = _collect_outputs(run_dir)
-            state.status = "complete"
-            state.progress_pct = 100
-            state.phase = "done"
-
-        _persist_run_result(state)
-        # Record this fresh generation so a future similar prompt can reuse it.
-        try:
-            prompt_cache.remember(state.topic, state.run_dir, state.outputs)
-        except Exception as exc:
-            state.append_log(f"[api] Warning: could not cache this run: {exc}")
-        state._push_sse({"log": "[api] Run complete.", "phase": "done", "progress_pct": 100})
-
-    except Exception as exc:
-        with state._lock:
-            state.status = "error"
-            state.error = str(exc)
-        _persist_run_result(state)
-        state._push_sse({"log": f"[api] ERROR: {exc}", "phase": "error", "progress_pct": state.progress_pct})
-
-    finally:
-        # Signal all SSE subscribers that the stream is done
-        sentinel = json.dumps({"done": True})
-        for q in list(state._queues):
-            try:
-                if state._loop:
-                    state._loop.call_soon_threadsafe(q.put_nowait, sentinel)
-            except Exception:
-                pass
-
+app.include_router(routes_auth.router)
 
 # ---------------------------------------------------------------------------
 # Request / response models
@@ -367,7 +78,10 @@ def _run_worker(state: RunState) -> None:
 
 class StartRunRequest(BaseModel):
     topic: str
-    mode: str = "both"   # both | original | adk
+    mode: str = "both"   # both | original | adk | async | all
+    # Async pipeline only. Skipping video cuts a run from ~10 minutes to ~2,
+    # since ffmpeg assembly dominates wall time.
+    include_video: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -418,6 +132,7 @@ async def start_run(req: StartRunRequest, authorization: str | None = Header(def
         mode=req.mode,
         _loop=loop,
         user_id=(user["id"] if user else None),
+        include_video=req.include_video,
     )
 
     with _runs_lock:
@@ -430,7 +145,7 @@ async def start_run(req: StartRunRequest, authorization: str | None = Header(def
         except Exception:
             pass
 
-    thread = threading.Thread(target=_run_worker, args=(state,), daemon=True)
+    thread = threading.Thread(target=run_manager.run_worker, args=(state,), daemon=True)
     thread.start()
 
     return {"run_id": run_id, "status": "running"}
@@ -570,16 +285,20 @@ async def download_run(
             if os.path.isfile(path):
                 zf.write(path, arcname=os.path.basename(path))
 
-        # Include benchmark JSON if available
-        bench_path = _find_benchmark_json()
-        if bench_path and os.path.isfile(bench_path):
-            zf.write(bench_path, arcname=os.path.basename(bench_path))
+        # This run's own benchmark JSON, if it produced one. Previously this
+        # attached whichever profiling_results_*.json was newest at the repo
+        # root, which under concurrent runs was somebody else's.
+        bench_path = run_manager.benchmark_json_path(run_id)
+        if os.path.isfile(bench_path):
+            zf.write(bench_path, arcname="profiling_results.json")
 
     buf.seek(0)
     topic_str = state.topic if state is not None else persisted["topic"]
-    topic_slug = re.sub(r"[^a-z0-9]+", "_", topic_str.lower()).strip("_")[:30]
+    # Same slug rule the orchestrators use for run directories. This was a
+    # separate copy of the regex, so changing one silently desynced the
+    # download name from the directory it came from.
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{topic_slug}_{ts}.zip"
+    filename = f"{slugify_topic(topic_str)}_{ts}.zip"
 
     return StreamingResponse(
         io.BytesIO(buf.read()),
@@ -673,51 +392,6 @@ async def serve_file(
 
 
 # ---------------------------------------------------------------------------
-# Authentication (email + password; Study Bench learner app only)
-# ---------------------------------------------------------------------------
-
-class AuthRequest(BaseModel):
-    email: str
-    password: str
-
-
-@app.post("/auth/signup")
-async def signup(req: AuthRequest):
-    try:
-        user = auth_db.create_user(req.email, req.password)
-    except auth_db.AuthError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    token = auth_db.create_session(user["id"])
-    return {"token": token, "email": user["email"]}
-
-
-@app.post("/auth/login")
-async def login(req: AuthRequest):
-    try:
-        user = auth_db.verify_login(req.email, req.password)
-    except auth_db.AuthError as exc:
-        raise HTTPException(status_code=401, detail=str(exc))
-    token = auth_db.create_session(user["id"])
-    return {"token": token, "email": user["email"]}
-
-
-@app.post("/auth/logout", status_code=204)
-async def logout(authorization: str | None = Header(default=None)):
-    token = _token_from_header(authorization)
-    if token:
-        auth_db.delete_session(token)
-    return None
-
-
-@app.get("/auth/me")
-async def me(authorization: str | None = Header(default=None)):
-    user = current_user(authorization)
-    if not user:
-        raise HTTPException(status_code=401, detail="not signed in")
-    return {"email": user["email"]}
-
-
-# ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
 
@@ -728,4 +402,4 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api_server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("api_server:app", host="0.0.0.0", port=8010, reload=True)
