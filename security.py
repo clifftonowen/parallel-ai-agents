@@ -16,6 +16,8 @@ from fastapi import Header, HTTPException
 import auth_db
 
 __all__ = [
+    "cors_origins",
+    "require_owner",
     "token_from_header",
     "current_user",
     "user_from_header_or_query",
@@ -104,3 +106,38 @@ def require_admin(authorization: str | None) -> dict:
     if not is_admin(user):
         raise HTTPException(status_code=404, detail="Not found")
     return user
+
+
+def cors_origins() -> list[str]:
+    """Origins allowed to call this API from a browser.
+
+    Was `["*"]`, which combined with a bearer token in localStorage means any
+    site the visitor happens to open can call this API with their credentials
+    if it can get at the token. Localhost defaults keep dev unchanged; set
+    CORS_ORIGINS to the deployed front-end origin, comma separated.
+
+    Note "*" is still permitted if somebody sets it explicitly -- that is a
+    decision, not an accident.
+    """
+    raw = os.environ.get("CORS_ORIGINS", "").strip()
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return [
+        "http://localhost:5273",
+        "http://127.0.0.1:5273",
+    ]
+
+
+def require_owner(user: dict | None, owner_id: int | None) -> None:
+    """Reject unless `user` owns the resource.
+
+    404 rather than 403 throughout: a 403 tells an attacker the run id is real,
+    which turns this endpoint into an existence oracle they can enumerate.
+    Anonymous runs (owner_id None) are readable by anyone who has the id, which
+    is the current behaviour for a laptop with no accounts; that carve-out
+    disappears the moment signup is required.
+    """
+    if owner_id is None:
+        return
+    if not user or user.get("id") != owner_id:
+        raise HTTPException(status_code=404, detail="run not found")

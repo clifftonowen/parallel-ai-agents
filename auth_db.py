@@ -24,7 +24,7 @@ import re
 import secrets
 import sqlite3
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from paths import DB_PATH as _DB_PATH
 
@@ -190,17 +190,40 @@ def delete_session(token: str) -> None:
         _get_conn().commit()
 
 
+# How long a session stays valid. Sessions previously never expired: a token
+# lifted from localStorage or a log worked forever. Expressed as an age against
+# created_at rather than a stored expires_at, so rows written before this
+# existed are covered too.
+SESSION_MAX_AGE_DAYS = int(os.environ.get("SESSION_MAX_AGE_DAYS", "14"))
+
+
+def purge_expired_sessions() -> int:
+    """Delete sessions past their maximum age. Returns how many went."""
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(days=SESSION_MAX_AGE_DAYS)
+    ).isoformat()
+    with _lock:
+        cur = _get_conn().execute("DELETE FROM sessions WHERE created_at < ?", (cutoff,))
+        _get_conn().commit()
+        return cur.rowcount
+
+
 def user_for_token(token: str | None) -> dict | None:
     if not token:
         return None
+    # Checked on every lookup, not only by the periodic purge, so an expired
+    # token stops working immediately rather than whenever cleanup next runs.
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(days=SESSION_MAX_AGE_DAYS)
+    ).isoformat()
     with _lock:
         row = _get_conn().execute(
             """
             SELECT u.id AS id, u.email AS email, u.can_run AS can_run
             FROM sessions s JOIN users u ON u.id = s.user_id
-            WHERE s.token = ?
+            WHERE s.token = ? AND s.created_at >= ?
             """,
-            (token,),
+            (token, cutoff),
         ).fetchone()
     if not row:
         return None

@@ -162,3 +162,47 @@ class TestQueue:
     def test_empty_queue_is_empty_not_an_error(self, db):
         assert db.list_access_requests("pending") == []
         assert db.count_pending_access_requests() == 0
+
+
+class TestSessionExpiry:
+    """Sessions used to live forever: a token lifted from localStorage or a log
+    worked indefinitely."""
+
+    def test_a_fresh_session_resolves(self, db, user):
+        assert db.user_for_token(db.create_session(user["id"])) is not None
+
+    def test_an_aged_session_stops_resolving(self, db, user):
+        from datetime import datetime, timedelta, timezone
+
+        token = db.create_session(user["id"])
+        old = (
+            datetime.now(timezone.utc) - timedelta(days=db.SESSION_MAX_AGE_DAYS + 1)
+        ).isoformat()
+        with db._lock:
+            db._get_conn().execute(
+                "UPDATE sessions SET created_at = ? WHERE token = ?", (old, token)
+            )
+            db._get_conn().commit()
+        # Enforced on lookup, not only by the periodic purge, so it stops
+        # working immediately rather than whenever cleanup next runs.
+        assert db.user_for_token(token) is None
+
+    def test_purge_removes_only_the_expired_ones(self, db, user):
+        from datetime import datetime, timedelta, timezone
+
+        fresh = db.create_session(user["id"])
+        stale = db.create_session(user["id"])
+        old = (
+            datetime.now(timezone.utc) - timedelta(days=db.SESSION_MAX_AGE_DAYS + 1)
+        ).isoformat()
+        with db._lock:
+            db._get_conn().execute(
+                "UPDATE sessions SET created_at = ? WHERE token = ?", (old, stale)
+            )
+            db._get_conn().commit()
+        assert db.purge_expired_sessions() == 1
+        assert db.user_for_token(fresh) is not None
+
+    def test_an_unknown_token_resolves_to_nobody(self, db):
+        assert db.user_for_token("not-a-real-token") is None
+        assert db.user_for_token(None) is None

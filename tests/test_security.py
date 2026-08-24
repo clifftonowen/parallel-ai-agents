@@ -108,3 +108,50 @@ class TestTokenExtraction:
     )
     def test_pulls_the_token_out(self, header, expected):
         assert security.token_from_header(header) == expected
+
+
+class TestRequireOwner:
+    """404 everywhere, never 403.
+
+    A 403 confirms the run id is real, which turns these endpoints into an
+    existence oracle somebody can enumerate.
+    """
+
+    def test_owner_passes(self):
+        security.require_owner({"id": 7}, 7)
+
+    def test_a_different_user_gets_404(self):
+        with pytest.raises(HTTPException) as exc:
+            security.require_owner({"id": 8}, 7)
+        assert exc.value.status_code == 404
+
+    def test_anonymous_caller_gets_404_for_an_owned_run(self):
+        with pytest.raises(HTTPException) as exc:
+            security.require_owner(None, 7)
+        assert exc.value.status_code == 404
+
+    def test_an_unowned_run_is_readable_by_anyone_with_the_id(self):
+        """Current behaviour for a laptop with no accounts, pinned so the
+        carve-out is visible rather than implied."""
+        security.require_owner(None, None)
+        security.require_owner({"id": 3}, None)
+
+
+class TestCorsOrigins:
+    def test_defaults_to_the_local_front_end_only(self, monkeypatch):
+        monkeypatch.delenv("CORS_ORIGINS", raising=False)
+        origins = security.cors_origins()
+        assert "http://localhost:5273" in origins
+        assert "*" not in origins
+
+    def test_env_overrides_the_default(self, monkeypatch):
+        monkeypatch.setenv("CORS_ORIGINS", "https://a.example, https://b.example")
+        assert security.cors_origins() == ["https://a.example", "https://b.example"]
+
+    def test_blank_falls_back_rather_than_allowing_nothing(self, monkeypatch):
+        monkeypatch.setenv("CORS_ORIGINS", "   ")
+        assert security.cors_origins()
+
+    def test_a_wildcard_is_still_possible_but_has_to_be_deliberate(self, monkeypatch):
+        monkeypatch.setenv("CORS_ORIGINS", "*")
+        assert security.cors_origins() == ["*"]

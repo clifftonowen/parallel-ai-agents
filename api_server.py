@@ -40,8 +40,8 @@ from run_manager import runs as _runs, runs_lock as _runs_lock
 from run_state import RunState
 import notify  # noqa: E402
 from security import (  # noqa: E402
-    current_user, is_admin, require_admin, require_runner,
-    require_signed_in, user_from_header_or_query,
+    cors_origins, current_user, is_admin, require_admin, require_owner,
+    require_runner, require_signed_in, user_from_header_or_query,
 )
 import prompt_cache
 
@@ -61,16 +61,25 @@ async def lifespan(_app: FastAPI):
     """
     os.makedirs(OUTPUT_ROOT, exist_ok=True)
     auth_db.init_db()
+    # Sessions expire by age, enforced on every lookup; this just stops the
+    # table growing without bound.
+    gone = auth_db.purge_expired_sessions()
+    if gone:
+        print(f"[api] purged {gone} expired session(s)")
     yield
 
 
 app = FastAPI(title="parallel-ai-agents dashboard", lifespan=lifespan)
 
+# Was allow_origins=["*"]. With a bearer token in localStorage that let any
+# site a visitor happened to open call this API. Defaults to the local
+# front-end; set CORS_ORIGINS to the deployed origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=cors_origins(),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -98,6 +107,17 @@ async def start_run(req: StartRunRequest, authorization: str | None = Header(def
         raise HTTPException(status_code=400, detail="topic must not be empty")
     if req.mode not in ("both", "original", "adk", "async", "all"):
         raise HTTPException(status_code=400, detail="mode must be 'both', 'original', 'adk', 'async', or 'all'")
+    # "both" and "all" run every orchestrator in sequence: roughly 36 minutes
+    # and three times the token spend for one click. Off unless deliberately
+    # enabled, so a stray click on a deployed instance cannot do that.
+    if req.mode in ("both", "all") and os.environ.get("ALLOW_FULL_SWEEP", "") != "1":
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Running all three orchestrators takes about 36 minutes and 3x "
+                "the tokens. Set ALLOW_FULL_SWEEP=1 on the server to enable it."
+            ),
+        )
 
     # The only endpoint that costs money. An account is free to create; being
     # allowed to spend API credits is granted separately, so this is where it
@@ -164,10 +184,7 @@ async def get_run(run_id: str, authorization: str | None = Header(default=None))
         state = _runs.get(run_id)
     if state is not None:
         # A run owned by a user is only served to that user; anonymous in-memory runs stay open.
-        if state.user_id is not None:
-            user = current_user(authorization)
-            if not user or user["id"] != state.user_id:
-                raise HTTPException(status_code=404, detail="run not found")
+        require_owner(current_user(authorization), state.user_id)
         return state.to_dict()
 
     # Not in memory (e.g. after a restart) — fall back to the DB for the owner.
@@ -209,11 +226,14 @@ async def get_run(run_id: str, authorization: str | None = Header(default=None))
 
 
 @app.post("/run/{run_id}/cancel")
-async def cancel_run(run_id: str):
+async def cancel_run(run_id: str, authorization: str | None = Header(default=None)):
     with _runs_lock:
         state = _runs.get(run_id)
     if state is None:
         raise HTTPException(status_code=404, detail="run not found")
+    # Cancelling somebody else's run is a denial of service against them, and
+    # this had no check at all: any run id was enough.
+    require_owner(current_user(authorization), state.user_id)
     if state.status != "running":
         # Already finished, failed, or cancelled — nothing to stop.
         return {"run_id": run_id, "status": state.status, "cancelled": False}
@@ -222,11 +242,18 @@ async def cancel_run(run_id: str):
 
 
 @app.get("/run/{run_id}/stream")
-async def stream_run(run_id: str):
+async def stream_run(
+    run_id: str,
+    authorization: str | None = Header(default=None),
+    token: str | None = None,
+):
     with _runs_lock:
         state = _runs.get(run_id)
     if state is None:
         raise HTTPException(status_code=404, detail="run not found")
+    # The log carries the topic and every path the run touched, and this had no
+    # check at all. EventSource cannot set headers, hence ?token= as well.
+    require_owner(user_from_header_or_query(authorization, token), state.user_id)
 
     q: asyncio.Queue = asyncio.Queue()
     with state._lock:
@@ -279,10 +306,7 @@ async def download_run(
         state = _runs.get(run_id)
 
     if state is not None:
-        if state.user_id is not None:
-            user = user_from_header_or_query(authorization, token)
-            if not user or user["id"] != state.user_id:
-                raise HTTPException(status_code=404, detail="run not found")
+        require_owner(user_from_header_or_query(authorization, token), state.user_id)
         if state.status != "complete":
             raise HTTPException(status_code=409, detail="run is not complete yet")
         outputs = state.outputs
@@ -505,10 +529,7 @@ async def serve_file(
     outputs: dict = {}
     run_dir = ""
     if state is not None:
-        if state.user_id is not None:
-            user = user_from_header_or_query(authorization, token)
-            if not user or user["id"] != state.user_id:
-                raise HTTPException(status_code=404, detail="run not found")
+        require_owner(user_from_header_or_query(authorization, token), state.user_id)
         outputs, run_dir = state.outputs, state.run_dir
     else:
         # Not in memory — serve a persisted run's files to its owner.

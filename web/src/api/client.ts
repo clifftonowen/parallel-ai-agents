@@ -171,7 +171,10 @@ export function streamRun(
   onDone: () => void,
   onError?: (err: Error) => void
 ): () => void {
-  const es = new EventSource(`${BASE}/run/${run_id}/stream`);
+  // /stream is authenticated now, and EventSource cannot set an Authorization
+  // header, so the token rides in the query string the same way file and
+  // download URLs already do. See the note on withToken.
+  const es = new EventSource(withToken(`${BASE}/run/${run_id}/stream`));
 
   es.onmessage = (e: MessageEvent) => {
     try {
@@ -200,6 +203,16 @@ export function streamRun(
 // header, so owned-run file URLs carry the token as a query param the backend also
 // accepts. fetchFileText uses the header (it's a normal fetch).
 
+/**
+ * Append the session token as a query parameter.
+ *
+ * Needed because <video src>, window.open and EventSource cannot set an
+ * Authorization header. It is not ideal: a token in a URL reaches browser
+ * history, Referer headers and any proxy or server log. The proper fix is a
+ * short-lived signed URL that is not the session token, and it is tracked as
+ * part of the deployment hardening -- doing it here without the backend half
+ * would only move the problem.
+ */
 function withToken(url: string): string {
   return _token ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(_token)}` : url;
 }
