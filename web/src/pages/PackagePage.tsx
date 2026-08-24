@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { downloadFile, downloadZip, fetchFileText, fileUrl, getRun } from "../api/client";
 import Markdown from "../components/Markdown";
 import { parseFlashcards } from "../lib/flashcards";
+import { useRunGrant } from "../hooks/useRunGrant";
 import type { OutputPaths, RunState } from "../types";
 import {
   c, display, font, headingWeight, layout, muted, mutedFaint, size, space,
@@ -82,6 +83,7 @@ export default function PackagePage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("notes");
+  const grant = useRunGrant(run_id);
 
   useEffect(() => {
     if (!run_id) return;
@@ -176,7 +178,9 @@ export default function PackagePage() {
             <div style={{ maxWidth: 720 }}>
               <video
                 controls
-                src={fileUrl(run.run_id, basename(outputs.video))}
+                // The grant, not the session token. A <video> re-requests this
+                // URL on every seek, which is why the grant outlasts the page.
+                src={fileUrl(run.run_id, basename(outputs.video), grant)}
                 style={{ width: "100%", background: c.ink }}
               />
               <p style={hint}>A short narrated walkthrough with slides.</p>

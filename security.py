@@ -16,6 +16,7 @@ import os
 from fastapi import Header, HTTPException
 
 import auth_db
+import signing
 
 __all__ = [
     "cors_origins",
@@ -25,7 +26,7 @@ __all__ = [
     "require_owner",
     "token_from_header",
     "current_user",
-    "user_from_header_or_query",
+    "require_run_access",
     "require_signed_in",
     "require_runner",
     "require_admin",
@@ -45,15 +46,31 @@ def current_user(authorization: str | None = Header(default=None)) -> dict | Non
     return auth_db.user_for_token(token_from_header(authorization))
 
 
-def user_from_header_or_query(
-    authorization: str | None, token_q: str | None
-) -> dict | None:
-    """Same lookup, but also accepting a ?token= query parameter.
+def require_run_access(
+    authorization: str | None, grant: str | None, run_id: str, owner_id: int | None
+) -> None:
+    """Reject unless the caller may read this run's files and log.
 
-    Media and download URLs are consumed by <video src>, window.open and
-    EventSource, none of which can set an Authorization header.
+    Two ways in. Normally the Authorization header, same as everywhere else.
+    Otherwise a signed grant for this specific run, because `<video src>`,
+    `window.open` and `EventSource` cannot set a header and something has to
+    go in the URL.
+
+    What goes in the URL used to be the session token, which meant browser
+    history, Referer and proxy logs held full account access for the life of
+    the session. A grant reads one run for under an hour and can do nothing
+    else. See signing.py.
+
+    Header first: a signed-in owner never needs the grant, and checking it
+    first keeps the ordinary path independent of the signing key.
     """
-    return auth_db.user_for_token(token_from_header(authorization) or token_q)
+    user = current_user(authorization)
+    if owner_id is None or (user and user.get("id") == owner_id):
+        return
+    if signing.verify(grant, run_id):
+        return
+    # 404, not 403, for the same reason as require_owner.
+    raise HTTPException(status_code=404, detail="run not found")
 
 
 # ── authorisation ────────────────────────────────────────────────────────────

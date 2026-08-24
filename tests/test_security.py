@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 
 import security
+import signing
 
 
 class TestAdminEmails:
@@ -220,3 +221,67 @@ class TestRequireQuota:
         monkeypatch.setenv("RUN_CONCURRENT_LIMIT", "1")
         with pytest.raises(HTTPException):
             security.require_quota(0, 4)
+
+
+class TestRequireRunAccess:
+    """The read path for media and the log.
+
+    Two ways in: the Authorization header, or a signed grant for this run.
+    What used to be accepted in the URL was the session token itself.
+    """
+
+    @pytest.fixture(autouse=True)
+    def key(self, monkeypatch):
+        monkeypatch.setenv("SIGNING_SECRET", "test-key-not-a-real-one")
+        monkeypatch.setattr(signing, "_key_cache", None)
+        yield
+        monkeypatch.setattr(signing, "_key_cache", None)
+
+    def test_the_owner_gets_in_by_header(self, monkeypatch):
+        monkeypatch.setattr(security, "current_user", lambda _a: {"id": 7})
+        security.require_run_access("Bearer x", None, "run-a", 7)
+
+    def test_a_stranger_with_a_header_does_not(self, monkeypatch):
+        monkeypatch.setattr(security, "current_user", lambda _a: {"id": 8})
+        with pytest.raises(HTTPException) as exc:
+            security.require_run_access("Bearer x", None, "run-a", 7)
+        assert exc.value.status_code == 404
+
+    def test_a_grant_gets_in_without_any_header(self, monkeypatch):
+        """This is the case that exists at all: <video> and EventSource cannot
+        send one."""
+        monkeypatch.setattr(security, "current_user", lambda _a: None)
+        grant, _ = signing.issue("run-a")
+        security.require_run_access(None, grant, "run-a", 7)
+
+    def test_a_grant_for_another_run_does_not(self, monkeypatch):
+        monkeypatch.setattr(security, "current_user", lambda _a: None)
+        grant, _ = signing.issue("run-b")
+        with pytest.raises(HTTPException) as exc:
+            security.require_run_access(None, grant, "run-a", 7)
+        assert exc.value.status_code == 404
+
+    def test_an_expired_grant_does_not(self, monkeypatch):
+        monkeypatch.setattr(security, "current_user", lambda _a: None)
+        grant, _ = signing.issue("run-a", ttl=-1)
+        with pytest.raises(HTTPException):
+            security.require_run_access(None, grant, "run-a", 7)
+
+    def test_a_session_token_in_the_url_is_no_longer_accepted(self, monkeypatch):
+        """The behaviour this replaced. A real session token, passed where the
+        grant goes, must now be worth nothing."""
+        monkeypatch.setattr(security, "current_user", lambda _a: None)
+        with pytest.raises(HTTPException):
+            security.require_run_access(None, "a-real-looking-session-token", "run-a", 7)
+
+    def test_junk_is_refused_rather_than_raising_something_else(self, monkeypatch):
+        monkeypatch.setattr(security, "current_user", lambda _a: None)
+        for junk in ("", "....", "9999999999.AAAA"):
+            with pytest.raises(HTTPException) as exc:
+                security.require_run_access(None, junk, "run-a", 7)
+            assert exc.value.status_code == 404
+
+    def test_an_unowned_run_needs_neither(self, monkeypatch):
+        """Same carve-out as require_owner: a laptop with no accounts."""
+        monkeypatch.setattr(security, "current_user", lambda _a: None)
+        security.require_run_access(None, None, "run-a", None)

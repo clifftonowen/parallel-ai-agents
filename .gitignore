@@ -15,6 +15,11 @@ profiling_results_*.json
 study_bench.db
 *.db
 
+# ── Signing key ──────────────────────────────────────────────────────────────
+# Generated on first use if SIGNING_SECRET is unset. Whoever holds it can mint
+# a grant for any run id, so it never goes near the repo.
+.signing_key
+
 # ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 .pytest_cache/

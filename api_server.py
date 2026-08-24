@@ -7,6 +7,7 @@ Endpoints:
   POST /run                    — start a pipeline run (spawns subprocess)
   GET  /run/{run_id}           — poll run state (status, progress, benchmark)
   GET  /run/{run_id}/stream    — SSE live log stream
+  GET  /run/{run_id}/grant     — short-lived URL credential for this run's media
   GET  /run/{run_id}/download  — ZIP of all output files
   GET  /runs                   — list all past runs
   GET  /file/{run_id}/{filename} — serve individual output file
@@ -41,10 +42,11 @@ from run_state import RunState
 import notify  # noqa: E402
 from security import (  # noqa: E402
     cors_origins, current_user, is_admin, require_admin, require_owner,
-    require_quota, require_runner, require_signed_in, run_concurrent_limit,
-    run_daily_limit, user_from_header_or_query,
+    require_quota, require_run_access, require_runner, require_signed_in,
+    run_concurrent_limit, run_daily_limit,
 )
 import prompt_cache
+import signing
 
 # ---------------------------------------------------------------------------
 # Config
@@ -270,15 +272,16 @@ async def cancel_run(run_id: str, authorization: str | None = Header(default=Non
 async def stream_run(
     run_id: str,
     authorization: str | None = Header(default=None),
-    token: str | None = None,
+    t: str | None = None,
 ):
     with _runs_lock:
         state = _runs.get(run_id)
     if state is None:
         raise HTTPException(status_code=404, detail="run not found")
     # The log carries the topic and every path the run touched, and this had no
-    # check at all. EventSource cannot set headers, hence ?token= as well.
-    require_owner(user_from_header_or_query(authorization, token), state.user_id)
+    # check at all. EventSource cannot set headers, hence ?t= as well -- a
+    # grant for this run, not the session token it used to be.
+    require_run_access(authorization, t, run_id, state.user_id)
 
     q: asyncio.Queue = asyncio.Queue()
     with state._lock:
@@ -321,17 +324,41 @@ async def stream_run(
     )
 
 
+@app.get("/run/{run_id}/grant")
+async def run_grant(run_id: str, authorization: str | None = Header(default=None)):
+    """A short-lived, run-scoped URL credential for this run's media.
+
+    Header-authenticated only, and it hands back something strictly weaker
+    than what authorised it: the grant reads one run's files until it expires
+    and can do nothing else. That asymmetry is the point -- the URL that ends
+    up in browser history is no longer the session token.
+    """
+    with _runs_lock:
+        state = _runs.get(run_id)
+    if state is not None:
+        owner_id = state.user_id
+    else:
+        persisted = auth_db.get_run(run_id)
+        if persisted is None:
+            raise HTTPException(status_code=404, detail="run not found")
+        owner_id = persisted["user_id"]
+
+    require_owner(current_user(authorization), owner_id)
+    grant, ttl = signing.issue(run_id)
+    return {"t": grant, "expires_in": ttl}
+
+
 @app.get("/run/{run_id}/download")
 async def download_run(
     run_id: str,
     authorization: str | None = Header(default=None),
-    token: str | None = None,
+    t: str | None = None,
 ):
     with _runs_lock:
         state = _runs.get(run_id)
 
     if state is not None:
-        require_owner(user_from_header_or_query(authorization, token), state.user_id)
+        require_run_access(authorization, t, run_id, state.user_id)
         if state.status != "complete":
             raise HTTPException(status_code=409, detail="run is not complete yet")
         outputs = state.outputs
@@ -340,9 +367,7 @@ async def download_run(
         persisted = auth_db.get_run(run_id)
         if persisted is None:
             raise HTTPException(status_code=404, detail="run not found")
-        user = user_from_header_or_query(authorization, token)
-        if not user or user["id"] != persisted["user_id"]:
-            raise HTTPException(status_code=404, detail="run not found")
+        require_run_access(authorization, t, run_id, persisted["user_id"])
         if persisted["status"] != "complete":
             raise HTTPException(status_code=409, detail="run is not complete yet")
         outputs = persisted["outputs"]
@@ -551,7 +576,7 @@ async def serve_file(
     run_id: str,
     filename: str,
     authorization: str | None = Header(default=None),
-    token: str | None = None,
+    t: str | None = None,
 ):
     # Sanitize filename — no path traversal
     filename = os.path.basename(filename)
@@ -561,16 +586,14 @@ async def serve_file(
     outputs: dict = {}
     run_dir = ""
     if state is not None:
-        require_owner(user_from_header_or_query(authorization, token), state.user_id)
+        require_run_access(authorization, t, run_id, state.user_id)
         outputs, run_dir = state.outputs, state.run_dir
     else:
         # Not in memory — serve a persisted run's files to its owner.
         persisted = auth_db.get_run(run_id)
         if persisted is None:
             raise HTTPException(status_code=404, detail="run not found")
-        user = user_from_header_or_query(authorization, token)
-        if not user or user["id"] != persisted["user_id"]:
-            raise HTTPException(status_code=404, detail="run not found")
+        require_run_access(authorization, t, run_id, persisted["user_id"])
         outputs, run_dir = persisted["outputs"], persisted["run_dir"]
 
     # Check outputs dict first
