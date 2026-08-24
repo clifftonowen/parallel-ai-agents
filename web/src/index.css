@@ -1,14 +1,63 @@
+/* ── UROP — broadsheet ──────────────────────────────────────────────────────
+   Ported from the "broadsheet" design system. These custom properties mirror
+   src/theme.ts; inline styles read the TS, component classes read these.
+   Change a value in both or they drift.
+   ────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --paper: #ede7d9;
-  --paper-deep: #e0d8c5;
-  --paper-card: #f7f3ea;
-  --ink: #17150f;
-  --ink-soft: #5a5341;
-  --ink-faint: #8a8069;
-  --rule: #c6bca5;
-  --rule-soft: #d8cfbb;
-  --reagent: #1f6f5c;
-  --flag: #b5451f;
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-accent: #0088b0;
+  --color-accent-2: #d6006c;
+  --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+
+  --color-neutral-100: #f8f4f4;
+  --color-neutral-200: #eae7e7;
+  --color-neutral-300: #d7d3d3;
+  --color-neutral-400: #bab6b6;
+  --color-neutral-500: #9b9797;
+  --color-neutral-600: #7d7979;
+  --color-neutral-700: #605d5d;
+  --color-neutral-800: #444141;
+  --color-neutral-900: #2d2b2b;
+
+  --color-accent-100: #e9f8ff;
+  --color-accent-200: #cbeeff;
+  --color-accent-600: #1186ac;
+  --color-accent-700: #006786;
+  --color-accent-800: #004961;
+
+  --color-accent-2-100: #fff1f4;
+  --color-accent-2-700: #aa0b56;
+  --color-accent-2-800: #790e3d;
+
+  /* The third process ink. Print treatments only — never chrome, never copy. */
+  --color-process-yellow: #edbb00;
+
+  --font-heading: "Source Serif 4", Georgia, serif;
+  --font-body: "Source Serif 4", Georgia, serif;
+  --font-mono: "Space Mono", "Cascadia Code", "Consolas", monospace;
+  --font-heading-weight: 600;
+
+  /* Upstream defined only 1,2,3,4,6,8 while its own markup used --space-5 and
+     --space-7, which silently resolved to nothing. Full ramp. */
+  --space-1: 5px;
+  --space-2: 10px;
+  --space-3: 15px;
+  --space-4: 20px;
+  --space-5: 25px;
+  --space-6: 30px;
+  --space-7: 35px;
+  --space-8: 40px;
+
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
 }
 
 *,
@@ -25,29 +74,38 @@ body {
 }
 
 html {
-  /* Keep iOS from auto-inflating type on rotate, which throws off the type scale. */
+  /* Keep iOS from auto-inflating type on rotate, which throws off the scale. */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 body {
-  background-color: var(--paper);
-  /* Belt-and-braces guard: nothing should ever produce sideways scroll on a phone. */
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 400;
+  /* Belt-and-braces: nothing should ever produce sideways scroll on a phone. */
   overflow-x: hidden;
-  /* Faint ruled-worksheet grain: a hairline baseline grid the eye reads as paper, not decoration. */
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent,
-    transparent 31px,
-    rgba(198, 188, 165, 0.16) 31px,
-    rgba(198, 188, 165, 0.16) 32px
-  );
-  color: var(--ink);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  /* The display type is set large and tight; a long single-word topic must
+     break rather than push the page sideways. */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 button {
@@ -65,39 +123,37 @@ textarea {
 }
 
 a {
-  color: var(--reagent);
+  color: var(--color-accent-700);
   text-decoration: none;
+  text-underline-offset: 3px;
+}
+a:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
 }
 
-/* The display type is set large and tight; on a narrow screen a long single-word
-   topic ("photosynthesis…") must break rather than push the page sideways. */
-h1,
-h2,
-h3 {
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
-
-/* Media never outgrows its container. */
 img,
 video {
+  display: block;
   max-width: 100%;
-}
-
-/* Every interactive element gets one visible, on-brand focus ring. */
-:focus-visible {
-  outline: 2px solid var(--reagent);
-  outline-offset: 2px;
 }
 
 pre,
 code {
-  font-family: "Space Mono", "Cascadia Code", "Consolas", monospace;
+  font-family: var(--font-mono);
+}
+
+/* Every interactive element gets one visible, on-brand focus ring. */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 ::selection {
-  background: var(--reagent);
-  color: var(--paper);
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 /* Hairline scrollbars, in ink not chrome-blue. */
@@ -109,59 +165,297 @@ code {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--rule);
+  background: var(--color-neutral-400);
   border-radius: 0;
 }
 
-/* ── Motion: reserved for state, and only when the visitor allows it ───────── */
+/* ══ Components ════════════════════════════════════════════════════════════
+   Plain CSS on plain HTML. This is where hover, focus and active states live —
+   the app was previously 100% inline styles and therefore had none of them.
+   ══════════════════════════════════════════════════════════════════════════ */
 
-/* The active lane "reacts" — a slow reagent pulse. */
-@keyframes reagent-pulse {
+/* — buttons — */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 8px var(--space-3);
+  border-radius: var(--radius-md);
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn svg {
+  display: block;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-600);
+}
+.btn-primary:active:not(:disabled) {
+  background: var(--color-accent-700);
+}
+.btn-secondary {
+  border-color: var(--color-divider);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+.btn-secondary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+.btn-ghost {
+  color: var(--color-accent-700);
+  padding-inline: var(--space-1);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+.btn-danger {
+  color: var(--color-accent-2-700);
+  border-color: color-mix(in srgb, var(--color-accent-2) 40%, transparent);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-accent-2-100);
+}
+.btn-block {
+  width: 100%;
+}
+
+/* — forms — */
+.input {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--color-text);
+  caret-color: var(--color-accent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s;
+}
+.input:hover {
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+.input:focus-visible {
+  border-color: var(--color-accent);
+  outline-offset: 0;
+}
+textarea.input {
+  min-height: 90px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+/* — segmented control — */
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.seg-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  background: transparent;
+  transition: background-color 0.15s, color 0.15s;
+}
+.seg-opt + .seg-opt {
+  border-left: 1px solid var(--color-divider);
+}
+.seg-opt[aria-pressed="true"] {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.seg-opt[aria-pressed="false"]:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+/* — cards — */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.card-kicker {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+.card-title {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 17px;
+  line-height: 1.2;
+}
+.card-body {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.8;
+  flex: 1;
+}
+.card-link {
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.card-link:hover {
+  box-shadow: var(--shadow-md);
+}
+.elev-sm {
+  box-shadow: var(--shadow-sm);
+}
+.elev-md {
+  box-shadow: var(--shadow-md);
+}
+.elev-lg {
+  box-shadow: var(--shadow-lg);
+}
+
+/* — tags — */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  padding: 3px 10px;
+  border-radius: calc(var(--radius-md) * 0.75);
+}
+.tag-accent {
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+}
+.tag-accent-2 {
+  background: var(--color-accent-2-100);
+  color: var(--color-accent-2-800);
+}
+.tag-neutral {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-800);
+}
+.tag-outline {
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-700);
+}
+
+/* — tables — */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-divider);
+}
+.table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+/* Wide content scrolls inside its own box; the page never scrolls sideways. */
+.scroll-x {
+  overflow-x: auto;
+}
+
+/* — the plate numeral —
+   Display figures set as misregistered process plates: cyan, magenta and
+   yellow only, no black. The dark core is the C x M x Y multiply overlap, the
+   fringes are the registration drift. Reserved for headline benchmark figures.
+   The construction carries its own ground so the multiply plates always have a
+   backdrop; the padding bleeds wider than any plate offset and the negative
+   margin hands the layout box back. */
+.cmyk-num {
+  --cmyk-num-ground: var(--color-bg);
+  position: relative;
+  width: fit-content;
+  line-height: 0.9;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-feature-settings: "pnum" 1;
+  background: var(--cmyk-num-ground);
+  padding: 0.12em;
+  margin: -0.12em;
+}
+.cmyk-num .paper {
+  color: var(--color-bg);
+  text-shadow: 0.036em 0.025em 0 var(--color-bg), -0.031em -0.023em 0 var(--color-bg);
+}
+.cmyk-num .plate {
+  position: absolute;
+  inset: 0.12em;
+  mix-blend-mode: multiply;
+}
+.cmyk-num .plate-c {
+  color: var(--color-accent);
+}
+.cmyk-num .plate-m {
+  color: var(--color-accent-2);
+  translate: 0.036em 0.025em;
+}
+.cmyk-num .plate-y {
+  color: var(--color-process-yellow);
+  translate: -0.031em -0.023em;
+}
+
+/* ── Motion: reserved for state ─────────────────────────────────────────── */
+
+/* The active stage pulses while its agent works. */
+@keyframes urop-pulse {
   0%,
   100% {
     opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
-}
-
-/* A print coming up in the tray: the focal mark slowly develops while we wait. */
-@keyframes develop {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scale(0.82);
-    box-shadow: 0 0 0 0 rgba(31, 111, 92, 0);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-    box-shadow: 0 0 0 10px rgba(31, 111, 92, 0.14);
-  }
-}
-
-/* The chosen material surfaces into focus — the final-page signature moment. */
-@keyframes material-develop {
-  from {
-    opacity: 0;
-    filter: blur(6px) contrast(0.6) sepia(0.3);
-    transform: scale(0.985);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0) contrast(1) sepia(0);
     transform: scale(1);
   }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.72);
+  }
 }
 
-/* Page-load: the worksheet settles in, top rule drawing across. */
-@keyframes rule-draw {
-  from {
-    transform: scaleX(0);
-  }
+@keyframes urop-orbit {
   to {
-    transform: scaleX(1);
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -173,6 +467,54 @@ code {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes rule-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Held from the previous skin: the run page and material viewer still use
+   these class names. */
+@keyframes reagent-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes develop {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.82);
+    box-shadow: 0 0 0 0 rgba(0, 136, 176, 0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(0, 136, 176, 0.14);
+  }
+}
+
+@keyframes material-develop {
+  from {
+    opacity: 0;
+    filter: blur(6px) contrast(0.6);
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0) contrast(1);
+    transform: scale(1);
   }
 }
 
@@ -190,12 +532,6 @@ code {
 }
 .rule-draw {
   animation: rule-draw 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

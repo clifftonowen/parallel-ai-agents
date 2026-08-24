@@ -1,115 +1,143 @@
-// ── The Study Bench — design tokens ─────────────────────────────────────────
-// A warm lab-worksheet ground. Ink on paper, chunked by hairline rules, with a
-// single accent bound to STATE.
+// ── UROP — design tokens ────────────────────────────────────────────────────
+// Ported from the "broadsheet" design system (Claude Design project
+// bd8c5ad0-ee8d-424b-b8d0-ce82b34ccebf, _ds/broadsheet-.../styles.css).
 //
-// This file is the whole visual system. Every colour, size and gap in either
-// app should come from here, so a later redesign is a change to this file
-// rather than a sweep through forty style objects.
+// A press sheet, not a warm worksheet: cool grey ground, one serif doing every
+// job, and the two process inks — cyan and magenta — carrying all the colour.
+// Near-square corners and real shadows, so surfaces lift off the page rather
+// than being drawn onto it.
 //
-// Kept BYTE-IDENTICAL with study-bench/src/theme.ts. The two drifted once
-// already; `diff` returning nothing is the check.
+// These names are mirrored as CSS custom properties in index.css. Inline
+// styles read them from here; the component classes (.btn, .card, .seg …) read
+// them from there. Change a value in BOTH or they drift.
 
 export const c = {
-  // Ground and surfaces. paper and paperCard were previously two shades of the
-  // same cream ~2% apart, which made every input and card invisible against
-  // the page. The ground is now deeper so raised surfaces actually read.
-  paper: "#EDE7D9",
-  paperDeep: "#E0D8C5",
-  paperCard: "#F7F3EA",
-  ink: "#17150F",
-  inkSoft: "#5A5341",
-  inkFaint: "#8A8069",
-  rule: "#C6BCA5",
-  ruleSoft: "#D8CFBB",
-  reagent: "#1F6F5C", // viridian — see the accent rule below
-  reagentSoft: "#3E9079",
-  reagentWash: "#DCE8E1",
-  flag: "#B5451F", // vermilion — error / attention only
-  flagWash: "#F0DCD2",
+  // Ground and surfaces.
+  paper: "#f3f2f2", // --color-bg
+  paperDeep: "#e0dede",
+  paperCard: "#eae9e9", // --color-surface
+
+  // Ink.
+  ink: "#201e1d", // --color-text
+  inkSoft: "#605d5d", // neutral-700
+  inkFaint: "#7d7979", // neutral-600
+
+  // Rules. The system draws divisions with hairlines, not boxes.
+  rule: "#d7d3d3", // neutral-300
+  ruleSoft: "#eae7e7", // neutral-200
+
+  // First process ink: cyan. Actions and live state.
+  // `reagent*` keeps the old names so the call sites did not have to churn
+  // twice in one week; read it as "the accent".
+  reagent: "#0088b0", // --color-accent
+  reagentSoft: "#38a6cf", // accent-500
+  reagentWash: "#e9f8ff", // accent-100
+  reagentDeep: "#006786", // accent-700, for text on the pale ground
+
+  // Second process ink: magenta. Attention and failure only.
+  flag: "#d6006c", // --color-accent-2
+  flagWash: "#fff1f4", // accent-2-100
+  flagDeep: "#aa0b56", // accent-2-700
+
+  // Third ink, print treatments only (see .cmyk-num in index.css). Never
+  // chrome, never body copy.
+  processYellow: "#edbb00",
 } as const;
 
-// ── The accent rule ────────────────────────────────────────────────────────
-// Viridian earns attention only if it is rare. It marks exactly two things:
-//   1. ACTION or STATE — the primary action, or whatever is currently
-//      running. A list of equivalent primary actions (one Download per file,
-//      one Read per material) counts as one use, because it is one idea.
-//   2. ONE editorial accent in the display heading, and only one.
-// Nav links, section labels, field labels and secondary controls are ink.
-// If something needs to stand out and is neither of the above, it wants
-// weight or space, not colour.
-//
-// The previous version of this comment claimed the accent appeared "only
-// where something is reacting", while the home page used it on six static
-// elements. A rule the code does not follow is worse than no rule, so if you
-// break this one, change this paragraph too.
+/** Tonal ramps, for the places that need a step rather than a role. */
+export const neutral = {
+  100: "#f8f4f4", 200: "#eae7e7", 300: "#d7d3d3", 400: "#bab6b6", 500: "#9b9797",
+  600: "#7d7979", 700: "#605d5d", 800: "#444141", 900: "#2d2b2b",
+} as const;
 
+export const accent = {
+  100: "#e9f8ff", 200: "#cbeeff", 300: "#99e0ff", 400: "#62c5ee", 500: "#38a6cf",
+  600: "#1186ac", 700: "#006786", 800: "#004961", 900: "#0a303e",
+} as const;
+
+// ── The accent rule ─────────────────────────────────────────────────────────
+// Cyan marks two things and nothing else:
+//   1. ACTION or STATE — the primary action, or whatever is running. A list of
+//      equivalent actions (one Download per file) counts as one use.
+//   2. ONE editorial accent per screen.
+// Magenta is failure and attention, never decoration. Everything else is ink.
+// If something needs to stand out and is neither, it wants weight or space.
+
+// ── Type ────────────────────────────────────────────────────────────────────
+// One family in every role. The system carries its personality through weight,
+// size and italic rather than through a second or third typeface, so there is
+// no separate display or label face. Mono survives for one job only: the run
+// log and file names, where character alignment is the point.
 export const font = {
-  display: "'Fraunces', Georgia, serif",
-  body: "'Inter', system-ui, sans-serif",
-  mono: "'Space Mono', 'Cascadia Code', monospace",
+  display: "'Source Serif 4', Georgia, serif",
+  body: "'Source Serif 4', Georgia, serif",
+  mono: "'Space Mono', 'Cascadia Code', 'Consolas', monospace",
 } as const;
 
-// ── Type scale ─────────────────────────────────────────────────────────────
-// Seven steps. Replaces 25 ad-hoc inline sizes that included neighbours 0.5px
-// apart, which no reader can perceive and no maintainer can choose between.
-// Pick the nearest step; if two steps feel equally wrong the fix is usually
-// weight or colour, not a new size.
+/** Broadsheet's heading ramp: body 15, h6 13, h4 20, h3 25, h2 32, h1 42. */
 export const size = {
-  micro: 11, // mono eyebrows, table units
-  small: 12, // captions, metadata
-  body: 14, // default UI text
-  lead: 16, // intro paragraphs, list items
-  title: 20, // card and section titles
-  head: 26, // page headings
-  hero: 34, // the display heading floor (see `display` for the fluid version)
+  micro: 11, // tags, table units, meta
+  small: 13, // captions, card body, h6
+  body: 15, // default UI text
+  lead: 17, // intro copy, card titles
+  title: 20, // h4, section headings
+  head: 25, // h3, page headings
+  hero: 32, // h2, stat figures
 } as const;
 
-// Display headings are fluid rather than fixed steps: they are the one place
-// the layout is allowed to breathe with the viewport. Two tiers only —
-// `display` for the heading that names the page, `displaySmall` for panel and
-// single-purpose-form headings. There were five slightly different clamps
-// before, which is four more than the hierarchy has levels.
-export const display = "clamp(34px, 6vw, 56px)";
-export const displaySmall = "clamp(24px, 4vw, 34px)";
+// The page heading is fluid; everything else picks a fixed step.
+export const display = "clamp(32px, 5vw, 42px)";
+export const displaySmall = "clamp(22px, 3.4vw, 28px)";
 
-// ── Spacing scale ──────────────────────────────────────────────────────────
-// One 4px-based ramp. Vertical rhythm comes from picking neighbouring steps,
-// not from typing another number.
+/** Weight for headings. The serif is only loaded at 400 and 600. */
+export const headingWeight = 600;
+
+// ── Spacing ─────────────────────────────────────────────────────────────────
+// Broadsheet's 5px ramp. Its stylesheet defines only 1,2,3,4,6,8 while its own
+// markup uses --space-5 and --space-7, which therefore resolved to nothing;
+// the full ramp is filled in here and in index.css.
 export const space = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  base: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
-  section: 64,
-  page: 96,
+  xs: 5, // --space-1
+  sm: 10, // --space-2
+  md: 15, // --space-3
+  base: 20, // --space-4
+  lg: 25, // --space-5  (was missing upstream)
+  xl: 30, // --space-6
+  xxl: 35, // --space-7  (was missing upstream)
+  section: 40, // --space-8
+  page: 60,
 } as const;
 
-// ── Layout ─────────────────────────────────────────────────────────────────
-// There was previously one container width per file: 900, 820, 800, 760, 680,
-// 640, 520 and 460 all coexisted, and the app header was wider than every page
-// beneath it — so the wordmark hung to the left of the content on every
-// screen. Two widths now, and the header shares `shell` so the left edges line
-// up.
+export const radius = { sm: 1, md: 2, lg: 4 } as const;
+
+export const shadow = {
+  sm: "0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent)",
+  md: "0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent)",
+  lg: "0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent)",
+} as const;
+
+// ── Layout ──────────────────────────────────────────────────────────────────
 export const layout = {
-  shell: 760, // every page and the app header — the one alignment
-  measure: 560, // prose blocks: intro copy, empty states, help text
-  narrow: 460, // sign-in and other single-purpose forms
-  gutter: 22, // horizontal page padding
+  sidebar: 264, // the fixed left rail
+  shell: 980, // main content column
+  measure: "62ch", // prose blocks: a CSS length, so it drops straight into maxWidth
+  narrow: 440, // sign-in and other single-purpose forms
+  gutter: 40, // --space-8, the main pane's horizontal padding
 } as const;
 
-// A wide-tracked, small-caps mono eyebrow — the recurring structural label.
+/** The recurring structural label: small, tracked, uppercase, in the serif. */
 export const eyebrow: React.CSSProperties = {
-  fontFamily: font.mono,
+  fontFamily: font.body,
   fontSize: size.micro,
-  fontWeight: 700,
-  letterSpacing: "0.22em",
+  fontWeight: headingWeight,
+  letterSpacing: "0.1em",
   textTransform: "uppercase",
   color: c.inkFaint,
 };
 
-// Hairline rule used to chunk the worksheet.
+/** Muted body text, the design's most-repeated colour treatment. */
+export const muted = "color-mix(in srgb, #201e1d 62%, transparent)";
+export const mutedFaint = "color-mix(in srgb, #201e1d 48%, transparent)";
+
 export const hairline = `1px solid ${c.rule}`;
 export const hairlineSoft = `1px solid ${c.ruleSoft}`;
