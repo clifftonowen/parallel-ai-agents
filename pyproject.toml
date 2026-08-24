@@ -22,6 +22,11 @@ select = ["F"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The modules under test live at the repo root, not in an installed package.
+# `python -m pytest` happens to work without this because -m prepends the cwd
+# to sys.path; bare `pytest` does not, which is how CI runs it. Without this
+# every test module fails to import.
+pythonpath = ["."]
 # Keep the reference scripts out of collection; examples/benchmark_test.py
 # matches the default *_test.py pattern but is a timing demo, not a test.
 norecursedirs = ["examples", "output", "node_modules", ".venv", "venv"]
