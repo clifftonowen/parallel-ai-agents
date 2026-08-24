@@ -24,7 +24,11 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          # 22, not 20. jsdom 30 reaches for webidl.util.markAsUncloneable,
+          # which Node only gained in 22 — on 20 every vitest run dies with
+          # "markAsUncloneable is not a function". Actions also deprecated
+          # Node 20 runners.
+          node-version: '22'
           cache: npm
           cache-dependency-path: web/package-lock.json
 
