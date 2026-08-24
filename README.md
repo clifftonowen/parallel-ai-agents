@@ -341,6 +341,16 @@ VITE_DEMO_MODE=1 npm run build && npm run preview   # standalone
 npm run build && npm run preview                    # against a live backend
 ```
 
+**If the first deploy fails resolving `../../../benchmarks/…`**, that is the
+one failure a local build cannot reproduce. `src/api/demo.ts` imports the
+benchmark JSON from the repo's `benchmarks/` directory — deliberately, so there
+is one copy of those numbers rather than two that drift — and that path is
+*above* the Root Directory. Locally the whole repo is always present; on Vercel
+it depends on the project's **"Include source files outside of the Root
+Directory in the Build Step"** setting. Turn it on. If you would rather not,
+the alternative is Root Directory `.` with build command
+`npm --prefix web ci && npm --prefix web run build` and output `web/dist`.
+
 ### The demo build
 
 `VITE_DEMO_MODE=1` makes the app answer from `src/api/demo.ts` instead of the

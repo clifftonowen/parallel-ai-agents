@@ -29,10 +29,10 @@ about why.
    rendered the fence as body text before the doctype — visible in the corner of
    every slide, and therefore in every frame of every video the pipeline had
    ever produced. That is fixed in `run_context.strip_code_fence`, used by
-   `video_agent`. The five slide `.html` files this run wrote were still on
+   `video_agent`. The six slide `.html` files this run wrote were still on
    disk, so they were re-rendered through the fixed path and the video was
-   reassembled from them and the run's own `.mp3` narration. **No model or TTS
-   call was made**: same words, same voice, same slides, minus the bug.
+   reassembled from them and the run's own six `.mp3` narrations. **No model or
+   TTS call was made**: same words, same voice, same slides, minus the bug.
 
 2. **It was re-encoded for the web.** 5.04 MB → 2.44 MB (x264 CRF 32
    `-tune stillimage`, mono 48k AAC, `+faststart`). Static slides compress
