@@ -17,6 +17,9 @@ study_bench.db
 
 # ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
+.pytest_cache/
+coverage/
+.vitest/
 *.pyc
 *.pyo
 .venv/

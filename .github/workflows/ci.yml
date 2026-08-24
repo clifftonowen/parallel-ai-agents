@@ -31,9 +31,44 @@ jobs:
       - run: npm ci
 
       # "build" is `tsc -b && vite build`, so this is a real typecheck, not just
-      # a bundle. It is the only type gate the frontends have.
+      # a bundle. It also typechecks vite.config.ts, which the dev server does
+      # not — that is how a missing @types/node got caught rather than shipped.
       - name: build (typecheck + bundle)
         run: npm run build
 
       - name: lint
         run: npm run lint
+
+      # jsdom-backed. The markdown suite is a security control, not a
+      # formatting check: it asserts that script tags, event handlers and
+      # javascript: hrefs do not survive sanitising.
+      - name: test
+        run: npm test
+
+  python:
+    name: python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      # requirements-dev.txt, not requirements.txt: the full runtime pulls
+      # moviepy, playwright + Chromium and google-adk, none of which any of
+      # these tests touch. See the note at the top of that file.
+      - name: install
+        run: pip install -r requirements-dev.txt
+
+      # Narrow on purpose: F (pyflakes) is high-signal and passes clean today.
+      # Widening the rule set is a separate, deliberate change.
+      - name: lint
+        run: ruff check .
+
+      # This is the first environment other than Windows this code has run in,
+      # so path and encoding assumptions surface here first.
+      - name: test
+        run: pytest -q

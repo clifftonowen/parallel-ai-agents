@@ -1,0 +1,22 @@
+# Test and lint dependencies.
+#
+# Deliberately NOT `-r requirements.txt`. The full runtime pulls moviepy,
+# playwright (plus a Chromium download), google-adk and the Vertex AI client —
+# well over a gigabyte, several minutes, and a large surface of things that can
+# break a CI run that is only exercising pure functions.
+#
+# The tested modules need exactly three third-party packages at import time:
+#   numpy         prompt_cache imports it at module scope
+#   python-dotenv  config.py and benchmark_profile.py import it at module scope
+#   pytest        the runner
+#
+# openai is NOT here on purpose: prompt_cache imports it inside _openai_client(),
+# so it is never touched during collection. If a future test needs a heavier
+# module, prefer moving that module's import inside the function over growing
+# this file.
+
+pytest>=8,<10
+ruff>=0.6,<1
+
+numpy>=1.26,<3
+python-dotenv>=1.0,<2
