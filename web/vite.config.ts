@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 // The single front-end. It used to be two apps on 5273 and 5274; the learner
@@ -18,6 +18,12 @@ const API_PORT = Number(process.env.API_PORT ?? 8010);
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    // jsdom, not node: DOMPurify sanitises against a real DOM, so the XSS
+    // tests are meaningless without one.
+    environment: "jsdom",
+    include: ["src/**/*.test.ts"],
+  },
   server: {
     port: WEB_PORT,
     strictPort: true,
