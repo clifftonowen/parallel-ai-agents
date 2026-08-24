@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { listRuns, stats as fetchStats } from "../api/client";
+import { accessRequestQueue, listRuns, myAccessState, stats as fetchStats } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import type { RunSummary, Stats } from "../types";
+import type { AccessState, RunSummary, Stats } from "../types";
 import {
   c, eyebrow, font, headingWeight, layout, muted, mutedFaint, size, space,
 } from "../theme";
@@ -61,6 +61,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [access, setAccess] = useState<AccessState | null>(null);
+  // Third alert layer: a push can be missed and the table is not
+  // something anyone checks unprompted, so signing in shows the count.
+  const [pending, setPending] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
@@ -69,6 +73,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       setRuns(r);
     } catch {
       /* backend may be down; the rail degrades to zeros rather than erroring */
+    }
+    try {
+      const a = await myAccessState();
+      setAccess(a);
+      if (a.is_admin) setPending((await accessRequestQueue("pending")).length);
+    } catch {
+      setAccess(null);
+      setPending(0);
     }
   }, []);
 
@@ -82,11 +94,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (SIGNED_OUT_PATHS.includes(pathname)) return <>{children}</>;
 
   const activeRun = runs.find((r) => r.status === "running");
-  const section = NAV.find((n) => n.to === pathname)?.label
-    ?? (pathname.startsWith("/session") ? "Session"
-      : pathname.startsWith("/run") ? "Session"
-      : pathname.startsWith("/benchmark") ? "Benchmark"
-      : "Not found");
+  const section =
+    NAV.find((n) => n.to === pathname)?.label ??
+    (pathname.startsWith("/session") || pathname.startsWith("/run")
+      ? "Session"
+      : pathname.startsWith("/benchmark")
+        ? "Benchmark"
+        : pathname === "/request-access"
+          ? "Access"
+          : pathname === "/requests"
+            ? "Requests"
+            : "Not found");
 
   const signOut = async () => {
     await logout();
@@ -128,7 +146,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </button>
 
         <nav className="shell-nav">
-          {NAV.map((n) => {
+          {[...NAV, ...(access?.is_admin ? [{ to: "/requests", label: "Requests" }] : [])].map((n) => {
             const on = n.to === pathname;
             return (
               <Link
@@ -143,6 +161,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 }}
               >
                 {n.label}
+                {n.to === "/requests" && pending > 0 && (
+                  <span style={badge}>{pending}</span>
+                )}
               </Link>
             );
           })}
@@ -269,6 +290,16 @@ const accountSub: React.CSSProperties = {
   color: muted,
 };
 
+
+const badge: React.CSSProperties = {
+  marginLeft: space.sm,
+  padding: "1px 7px",
+  fontSize: size.micro,
+  fontWeight: headingWeight,
+  background: c.flag,
+  color: c.paper,
+  borderRadius: 999,
+};
 
 const navItem: React.CSSProperties = {
   padding: "8px 10px",

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { listRuns, startRun } from "../api/client";
+import { Link, useNavigate } from "react-router-dom";
+import { listRuns, myAccessState, startRun } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import type { RunMode, RunSummary } from "../types";
+import type { AccessState, RunMode, RunSummary } from "../types";
 import {
   c, display, font, headingWeight, layout, muted, mutedFaint, size, space,
 } from "../theme";
@@ -49,6 +49,9 @@ export default function SubmitPage() {
   const [mode, setMode] = useState<RunMode>("async");
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<RunSummary[]>([]);
+  // Whether this account may spend API credits. The server enforces it at
+  // POST /run; this only decides what the page offers.
+  const [access, setAccess] = useState<AccessState | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchHistory = useCallback(async () => {
@@ -64,6 +67,14 @@ export default function SubmitPage() {
     window.addEventListener("focus", fetchHistory);
     return () => window.removeEventListener("focus", fetchHistory);
   }, [fetchHistory, user]);
+
+  useEffect(() => {
+    if (!user) {
+      setAccess(null);
+      return;
+    }
+    myAccessState().then(setAccess).catch(() => setAccess(null));
+  }, [user]);
 
   const submit = async () => {
     const t = topic.trim();
@@ -131,6 +142,45 @@ export default function SubmitPage() {
             </p>
           )}
 
+          {!user ? (
+            <div style={gate}>
+              <p style={gateLead}>Sign in to run the pipeline.</p>
+              <p style={gateBody}>
+                Reading is open to everyone — the{" "}
+                <Link to="/benchmark">benchmark page</Link> works signed out.
+                Generating calls the Anthropic and OpenAI APIs, so it needs an
+                account.
+              </p>
+              <Link to="/signin" className="btn btn-primary" style={{ textDecoration: "none" }}>
+                Sign in
+              </Link>
+            </div>
+          ) : access && !access.can_run ? (
+            <div style={gate}>
+              <p style={gateLead}>
+                {access.pending
+                  ? "Your access request is with the developer."
+                  : "This account can't start runs yet."}
+              </p>
+              <p style={gateBody}>
+                A run calls the Anthropic and OpenAI APIs and costs real money,
+                so it's granted by hand.{" "}
+                {access.pending
+                  ? "You'll be let in once it's approved."
+                  : "Tell me who you are and I'll switch it on."}
+              </p>
+              {!access.pending && (
+                <Link
+                  to="/request-access"
+                  className="btn btn-primary"
+                  style={{ textDecoration: "none" }}
+                >
+                  Request access
+                </Link>
+              )}
+            </div>
+          ) : null}
+
           <div style={controls}>
             <div className="seg" role="group" aria-label="Orchestrator">
               {MODES.map((m) => (
@@ -149,7 +199,7 @@ export default function SubmitPage() {
             <button
               className="btn btn-primary"
               onClick={submit}
-              disabled={submitting || !topic.trim()}
+              disabled={submitting || !topic.trim() || !access?.can_run}
             >
               {submitting ? "Starting…" : "Generate"}
             </button>
@@ -272,6 +322,26 @@ const chip: React.CSSProperties = {
   border: "none",
   fontSize: size.small,
   padding: "6px 12px",
+};
+
+const gate: React.CSSProperties = {
+  borderLeft: `2px solid ${c.reagent}`,
+  paddingLeft: space.base,
+  margin: `${space.base}px 0`,
+  maxWidth: layout.measure,
+};
+
+const gateLead: React.CSSProperties = {
+  fontFamily: font.display,
+  fontWeight: headingWeight,
+  fontSize: size.lead,
+  marginBottom: space.xs,
+};
+
+const gateBody: React.CSSProperties = {
+  fontSize: size.body,
+  color: muted,
+  marginBottom: space.md,
 };
 
 const controls: React.CSSProperties = {

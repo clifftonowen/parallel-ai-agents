@@ -1,5 +1,6 @@
 import type {
-  AuthResponse, CuratedBenchmark, RunMode, RunState, RunSummary, SSEEvent, Stats, User,
+  AccessRequestRow, AccessState, AuthResponse, CuratedBenchmark, RunMode,
+  RunState, RunSummary, SSEEvent, Stats, User,
 } from "../types";
 
 const BASE = "/api";
@@ -73,6 +74,44 @@ export async function listRuns(): Promise<RunSummary[]> {
 export async function stats(): Promise<Stats> {
   const res = await fetch(`${BASE}/stats`, { headers: authHeaders() });
   if (!res.ok) throw new Error("Failed to load stats");
+  return res.json();
+}
+
+export async function myAccessState(): Promise<AccessState> {
+  const res = await fetch(`${BASE}/access-request`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load access state");
+  return res.json();
+}
+
+export async function requestAccess(
+  name: string,
+  org: string,
+  message: string,
+): Promise<{ status: string }> {
+  const res = await fetch(`${BASE}/access-request`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ name, org, message }),
+  });
+  if (!res.ok) {
+    const detail = await res
+      .json()
+      .then((b) => (b as { detail?: string }).detail)
+      .catch(() => undefined);
+    throw new Error(detail ?? "Couldn't send that request. Try again in a moment.");
+  }
+  return res.json();
+}
+
+/** Admin only. Returns 404 rather than 403 to anyone else, so this rejects
+ *  exactly like a route that does not exist. */
+export async function accessRequestQueue(
+  status = "pending",
+): Promise<AccessRequestRow[]> {
+  const res = await fetch(`${BASE}/access-requests?status=${status}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to load the queue");
   return res.json();
 }
 

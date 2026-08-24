@@ -38,7 +38,11 @@ import run_manager
 from src.agents.run_context import slugify_topic
 from run_manager import runs as _runs, runs_lock as _runs_lock
 from run_state import RunState
-from security import current_user, user_from_header_or_query
+import notify  # noqa: E402
+from security import (  # noqa: E402
+    current_user, is_admin, require_admin, require_runner,
+    require_signed_in, user_from_header_or_query,
+)
 import prompt_cache
 
 # ---------------------------------------------------------------------------
@@ -95,7 +99,10 @@ async def start_run(req: StartRunRequest, authorization: str | None = Header(def
     if req.mode not in ("both", "original", "adk", "async", "all"):
         raise HTTPException(status_code=400, detail="mode must be 'both', 'original', 'adk', 'async', or 'all'")
 
-    user = current_user(authorization)
+    # The only endpoint that costs money. An account is free to create; being
+    # allowed to spend API credits is granted separately, so this is where it
+    # is checked rather than by hiding the button in the UI.
+    user = require_runner(authorization)
     topic = req.topic.strip()
     run_id = str(uuid.uuid4())
     loop = asyncio.get_event_loop()
@@ -385,6 +392,77 @@ async def curated_benchmarks():
         except (OSError, json.JSONDecodeError) as exc:
             print(f"[api] Warning: skipping benchmark {name}: {exc}")
     return out
+
+
+class AccessRequest(BaseModel):
+    name: str = ""
+    org: str = ""
+    message: str = ""
+
+
+@app.post("/access-request")
+async def request_access(
+    req: AccessRequest, authorization: str | None = Header(default=None)
+):
+    """Ask to be allowed to start runs.
+
+    Requires an account. That turns what would be an anonymous write into an
+    authenticated one, so the rate limit is "one pending request per account"
+    enforced by a unique index rather than per-IP guesswork.
+
+    The text is stored as plain text and rendered as plain text. It is read by
+    whoever holds the grant, which makes them the highest-value XSS target in
+    the system.
+    """
+    user = require_signed_in(authorization)
+
+    if user.get("can_run"):
+        return {"status": "already_granted"}
+
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Tell me a little about why.")
+
+    created = auth_db.create_access_request(
+        user["id"], req.name, req.org, req.message
+    )
+    if not created:
+        # Not an error: they already asked, and saying so is friendlier than a
+        # 409 the front-end has to translate.
+        return {"status": "already_pending"}
+
+    # Best effort, and after the row is written. A dead webhook loses a
+    # notification, never a request.
+    notify.access_requested(user["email"], auth_db.count_pending_access_requests())
+    return {"status": "pending"}
+
+
+@app.get("/access-request")
+async def my_access_request(authorization: str | None = Header(default=None)):
+    """Whether this account may run, and whether it has already asked."""
+    user = require_signed_in(authorization)
+    pending = auth_db.pending_access_request(user["id"])
+    return {
+        "can_run": bool(user.get("can_run")),
+        "pending": pending is not None,
+        "requested_at": pending["created_at"] if pending else None,
+        "is_admin": is_admin(user),
+    }
+
+
+@app.get("/access-requests")
+async def access_request_queue(
+    status: str = "pending", authorization: str | None = Header(default=None)
+):
+    """The queue, for whoever is in ADMIN_EMAILS.
+
+    Read-only on purpose. Granting has no HTTP route at all -- it is
+    scripts/grant_access.py, run locally -- so there is no privilege-escalation
+    endpoint to attack and no admin session worth stealing.
+    """
+    require_admin(authorization)
+    if status not in ("pending", "granted", "declined"):
+        raise HTTPException(status_code=400, detail="unknown status")
+    return auth_db.list_access_requests(status)
 
 
 @app.get("/stats")

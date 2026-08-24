@@ -5,6 +5,8 @@ import RunPage from "./pages/RunPage";
 import PackagePage from "./pages/PackagePage";
 import ResultsPage from "./pages/ResultsPage";
 import BenchmarkPage from "./pages/BenchmarkPage";
+import RequestAccessPage from "./pages/RequestAccessPage";
+import RequestsPage from "./pages/RequestsPage";
 import SignInPage from "./pages/SignInPage";
 import HistoryPage from "./pages/HistoryPage";
 import { c, font, muted, size, space } from "./theme";
@@ -38,6 +40,8 @@ export default function App() {
           <Route path="/session/:run_id" element={<PackagePage />} />
           <Route path="/benchmark" element={<BenchmarkPage />} />
           <Route path="/benchmark/:run_id" element={<ResultsPage />} />
+          <Route path="/request-access" element={<RequestAccessPage />} />
+          <Route path="/requests" element={<RequestsPage />} />
           <Route path="/signin" element={<SignInPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -197,6 +197,28 @@ export interface RunSummary {
   mode?: RunMode;
 }
 
+/** Whether this account may start runs, and whether it has already asked. */
+export interface AccessState {
+  can_run: boolean;
+  pending: boolean;
+  requested_at: string | null;
+  is_admin: boolean;
+}
+
+/** One row of the access-request queue. Every string here was typed by the
+ *  requester: render it as text, never as markdown or HTML. */
+export interface AccessRequestRow {
+  id: number;
+  user_id: number;
+  email: string;
+  name: string;
+  org: string;
+  message: string;
+  status: string;
+  created_at: string;
+  can_run: number;
+}
+
 /** A benchmark run kept deliberately, from benchmarks/. */
 export interface CuratedBenchmark {
   name: string;

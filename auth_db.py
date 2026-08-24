@@ -94,8 +94,32 @@ def init_db() -> None:
                 created_at     TEXT NOT NULL,
                 hits           INTEGER NOT NULL DEFAULT 0
             );
+            -- Requests to be allowed to start runs. Having an account and
+            -- being able to spend API credits are deliberately separate: an
+            -- account is free to create, running the pipeline is not.
+            CREATE TABLE IF NOT EXISTS access_requests (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                name       TEXT NOT NULL,
+                org        TEXT NOT NULL,
+                message    TEXT NOT NULL,
+                status     TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL
+            );
+            -- One pending request per account, enforced by the database rather
+            -- than by a check that races under concurrent submits.
+            CREATE UNIQUE INDEX IF NOT EXISTS access_requests_one_pending
+                ON access_requests(user_id) WHERE status = 'pending';
             """
         )
+        # users.can_run predates nothing -- it is added here rather than in the
+        # CREATE TABLE so existing databases pick it up without a migration
+        # step. Default 0: signing up grants no ability to spend.
+        cols = {r["name"] for r in _get_conn().execute("PRAGMA table_info(users)")}
+        if "can_run" not in cols:
+            _get_conn().execute(
+                "ALTER TABLE users ADD COLUMN can_run INTEGER NOT NULL DEFAULT 0"
+            )
         _get_conn().commit()
 
 
@@ -172,13 +196,146 @@ def user_for_token(token: str | None) -> dict | None:
     with _lock:
         row = _get_conn().execute(
             """
-            SELECT u.id AS id, u.email AS email
+            SELECT u.id AS id, u.email AS email, u.can_run AS can_run
             FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.token = ?
             """,
             (token,),
         ).fetchone()
-    return {"id": row["id"], "email": row["email"]} if row else None
+    if not row:
+        return None
+    return {"id": row["id"], "email": row["email"], "can_run": bool(row["can_run"])}
+
+
+# ── access requests ──────────────────────────────────────────────────────────
+
+# Length caps. These are enforced here as well as at the route, because this is
+# the layer that actually writes to the database and a second caller must not
+# be able to bypass them.
+NAME_MAX = 100
+ORG_MAX = 100
+MESSAGE_MAX = 1000
+
+
+def _clean(text: str, limit: int, *, allow_newlines: bool = False) -> str:
+    """Strip control characters, normalise whitespace, truncate.
+
+    Control characters matter because this text is shown to whoever holds the
+    grant. A NUL or an ANSI escape has no business in any of these fields, and
+    dropping them here means nothing downstream has to think about it.
+
+    Newlines survive only in the message, where paragraph breaks are part of
+    what somebody wrote; name and organisation are single-line and collapse.
+    Other whitespace becomes a space rather than being deleted, so a pasted
+    "line1\r\nline2" does not come back as "line1line2".
+    """
+    text = text or ""
+    keep = " \n" if allow_newlines else " "
+    cleaned = []
+    for ch in text:
+        if ch in keep:
+            cleaned.append(ch)
+        elif ch.isspace():
+            cleaned.append(" ")
+        elif ch.isprintable():
+            cleaned.append(ch)
+    text = "".join(cleaned)
+
+    if not allow_newlines:
+        return " ".join(text.split())[:limit]
+
+    # Collapse runs of spaces within each line, and cap a run of blank lines at
+    # one, so nobody can pad the admin view with a screenful of nothing.
+    out: list[str] = []
+    blanks = 0
+    for line in text.split("\n"):
+        line = " ".join(line.split())
+        blanks = blanks + 1 if not line else 0
+        if blanks <= 1:
+            out.append(line)
+    return "\n".join(out).strip()[:limit]
+
+def create_access_request(user_id: int, name: str, org: str, message: str) -> bool:
+    """Record a request to be allowed to run the pipeline.
+
+    Returns False when the user already has one pending, so the caller can say
+    so without the database raising. One pending row per user is enforced by a
+    partial unique index rather than a read-then-write, which would race.
+    """
+    name, org, message = (
+        _clean(name, NAME_MAX),
+        _clean(org, ORG_MAX),
+        _clean(message, MESSAGE_MAX, allow_newlines=True),
+    )
+    with _lock:
+        try:
+            _get_conn().execute(
+                """
+                INSERT INTO access_requests (user_id, name, org, message, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (user_id, name, org, message, _now()),
+            )
+            _get_conn().commit()
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
+
+def pending_access_request(user_id: int) -> dict | None:
+    with _lock:
+        row = _get_conn().execute(
+            "SELECT id, created_at FROM access_requests "
+            "WHERE user_id = ? AND status = 'pending'",
+            (user_id,),
+        ).fetchone()
+    return {"id": row["id"], "created_at": row["created_at"]} if row else None
+
+
+def list_access_requests(status: str = "pending") -> list[dict]:
+    with _lock:
+        rows = _get_conn().execute(
+            """
+            SELECT r.id, r.user_id, r.name, r.org, r.message, r.status,
+                   r.created_at, u.email AS email, u.can_run AS can_run
+            FROM access_requests r JOIN users u ON u.id = r.user_id
+            WHERE r.status = ?
+            ORDER BY r.created_at DESC
+            """,
+            (status,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def count_pending_access_requests() -> int:
+    with _lock:
+        row = _get_conn().execute(
+            "SELECT COUNT(*) AS n FROM access_requests WHERE status = 'pending'"
+        ).fetchone()
+    return row["n"]
+
+
+def set_can_run(email: str, allowed: bool) -> bool:
+    """Grant or revoke the ability to start runs. Returns False if no such user.
+
+    Deliberately has no HTTP route. The grant is the most valuable action in the
+    system, so it is reachable only from a local script -- there is no endpoint
+    to attack and no admin session worth stealing.
+    """
+    email = (email or "").strip().lower()
+    with _lock:
+        cur = _get_conn().execute(
+            "UPDATE users SET can_run = ? WHERE email = ?", (1 if allowed else 0, email)
+        )
+        if allowed:
+            _get_conn().execute(
+                "UPDATE access_requests SET status = 'granted' "
+                "WHERE status = 'pending' AND user_id = "
+                "(SELECT id FROM users WHERE email = ?)",
+                (email,),
+            )
+        _get_conn().commit()
+        return cur.rowcount > 0
 
 
 # ── per-user run history ──────────────────────────────────────────────────────
