@@ -230,7 +230,14 @@ export interface CuratedBenchmark {
 export interface Stats {
   runs_total: number;
   runs_complete: number;
+  // This user's own runs in flight, not the server's. Anything else would show
+  // somebody else's run as if it were yours.
   runs_active: number;
+  // Rolling 24-hour count and the caps in force, so the composer can say how
+  // many runs are left before it asks for one. A limit of 0 means no limit.
+  runs_today: number;
+  runs_daily_limit: number;
+  runs_concurrent_limit: number;
   cache: { entries: number; hits: number };
 }
 

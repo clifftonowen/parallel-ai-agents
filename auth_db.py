@@ -407,6 +407,22 @@ def get_run(run_id: str) -> dict | None:
     }
 
 
+def runs_started_since(user_id: int, cutoff_iso: str) -> int:
+    """How many runs this account has started since `cutoff_iso`.
+
+    The daily quota is counted here rather than from the in-memory run table so
+    it survives a restart. Cache hits are counted like any other run: they are
+    written to `runs` by the same call, and a second definition of "a run" that
+    disagrees with the history page is worse than counting one cheap request.
+    """
+    with _lock:
+        row = _get_conn().execute(
+            "SELECT COUNT(*) AS n FROM runs WHERE user_id = ? AND started_at >= ?",
+            (user_id, cutoff_iso),
+        ).fetchone()
+    return int(row["n"])
+
+
 def runs_for_user(user_id: int) -> list[dict]:
     with _lock:
         rows = _get_conn().execute(

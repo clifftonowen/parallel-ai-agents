@@ -155,3 +155,68 @@ class TestCorsOrigins:
     def test_a_wildcard_is_still_possible_but_has_to_be_deliberate(self, monkeypatch):
         monkeypatch.setenv("CORS_ORIGINS", "*")
         assert security.cors_origins() == ["*"]
+
+
+class TestRunLimits:
+    def test_defaults_are_in_force_when_unset(self, monkeypatch):
+        monkeypatch.delenv("RUN_DAILY_LIMIT", raising=False)
+        monkeypatch.delenv("RUN_CONCURRENT_LIMIT", raising=False)
+        assert security.run_daily_limit() == 10
+        assert security.run_concurrent_limit() == 1
+
+    def test_env_overrides(self, monkeypatch):
+        monkeypatch.setenv("RUN_DAILY_LIMIT", "3")
+        assert security.run_daily_limit() == 3
+
+    def test_nonsense_falls_back_rather_than_crashing_the_route(self, monkeypatch):
+        """A typo in .env must not 500 every run request."""
+        monkeypatch.setenv("RUN_DAILY_LIMIT", "ten")
+        assert security.run_daily_limit() == 10
+
+
+class TestRequireQuota:
+    def test_a_first_run_is_allowed(self, monkeypatch):
+        monkeypatch.delenv("RUN_DAILY_LIMIT", raising=False)
+        monkeypatch.delenv("RUN_CONCURRENT_LIMIT", raising=False)
+        security.require_quota(0, 0)
+
+    def test_a_second_concurrent_run_is_refused(self, monkeypatch):
+        monkeypatch.setenv("RUN_CONCURRENT_LIMIT", "1")
+        with pytest.raises(HTTPException) as exc:
+            security.require_quota(0, 1)
+        assert exc.value.status_code == 429
+
+    def test_the_daily_limit_is_refused_at_the_limit_not_past_it(self, monkeypatch):
+        """Off-by-one here means an extra run every day, forever."""
+        monkeypatch.setenv("RUN_DAILY_LIMIT", "5")
+        monkeypatch.setenv("RUN_CONCURRENT_LIMIT", "0")
+        security.require_quota(4, 0)
+        with pytest.raises(HTTPException) as exc:
+            security.require_quota(5, 0)
+        assert exc.value.status_code == 429
+
+    def test_the_concurrent_message_is_distinguishable_from_the_daily_one(
+        self, monkeypatch
+    ):
+        """Both are 429; the caller has to be able to tell "wait" from
+        "come back tomorrow"."""
+        monkeypatch.setenv("RUN_CONCURRENT_LIMIT", "1")
+        monkeypatch.setenv("RUN_DAILY_LIMIT", "1")
+        with pytest.raises(HTTPException) as busy:
+            security.require_quota(0, 1)
+        with pytest.raises(HTTPException) as spent:
+            security.require_quota(1, 0)
+        assert busy.value.detail != spent.value.detail
+        assert "24 hours" in spent.value.detail
+
+    def test_zero_turns_a_limit_off(self, monkeypatch):
+        """Explicitly off is a decision. Unset is not -- that is the default."""
+        monkeypatch.setenv("RUN_DAILY_LIMIT", "0")
+        monkeypatch.setenv("RUN_CONCURRENT_LIMIT", "0")
+        security.require_quota(9999, 9999)
+
+    def test_being_over_the_limit_already_still_refuses(self, monkeypatch):
+        """The limit can be lowered while runs are in flight."""
+        monkeypatch.setenv("RUN_CONCURRENT_LIMIT", "1")
+        with pytest.raises(HTTPException):
+            security.require_quota(0, 4)

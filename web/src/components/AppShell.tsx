@@ -204,8 +204,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           note={`${stats?.cache.hits ?? 0} hits / ${stats?.cache.entries ?? 0} topics`}
           tone={c.flag}
         />
+        {(stats?.runs_daily_limit ?? 0) > 0 && (
+          <Meter
+            label="Runs today"
+            value={stats?.runs_today ?? 0}
+            cap={stats?.runs_daily_limit ?? 1}
+            note={`${stats?.runs_today ?? 0} of ${stats?.runs_daily_limit} in the last 24h`}
+            tone={c.flag}
+          />
+        )}
         <p style={meterFoot}>
-          Counts from this machine's database. No plan, no quota.
+          Counts from this machine's database. The run limit exists so a demo
+          account can't spend without bound; there is no plan and nothing to buy.
         </p>
         </div>
 

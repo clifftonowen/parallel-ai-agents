@@ -3,10 +3,12 @@ security.py
 
 Token extraction and user lookup, shared by the run routes and the auth routes.
 
-Auth is still optional on most routes. Two things are now enforced: who may
-spend API credits (`require_runner`) and who may read the access-request queue
-(`require_admin`). The rest of the hardening -- ownership checks that do not
-depend on the run being owned, session expiry, CORS -- is still ahead.
+Auth stays optional on the read routes: a run started on a laptop with no
+accounts remains readable by anyone holding its id. Everything else is
+enforced here -- who may spend API credits (`require_runner`), how much they
+may spend (`require_quota`), who owns a run (`require_owner`), who may read
+the access-request queue (`require_admin`), and which origins may call the API
+at all (`cors_origins`).
 """
 
 import os
@@ -17,6 +19,9 @@ import auth_db
 
 __all__ = [
     "cors_origins",
+    "require_quota",
+    "run_daily_limit",
+    "run_concurrent_limit",
     "require_owner",
     "token_from_header",
     "current_user",
@@ -141,3 +146,80 @@ def require_owner(user: dict | None, owner_id: int | None) -> None:
         return
     if not user or user.get("id") != owner_id:
         raise HTTPException(status_code=404, detail="run not found")
+
+
+# ── quotas ───────────────────────────────────────────────────────────────────
+
+def _limit(name: str, default: int) -> int:
+    """An integer limit from the environment, read at call time.
+
+    Read here rather than at import so the value in `.env` is the value in
+    force without a restart to pick it up, and so a test can set one.
+    Unparseable values fall back to the default rather than crashing the route.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def run_daily_limit() -> int:
+    """Runs one account may start per rolling 24 hours. 0 or less: no limit."""
+    return _limit("RUN_DAILY_LIMIT", 10)
+
+
+def run_concurrent_limit() -> int:
+    """Runs one account may have in flight at once. 0 or less: no limit."""
+    return _limit("RUN_CONCURRENT_LIMIT", 1)
+
+
+def require_quota(daily_used: int, active: int) -> None:
+    """Reject a run that would exceed either limit.
+
+    `require_runner` decides whether an account may spend at all; this decides
+    how much. Without it a granted demo account can sit in a loop starting
+    runs, and every one of them spends Anthropic and OpenAI credits on the
+    owner's card.
+
+    The two limits do different jobs. The daily one bounds the bill. The
+    concurrent one bounds how much damage a loop does before anyone notices,
+    and it is the one that actually bites: a caller who waits for each run is
+    already limited by the ten minutes a run takes, a caller who does not is
+    limited by nothing.
+
+    Unlike the other checks here this takes counts rather than a token, so it
+    can be tested without a database or a running server. The route does the
+    counting: the daily figure comes from the `runs` table so it survives a
+    restart, the active figure from the in-memory table because a restart takes
+    the worker threads with it anyway.
+
+    429 rather than 403: this is "not now", not "not you". The message says
+    which limit was hit so the caller can tell those two apart.
+    """
+    concurrent = run_concurrent_limit()
+    if concurrent > 0 and active >= concurrent:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"You already have {active} run going. Wait for it to finish, "
+                "or cancel it, before starting another."
+                if active == 1 else
+                f"You already have {active} runs going. Wait for those to "
+                "finish, or cancel them, before starting another."
+            ),
+        )
+
+    daily = run_daily_limit()
+    if daily > 0 and daily_used >= daily:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"That is {daily_used} runs in the last 24 hours, which is the "
+                "limit for a demo account. The window rolls, so a slot frees "
+                "up 24 hours after each run. Runs you have already made, and "
+                "the Benchmark page, still work."
+            ),
+        )

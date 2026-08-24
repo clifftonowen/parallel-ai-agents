@@ -25,7 +25,7 @@ from contextlib import asynccontextmanager
 import threading
 import uuid
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,7 +41,8 @@ from run_state import RunState
 import notify  # noqa: E402
 from security import (  # noqa: E402
     cors_origins, current_user, is_admin, require_admin, require_owner,
-    require_runner, require_signed_in, user_from_header_or_query,
+    require_quota, require_runner, require_signed_in, run_concurrent_limit,
+    run_daily_limit, user_from_header_or_query,
 )
 import prompt_cache
 
@@ -101,6 +102,27 @@ class StartRunRequest(BaseModel):
 # Endpoints
 # ---------------------------------------------------------------------------
 
+def _usage(user_id: int) -> tuple[int, int]:
+    """(runs started in the last 24 hours, runs in flight) for one account.
+
+    Two sources on purpose. The daily count comes from the database so a
+    restart does not hand somebody a fresh allowance; the in-flight count comes
+    from the in-memory table, because a restart takes the worker threads with
+    it and a run recorded as "running" there is genuinely gone.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    # Deliberately not wrapped in try/except. Elsewhere in this file a failed
+    # auth_db write is swallowed because losing a history row is not worth
+    # failing a run over; here a swallowed error would silently lift the limit.
+    daily = auth_db.runs_started_since(user_id, cutoff)
+    with _runs_lock:
+        active = sum(
+            1 for st in _runs.values()
+            if st.user_id == user_id and st.status == "running"
+        )
+    return daily, active
+
+
 @app.post("/run")
 async def start_run(req: StartRunRequest, authorization: str | None = Header(default=None)):
     if not req.topic.strip():
@@ -123,6 +145,9 @@ async def start_run(req: StartRunRequest, authorization: str | None = Header(def
     # allowed to spend API credits is granted separately, so this is where it
     # is checked rather than by hiding the button in the UI.
     user = require_runner(authorization)
+    # And how much they may spend. Checked before the cache lookup so one
+    # definition of "a run" covers both paths and matches what /stats reports.
+    require_quota(*_usage(user["id"]))
     topic = req.topic.strip()
     run_id = str(uuid.uuid4())
     loop = asyncio.get_event_loop()
@@ -499,17 +524,24 @@ async def stats(authorization: str | None = Header(default=None)):
 
     Run counts are per-user; the prompt cache is process-wide, so its figures
     are the same for everybody.
+
+    `runs_active` used to count every run on the server, which made somebody
+    else's run light up this user's agent indicators. It is their own now.
+
+    The quota figures are here so the composer can say how many runs are left
+    before it asks for one, rather than the user finding out from a 429.
     """
     user = current_user(authorization)
     runs = auth_db.runs_for_user(user["id"]) if user else []
-
-    with _runs_lock:
-        active = sum(1 for s in _runs.values() if s.status == "running")
+    today, active = _usage(user["id"]) if user else (0, 0)
 
     return {
         "runs_total": len(runs),
         "runs_complete": sum(1 for r in runs if r["status"] == "complete"),
         "runs_active": active,
+        "runs_today": today,
+        "runs_daily_limit": run_daily_limit(),
+        "runs_concurrent_limit": run_concurrent_limit(),
         "cache": auth_db.cache_stats(),
     }
 

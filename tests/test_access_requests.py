@@ -206,3 +206,47 @@ class TestSessionExpiry:
     def test_an_unknown_token_resolves_to_nobody(self, db):
         assert db.user_for_token("not-a-real-token") is None
         assert db.user_for_token(None) is None
+
+
+class TestDailyRunCount:
+    """The daily quota is counted from the runs table so a restart does not
+    hand somebody a fresh allowance."""
+
+    def _cutoff(self, hours=24):
+        from datetime import datetime, timedelta, timezone
+
+        return (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+
+    def test_a_new_account_has_used_nothing(self, db, user):
+        assert db.runs_started_since(user["id"], self._cutoff()) == 0
+
+    def test_runs_inside_the_window_are_counted(self, db, user):
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc).isoformat()
+        db.upsert_run("r1", user["id"], "t", "running", now)
+        db.upsert_run("r2", user["id"], "t", "complete", now)
+        assert db.runs_started_since(user["id"], self._cutoff()) == 2
+
+    def test_runs_outside_the_window_are_not(self, db, user):
+        from datetime import datetime, timedelta, timezone
+
+        old = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+        db.upsert_run("r1", user["id"], "t", "complete", old)
+        assert db.runs_started_since(user["id"], self._cutoff()) == 0
+
+    def test_another_account_does_not_count_against_this_one(self, db, user):
+        from datetime import datetime, timezone
+
+        other = db.create_user("other@example.com", "longenough")
+        now = datetime.now(timezone.utc).isoformat()
+        db.upsert_run("r1", other["id"], "t", "running", now)
+        assert db.runs_started_since(user["id"], self._cutoff()) == 0
+        assert db.runs_started_since(other["id"], self._cutoff()) == 1
+
+    def test_a_failed_run_still_counts(self, db, user):
+        """It spent the tokens before it failed."""
+        from datetime import datetime, timezone
+
+        db.upsert_run("r1", user["id"], "t", "error", datetime.now(timezone.utc).isoformat())
+        assert db.runs_started_since(user["id"], self._cutoff()) == 1
