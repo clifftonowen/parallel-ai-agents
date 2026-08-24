@@ -1,5 +1,6 @@
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import AppShell from "./components/AppShell";
+import LandingPage from "./pages/LandingPage";
 import SubmitPage from "./pages/SubmitPage";
 import RunPage from "./pages/RunPage";
 import PackagePage from "./pages/PackagePage";
@@ -24,7 +25,7 @@ function NotFound() {
       <p style={{ color: muted, marginBottom: space.base }}>
         That address doesn't match anything in the app.
       </p>
-      <Link to="/">← Back to the dashboard</Link>
+      <Link to="/">← Back to the front page</Link>
     </main>
   );
 }
@@ -34,7 +35,11 @@ export default function App() {
     <BrowserRouter>
       <AppShell>
         <Routes>
-          <Route path="/" element={<SubmitPage />} />
+          {/* The composer used to live at /. It moved to /new so that the
+              front door can explain what this is before offering to spend
+              money on somebody's behalf. */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/new" element={<SubmitPage />} />
           <Route path="/library" element={<HistoryPage />} />
           <Route path="/run/:run_id" element={<RunPage />} />
           <Route path="/session/:run_id" element={<PackagePage />} />

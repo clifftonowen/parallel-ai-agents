@@ -250,7 +250,7 @@ export default function ResultsPage() {
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <button onClick={() => navigate("/")} style={styles.backBtn}>← Home</button>
+        <button onClick={() => navigate("/new")} style={styles.backBtn}>← New session</button>
         <h1 style={styles.title}>{runState.topic}</h1>
       </div>
 

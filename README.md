@@ -286,22 +286,80 @@ Interactive API docs at `http://localhost:8010/docs`. Key endpoints:
 | `POST /auth/signup`, `/auth/login`, `/auth/logout`, `GET /auth/me` | Optional accounts (`auth_db.py`, `study_bench.db`). |
 | `GET /health` | Liveness check. |
 
-### Front-ends
+### Front-end
 
-Both are Vite + React + TypeScript and proxy `/api` to the backend on port
-8010, stripping the prefix — so backend routes are unprefixed (`/run`, not
-`/api/run`).
+Vite + React + TypeScript. It proxies `/api` to the backend on port 8010,
+**stripping the prefix** — backend routes are unprefixed (`/run`, not
+`/api/run`). Remember that when deploying; see below.
 
 ```
 cd web && npm run dev   # http://localhost:5273
 ```
 
-One app, one port. The sidebar splits it into Dashboard (start a session),
-Library (past sessions) and Benchmark (the orchestrator comparison). Signing in
-is optional, but a session is only kept across restarts if you do.
+One app, one port. The sidebar splits it into Overview (the front page), New
+session (the composer), Library (past sessions) and Benchmark (the orchestrator
+comparison). Reading is open; starting a run needs an account that has been
+granted access.
 
 It was two separate apps on 5273 and 5274 until they were merged; the old
 `dashboard2/` and `study-bench/` directories are gone.
+
+## Deploying
+
+The two halves deploy separately, because they have nothing in common
+operationally: the front-end is static files, and the backend spawns
+ten-to-thirty-minute subprocesses driving ffmpeg, pandoc and headless Chromium.
+
+### Front-end on Vercel
+
+Import the repository and set **Root Directory** to `web`. The framework
+preset, build command (`npm run build`) and output directory (`dist`) are
+detected. `web/vercel.json` adds the SPA rewrite, without which a hard refresh
+on `/session/abc` 404s.
+
+Two environment variables, both build-time (`VITE_*` is inlined into the
+bundle, so **never put a secret in one** and remember a change needs a
+redeploy). `web/.env.example` documents them; the short version:
+
+| | |
+|---|---|
+| `VITE_DEMO_MODE=1` | Build the standalone demo. No backend, no network calls: fixtures from one real finished run and the committed benchmark numbers are compiled in. This is what to ship while the backend is not hosted. |
+| `VITE_API_BASE` | Where the live backend is. **Origin root, no `/api` suffix.** |
+
+That suffix is the one trap worth repeating. The dev proxy strips `/api` and
+the backend's routes are unprefixed, so `https://host/api` gives a uniform 404
+against a completely healthy backend — indistinguishable from the backend being
+down. Use `https://host`.
+
+Whatever origin Vercel serves also has to appear in the backend's
+`CORS_ORIGINS`, or the browser blocks every call.
+
+```bash
+# Build either variant locally before pushing — this is the whole check.
+cd web
+VITE_DEMO_MODE=1 npm run build && npm run preview   # standalone
+npm run build && npm run preview                    # against a live backend
+```
+
+### The demo build
+
+`VITE_DEMO_MODE=1` makes the app answer from `src/api/demo.ts` instead of the
+network. The fixture is `web/public/demo/` — the notes, flashcards, PDFs and
+narrated video from one real run (`binary search`, 2026-08-23), unedited — and
+the benchmark numbers are imported straight from `benchmarks/`, so there is
+still one copy of them in the repo.
+
+Nothing in it is mocked up. Where a feature genuinely needs the backend —
+signing in, starting a run, the ZIP download — the UI says so instead of
+offering a control that throws.
+
+### Backend
+
+Not deployed yet. It needs a persistent volume, one replica and one worker (run
+state is a process-local dict and `auth_db` holds a single connection), and
+about 4GB — x264 plus Chromium OOMs at 2. `SIGNING_SECRET` becomes mandatory
+there: more than one process signing run grants with different keys fails
+roughly every other media request.
 
 ## Status
 

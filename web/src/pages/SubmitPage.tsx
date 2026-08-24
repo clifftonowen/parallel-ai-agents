@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { listRuns, myAccessState, startRun } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { DEMO, DEMO_RUN_ID, REPO_URL } from "../api/demo";
 import type { AccessState, RunMode, RunSummary } from "../types";
 import {
   c, display, font, headingWeight, layout, muted, mutedFaint, size, space,
@@ -142,7 +143,28 @@ export default function SubmitPage() {
             </p>
           )}
 
-          {!user ? (
+          {DEMO ? (
+            <div style={gate}>
+              <p style={gateLead}>This build has no backend attached.</p>
+              <p style={gateBody}>
+                The composer is real and so is everything it would send — but a
+                run is a ten-to-thirty-minute subprocess driving ffmpeg, pandoc
+                and headless Chromium, and a static host will not do that. The{" "}
+                <Link to={`/session/${DEMO_RUN_ID}`}>finished session</Link> and
+                the <Link to="/benchmark">benchmark numbers</Link> are real
+                output from real runs.
+              </p>
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-primary"
+                style={{ textDecoration: "none" }}
+              >
+                Run it yourself
+              </a>
+            </div>
+          ) : !user ? (
             <div style={gate}>
               <p style={gateLead}>Sign in to run the pipeline.</p>
               <p style={gateBody}>
@@ -199,7 +221,7 @@ export default function SubmitPage() {
             <button
               className="btn btn-primary"
               onClick={submit}
-              disabled={submitting || !topic.trim() || !access?.can_run}
+              disabled={DEMO || submitting || !topic.trim() || !access?.can_run}
             >
               {submitting ? "Starting…" : "Generate"}
             </button>

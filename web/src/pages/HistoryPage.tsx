@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listRuns } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { DEMO } from "../api/demo";
 import type { RunSummary } from "../types";
 import {
   c, display, font, headingWeight, layout, muted, mutedFaint, size, space,
@@ -19,11 +20,13 @@ export default function HistoryPage() {
 
   // Requires an account; send anonymous visitors to sign in, remembering where to return.
   useEffect(() => {
-    if (ready && !user) navigate("/signin", { state: { from: "/library" }, replace: true });
+    if (!DEMO && ready && !user) {
+      navigate("/signin", { state: { from: "/library" }, replace: true });
+    }
   }, [ready, user, navigate]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!DEMO && !user) return;
     listRuns()
       .then(setRuns)
       .catch((e: unknown) =>
@@ -32,7 +35,7 @@ export default function HistoryPage() {
   }, [user]);
 
   if (!ready) return <p style={{ color: muted }}>Opening your card…</p>;
-  if (!user) return null;
+  if (!DEMO && !user) return null;
 
   const openRun = (r: RunSummary) =>
     navigate(r.status === "complete" ? `/session/${r.run_id}` : `/run/${r.run_id}`);
@@ -40,7 +43,11 @@ export default function HistoryPage() {
   return (
     <main style={page}>
       <h1 style={heading}>Library</h1>
-      <p style={intro}>Every session your agents have generated, filed under {user.email}.</p>
+      <p style={intro}>
+        {DEMO
+          ? "One session, kept as the demo. On the live deployment this lists every session your account has generated."
+          : `Every session your agents have generated, filed under ${user!.email}.`}
+      </p>
 
       {error && <p style={errorLine}>{error}</p>}
 
@@ -52,7 +59,7 @@ export default function HistoryPage() {
           <p style={{ color: muted, marginBottom: space.base }}>
             Study a topic and it will be kept here, ready to reopen whenever you come back.
           </p>
-          <button className="btn btn-primary" onClick={() => navigate("/")}>
+          <button className="btn btn-primary" onClick={() => navigate("/new")}>
             Start a session
           </button>
         </div>

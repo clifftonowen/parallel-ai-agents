@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { accessRequestQueue, listRuns, myAccessState, stats as fetchStats } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { DEMO } from "../api/demo";
 import type { AccessState, RunSummary, Stats } from "../types";
 import {
   c, eyebrow, font, headingWeight, layout, muted, mutedFaint, size, space,
@@ -19,8 +20,11 @@ const AGENTS = [
   { name: "PDF", phase: "phase3", detail: "renders handouts via pandoc" },
 ] as const;
 
+// "Dashboard" pointed at /, which is now the landing page. The composer keeps
+// the primary button directly above this list, so the nav points at the front
+// page instead of repeating "New session" twice in nine vertical pixels.
 const NAV = [
-  { to: "/", label: "Dashboard" },
+  { to: "/", label: "Overview" },
   { to: "/library", label: "Library" },
   { to: "/benchmark", label: "Benchmark" },
 ];
@@ -94,21 +98,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (SIGNED_OUT_PATHS.includes(pathname)) return <>{children}</>;
 
   const activeRun = runs.find((r) => r.status === "running");
+  // The top bar names where you are. Anything genuinely unrouted says so, but
+  // a real page missing from this list said "Not found" while rendering fine,
+  // which is worse than no label at all.
   const section =
     NAV.find((n) => n.to === pathname)?.label ??
-    (pathname.startsWith("/session") || pathname.startsWith("/run")
-      ? "Session"
-      : pathname.startsWith("/benchmark")
-        ? "Benchmark"
-        : pathname === "/request-access"
-          ? "Access"
-          : pathname === "/requests"
-            ? "Requests"
-            : "Not found");
+    (pathname === "/new"
+      ? "New session"
+      : pathname.startsWith("/session") || pathname.startsWith("/run")
+        ? "Session"
+        : pathname.startsWith("/benchmark")
+          ? "Benchmark"
+          : pathname === "/request-access"
+            ? "Access"
+            : pathname === "/requests"
+              ? "Requests"
+              : "Not found");
 
   const signOut = async () => {
     await logout();
-    navigate("/");
+    navigate("/");  // a signed-out user is a visitor; the front page is theirs
   };
 
   return (
@@ -127,6 +136,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <span style={accountSub}>signed in</span>
             </span>
           </div>
+        ) : DEMO ? (
+          // No sign-in link: there is no server to sign in to. Saying so beats
+          // a link to a form that cannot succeed.
+          <div style={account}>
+            <span style={{ ...avatar, background: c.rule, color: c.inkSoft }}>D</span>
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={accountName}>Demo build</span>
+              <span style={accountSub}>static, no backend</span>
+            </span>
+          </div>
         ) : (
           <Link to="/signin" style={{ ...account, textDecoration: "none" }}>
             <span style={{ ...avatar, background: c.rule, color: c.inkSoft }}>?</span>
@@ -140,7 +159,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <button
           className="btn btn-primary btn-block"
           style={{ marginBottom: space.xl }}
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/new")}
         >
           New session
         </button>
@@ -214,8 +233,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           />
         )}
         <p style={meterFoot}>
-          Counts from this machine's database. The run limit exists so a demo
-          account can't spend without bound; there is no plan and nothing to buy.
+          {DEMO
+            ? "Counts for the one session bundled into this build. Nothing here talks to a server."
+            : "Counts from this machine's database. The run limit exists so a demo account can't spend without bound; there is no plan and nothing to buy."}
         </p>
         </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { DEMO, DEMO_RUN_ID, REPO_URL } from "../api/demo";
 import { c, font, eyebrow, layout, size, displaySmall } from "../theme";
 
 // ── Sign in ─────────────────────────────────────────────────────────────────
@@ -42,10 +43,49 @@ export default function SignInPage() {
     }
   };
 
+  if (DEMO) {
+    return (
+      <main style={page}>
+        <button onClick={() => navigate("/")} style={backLink}>
+          ← back to the front page
+        </button>
+
+        <div style={card} className="animate-rise">
+          <div style={cardHead}>
+            <span style={eyebrow}>UROP</span>
+            <span style={{ ...eyebrow, color: c.inkFaint }}>· demo build</span>
+          </div>
+          <div style={cardRule} />
+
+          <h1 style={cardTitle}>No accounts here</h1>
+          <p style={cardSub}>
+            Accounts live on the deployment with a backend behind it. This one
+            is static files, so there is nothing to sign in to and nothing to
+            keep private.
+          </p>
+          <p style={cardSub}>
+            Everything worth seeing is open anyway: a{" "}
+            <Link to={`/session/${DEMO_RUN_ID}`}>finished session</Link> and the{" "}
+            <Link to="/benchmark">benchmark numbers</Link>.
+          </p>
+
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+            style={{ ...primary, display: "block", textAlign: "center", textDecoration: "none" }}
+          >
+            Run it yourself
+          </a>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main style={page}>
       <button onClick={() => navigate("/")} style={backLink}>
-        ← back to studying
+        ← back to the front page
       </button>
 
       <div style={card} className="animate-rise">
@@ -113,7 +153,7 @@ export default function SignInPage() {
 
         {/* Footer: what signing in is actually for, and the mode switch. */}
         <div style={cardFoot}>
-          <span style={issuedLine}>Optional — runs work signed out too</span>
+          <span style={issuedLine}>Reading is open; running needs an account</span>
           <button
             type="button"
             onClick={() => {

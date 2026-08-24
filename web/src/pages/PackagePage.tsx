@@ -4,6 +4,8 @@ import { downloadFile, downloadZip, fetchFileText, fileUrl, getRun } from "../ap
 import Markdown from "../components/Markdown";
 import { parseFlashcards } from "../lib/flashcards";
 import { useRunGrant } from "../hooks/useRunGrant";
+import { DEMO } from "../api/demo";
+import { hasBenchmarkData } from "../types";
 import type { OutputPaths, RunState } from "../types";
 import {
   c, display, font, headingWeight, layout, muted, mutedFaint, size, space,
@@ -128,14 +130,18 @@ export default function PackagePage() {
           <h1 style={heading}>{run.topic}</h1>
           <div style={metaRow}>
             <span className="tag tag-outline">{run.mode ?? "async"}</span>
-            <Link to={`/benchmark/${run.run_id}`} style={metaLink}>
-              timings and tokens →
-            </Link>
+            {hasBenchmarkData(run.benchmark) && (
+              <Link to={`/benchmark/${run.run_id}`} style={metaLink}>
+                timings and tokens →
+              </Link>
+            )}
           </div>
         </div>
-        <button className="btn btn-secondary" onClick={() => downloadZip(run.run_id)}>
-          Download all (.zip)
-        </button>
+        {!DEMO && (
+          <button className="btn btn-secondary" onClick={() => downloadZip(run.run_id)}>
+            Download all (.zip)
+          </button>
+        )}
       </div>
 
       {run.from_cache && (
@@ -207,7 +213,7 @@ export default function PackagePage() {
         </>
       )}
 
-      <button className="btn btn-ghost" style={{ marginTop: space.section }} onClick={() => navigate("/")}>
+      <button className="btn btn-ghost" style={{ marginTop: space.section }} onClick={() => navigate("/new")}>
         ← Start another session
       </button>
     </main>

@@ -126,7 +126,7 @@ export default function RunPage() {
     } catch {
       /* even if the stop call fails, honor the user's intent to leave */
     }
-    navigate("/");
+    navigate("/new");
   };
 
   const cancelled = status === "cancelled";
@@ -190,7 +190,7 @@ export default function RunPage() {
 
       {errored ? (
         <div style={errorBox} role="alert">
-          <button className="btn btn-primary" onClick={() => navigate("/")}>
+          <button className="btn btn-primary" onClick={() => navigate("/new")}>
             Try another topic
           </button>
         </div>

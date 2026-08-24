@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { myAccessState, requestAccess } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { DEMO, REPO_URL } from "../api/demo";
 import type { AccessState } from "../types";
 import {
   c, display, font, headingWeight, layout, muted, mutedFaint, size, space,
@@ -25,7 +26,11 @@ export default function RequestAccessPage() {
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    if (ready && !user) navigate("/signin", { state: { from: "/request-access" }, replace: true });
+    // Not in a demo build: there is no sign-in to send them to, and the page
+    // below explains itself instead.
+    if (!DEMO && ready && !user) {
+      navigate("/signin", { state: { from: "/request-access" }, replace: true });
+    }
   }, [ready, user, navigate]);
 
   useEffect(() => {
@@ -34,6 +39,34 @@ export default function RequestAccessPage() {
   }, [user]);
 
   if (!ready) return <p style={{ color: muted }}>One moment…</p>;
+
+  if (DEMO) {
+    return (
+      <main style={page}>
+        <span style={kicker}>Access</span>
+        <h1 style={heading}>Nothing to request here</h1>
+        <p style={intro}>
+          Access controls who may spend API credits on the live deployment. This
+          build has no backend and spends nothing, so there is no queue to join.
+        </p>
+        <p style={note}>
+          The finished session and the benchmark numbers are open, and the
+          source is public. If you want to watch it generate something new, say
+          so on the repository.
+        </p>
+        <a
+          href={REPO_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-primary"
+          style={{ textDecoration: "none" }}
+        >
+          Open the repository
+        </a>
+      </main>
+    );
+  }
+
   if (!user) return null;
 
   const submit = async () => {
@@ -60,7 +93,7 @@ export default function RequestAccessPage() {
         <span style={kicker}>Access</span>
         <h1 style={heading}>You're already in</h1>
         <p style={intro}>This account can start runs. Nothing else to do here.</p>
-        <Link to="/" className="btn btn-primary" style={{ textDecoration: "none" }}>
+        <Link to="/new" className="btn btn-primary" style={{ textDecoration: "none" }}>
           Start a session
         </Link>
       </main>

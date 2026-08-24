@@ -1,5 +1,5 @@
-# The image runs the Python backend only. The front-ends are built and served
-# by Vercel, so none of their source or dependencies belong here.
+# The image runs the Python backend only. The front-end is built and served by
+# Vercel, so none of its source or dependencies belong here.
 
 .git
 .github
@@ -11,10 +11,10 @@
 .env.*
 !.env.example
 
-# Front-ends (Vercel builds these)
-dashboard2
-study-bench
-landing
+# Front-end (Vercel builds this). `web/` is the whole app; dashboard2/,
+# study-bench/ and landing/ were named here before the merge and no longer
+# exist, which meant `web/` — the one that does — was being copied in.
+web
 node_modules
 **/node_modules
 package.json
@@ -27,6 +27,10 @@ venv
 # Generated at runtime, mounted as a volume in the container
 output
 *.db
+
+# Signing key for run grants. Generated on first use if SIGNING_SECRET is unset,
+# and never baked into a layer: whoever holds it can mint a grant for any run.
+.signing_key
 *.prof
 profiling_results_*.json
 
@@ -41,3 +45,7 @@ docs
 examples
 *.md
 !README.md
+
+# benchmarks/*.json is NOT excluded: GET /benchmarks serves those files, so the
+# Benchmark page is empty without them. The *.md rule above already drops the
+# write-up beside them, which is only read in the repo.
