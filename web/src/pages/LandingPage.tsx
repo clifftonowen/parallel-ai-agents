@@ -29,7 +29,7 @@ export default function LandingPage() {
         <h1 style={heading}>
           Does parallelising a multi-agent pipeline actually pay?
         </h1>
-        <div style={standfirst}>
+        <div className="standfirst" style={standfirst}>
           <p style={{ margin: 0 }}>
             One topic goes in. Four agents turn it into lecture notes,
             flashcards, a narrated video and printable PDFs, fanning out as soon
@@ -248,19 +248,15 @@ const heading: React.CSSProperties = {
   maxWidth: "18ch",
 };
 
-/** Two columns, which is what a broadsheet does with a standfirst and what
- *  nothing else in this app does. Collapses to one on a narrow viewport, where
- *  columns would leave four words a line. */
+/** Type only. The two-column treatment — what a broadsheet does with a
+ *  standfirst, and the only place in this app that uses columns — is the
+ *  `.standfirst` class in index.css, because it needs a media query: below
+ *  roughly 700px two columns leave four words a line. An inline style cannot
+ *  carry one. */
 const standfirst: React.CSSProperties = {
   fontSize: size.lead,
   lineHeight: 1.55,
   color: c.ink,
-  columnCount: 2,
-  columnGap: space.section,
-  columnRuleWidth: 1,
-  columnRuleStyle: "solid",
-  columnRuleColor: c.rule,
-  maxWidth: 760,
 };
 
 const section: React.CSSProperties = {

@@ -445,6 +445,24 @@ textarea.input {
   }
 }
 
+/* ── Landing standfirst ──────────────────────────────────────────────────────
+   The two-column lead a broadsheet sets under its headline, and the only place
+   in this app that uses columns. It lives here rather than as an inline style
+   because it needs a media query: at 360px a column each it reads well, and
+   below roughly 700px it would be four words a line, which is unreadable. */
+.standfirst {
+  column-count: 2;
+  column-gap: var(--space-8);
+  column-rule: 1px solid var(--color-neutral-300);
+  max-width: 760px;
+}
+
+@media (max-width: 700px) {
+  .standfirst {
+    column-count: 1;
+  }
+}
+
 /* Wide content scrolls inside its own box; the page never scrolls sideways. */
 .scroll-x {
   overflow-x: auto;
