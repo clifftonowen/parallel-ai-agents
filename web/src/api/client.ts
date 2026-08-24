@@ -1,4 +1,6 @@
-import type { AuthResponse, RunMode, RunState, RunSummary, SSEEvent, User } from "../types";
+import type {
+  AuthResponse, CuratedBenchmark, RunMode, RunState, RunSummary, SSEEvent, Stats, User,
+} from "../types";
 
 const BASE = "/api";
 
@@ -68,6 +70,18 @@ export async function listRuns(): Promise<RunSummary[]> {
 }
 
 // Stop an in-progress run and its generation work on the server.
+export async function stats(): Promise<Stats> {
+  const res = await fetch(`${BASE}/stats`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load stats");
+  return res.json();
+}
+
+export async function curatedBenchmarks(): Promise<CuratedBenchmark[]> {
+  const res = await fetch(`${BASE}/benchmarks`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load benchmarks");
+  return res.json();
+}
+
 export async function cancelRun(run_id: string): Promise<void> {
   const res = await fetch(`${BASE}/run/${run_id}/cancel`, {
     method: "POST",

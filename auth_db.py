@@ -277,6 +277,19 @@ def all_cache_entries() -> list[dict]:
     ]
 
 
+def cache_stats() -> dict:
+    """How many topics are cached, and how often they have been reused.
+
+    A SQL aggregate rather than len(all_cache_entries()), which would deserialise
+    every stored embedding just to count rows.
+    """
+    with _lock:
+        row = _get_conn().execute(
+            "SELECT COUNT(*) AS entries, COALESCE(SUM(hits), 0) AS hits FROM prompt_cache"
+        ).fetchone()
+    return {"entries": row["entries"], "hits": row["hits"]}
+
+
 def bump_cache_hit(entry_id: int) -> None:
     with _lock:
         _get_conn().execute("UPDATE prompt_cache SET hits = hits + 1 WHERE id = ?", (entry_id,))

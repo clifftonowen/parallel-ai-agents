@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { listRuns, startRun } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { RunMode, RunSummary } from "../types";
-import { c, font, eyebrow, hairline, layout, size, space, display } from "../theme";
+import {
+  c, display, font, headingWeight, layout, muted, mutedFaint, size, space,
+} from "../theme";
 
-// Which orchestrator runs the pipeline. Carried over from the benchmark
-// dashboard, which was the only place this could be chosen before the two
-// front-ends merged. "All three" runs them in sequence — roughly 36 minutes
-// and 3x the token spend — so it is never the default.
+// Which orchestrator runs the pipeline. This was the one thing only the old
+// benchmark dashboard could set. "All three" runs them in sequence — roughly
+// 36 minutes and 3x the token spend — so it is never the default.
 const MODES: { value: RunMode; label: string; note: string }[] = [
   { value: "async", label: "Async", note: "asyncio — the default path" },
   { value: "adk", label: "ADK", note: "Google ADK agent graph" },
@@ -42,11 +43,10 @@ export default function SubmitPage() {
     try {
       setHistory(await listRuns());
     } catch {
-      /* backend may be down; the ledger just stays empty */
+      /* backend may be down; the list just stays empty */
     }
   }, []);
 
-  // Refetch when the signed-in user changes so the list reflects whose topics these are.
   useEffect(() => {
     fetchHistory();
     window.addEventListener("focus", fetchHistory);
@@ -79,264 +79,192 @@ export default function SubmitPage() {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
   };
 
+  const recent = history.slice(0, 6);
+
   return (
     <main style={page}>
-      {/* Masthead — the product names itself, drawn as a ruled header. */}
-      <header style={masthead} className="animate-rise">
-        <div style={mastheadTop}>
-          <span style={eyebrow}>Study Bench</span>
-          <span style={{ ...eyebrow, color: c.inkFaint }}>· learn anything</span>
-        </div>
-        <div style={topRule} className="rule-draw" />
-      </header>
-
-      {/* The intake — the focal object of the page: a requisition slip for a topic. */}
-      <section style={intake} className="animate-rise">
-        <label htmlFor="topic" style={intakeLead}>
-          What do you want to
-          <br />
-          <em style={{ fontStyle: "italic", color: c.reagent }}>understand</em> today?
-        </label>
-
-        <p style={intakeSub}>
-          Give one topic and you'll get a full study set back — clear notes, flashcards to
-          test yourself, and a short narrated video. Ready in a few minutes.
+      <section className="animate-rise">
+        <span style={kicker}>New session</span>
+        <h1 style={heading}>What do you want to understand today?</h1>
+        <p style={intro}>
+          Describe a topic. Four agents run in parallel — notes, flashcards,
+          video and PDF — and hand back a full study set.
         </p>
 
-        <div style={slip}>
-          <span style={slipTick}>topic ▸</span>
+        <div style={composer}>
           <textarea
             id="topic"
+            className="input"
             ref={taRef}
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder="e.g. How does gradient descent find a minimum?"
-            rows={2}
+            rows={3}
             autoFocus
-            style={textarea}
+            style={{ fontSize: size.lead }}
           />
-        </div>
 
-        <div style={exampleRow}>
-          {EXAMPLES.map((ex) => (
-            <button key={ex} onClick={() => setTopic(ex)} style={chip}>
-              {ex}
-            </button>
-          ))}
-        </div>
-
-        {error && (
-          <p role="alert" style={errorLine}>
-            {error}
-          </p>
-        )}
-
-        <div style={modeRow} role="radiogroup" aria-label="Orchestrator">
-          {MODES.map((m) => (
-            <button
-              key={m.value}
-              onClick={() => setMode(m.value)}
-              title={m.note}
-              aria-pressed={mode === m.value}
-              style={{ ...modeBtn, ...(mode === m.value ? modeBtnActive : {}) }}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-
-        <label style={videoToggle}>
-          <input
-            type="checkbox"
-            checked={includeVideo}
-            onChange={(e) => setIncludeVideo(e.target.checked)}
-          />
-          <span>
-            Include narrated video
-            <span style={videoToggleHint}>
-              {includeVideo ? " — adds roughly 8 minutes" : " — about 2 minutes without it"}
-            </span>
-          </span>
-        </label>
-        <button onClick={submit} disabled={submitting} style={{ ...cta, opacity: submitting ? 0.6 : 1 }}>
-          {submitting ? "Starting…" : "Study this →"}
-          <span style={ctaHint}>⌘↵</span>
-        </button>
-      </section>
-
-      {/* Recent topics — quiet, structural, numbered because it IS a sequence.
-          When signed in it's your saved history; signed out it's this session's runs. */}
-      <section style={ledger}>
-        <div style={ledgerHead}>
-          <span style={eyebrow}>{user ? "Your topics" : "Recent topics"}</span>
-          {user ? (
-            <button onClick={() => navigate("/library")} style={ledgerRefresh}>
-              see all
-            </button>
-          ) : (
-            <button onClick={fetchHistory} style={ledgerRefresh}>
-              refresh
-            </button>
-          )}
-        </div>
-
-        {history.length === 0 ? (
-          <p style={emptyLedger}>
-            {user
-              ? "Nothing here yet. The topics you study are saved to your account."
-              : "Nothing here yet. Sign in to keep your studied topics across visits."}
-          </p>
-        ) : (
-          <ol style={ledgerList}>
-            {history.map((r, i) => (
-              <li key={r.run_id}>
-                <button
-                  onClick={() =>
-                    navigate(r.status === "complete" ? `/session/${r.run_id}` : `/run/${r.run_id}`)
-                  }
-                  style={ledgerRow}
-                >
-                  <span style={ledgerNum}>{String(history.length - i).padStart(3, "0")}</span>
-                  <span style={ledgerTopic}>{r.topic}</span>
-                  <span style={{ ...ledgerStatus, color: statusColor(r.status) }}>{statusWord(r.status)}</span>
-                </button>
-              </li>
+          <div style={chipRow}>
+            {EXAMPLES.map((ex) => (
+              <button key={ex} onClick={() => setTopic(ex)} className="tag tag-neutral" style={chip}>
+                {ex}
+              </button>
             ))}
-          </ol>
-        )}
+          </div>
+
+          {error && (
+            <p role="alert" style={errorLine}>
+              {error}
+            </p>
+          )}
+
+          <div style={controls}>
+            <div className="seg" role="group" aria-label="Orchestrator">
+              {MODES.map((m) => (
+                <button
+                  key={m.value}
+                  className="seg-opt"
+                  onClick={() => setMode(m.value)}
+                  title={m.note}
+                  aria-pressed={mode === m.value}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              className="btn btn-primary"
+              onClick={submit}
+              disabled={submitting || !topic.trim()}
+            >
+              {submitting ? "Starting…" : "Generate"}
+            </button>
+          </div>
+
+          <label style={videoToggle}>
+            <input
+              type="checkbox"
+              checked={includeVideo}
+              onChange={(e) => setIncludeVideo(e.target.checked)}
+            />
+            <span>
+              Include narrated video
+              <span style={{ color: mutedFaint }}>
+                {includeVideo
+                  ? " — adds roughly 8 minutes of ffmpeg"
+                  : " — about 2 minutes without it"}
+              </span>
+            </span>
+          </label>
+        </div>
       </section>
+
+      <div style={figures}>
+        <Figure value={String(history.length)} label="Sessions generated" />
+        <Figure value="3" label="Orchestrators compared" />
+        <Figure value="4" label="Outputs per session" />
+      </div>
+
+      <div style={recentHead}>
+        <h3 style={recentTitle}>Recent sessions</h3>
+        <button className="btn btn-ghost" onClick={() => navigate("/library")}>
+          View library →
+        </button>
+      </div>
+
+      {recent.length === 0 ? (
+        <p style={{ color: muted }}>
+          {user
+            ? "Nothing here yet. The topics you study are saved to your account."
+            : "Nothing here yet. Sign in to keep your studied topics across visits."}
+        </p>
+      ) : (
+        <div style={grid}>
+          {recent.map((r) => (
+            <button
+              key={r.run_id}
+              className="card elev-sm card-link"
+              onClick={() =>
+                navigate(r.status === "complete" ? `/session/${r.run_id}` : `/run/${r.run_id}`)
+              }
+            >
+              <div className="card-kicker">
+                {r.mode ?? "async"} · {r.status === "complete" ? "ready" : r.status}
+              </div>
+              <div className="card-title">{r.topic}</div>
+              <p className="card-body">
+                {r.status === "complete"
+                  ? "Notes, flashcards and PDFs are ready to open."
+                  : `${r.progress_pct}% — ${r.phase}`}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
     </main>
   );
 }
 
-function statusColor(s: string) {
-  if (s === "complete") return c.reagent;
-  if (s === "error") return c.flag;
-  return c.inkSoft; // running or cancelled
-}
-function statusWord(s: string) {
-  if (s === "complete") return "ready";
-  if (s === "error") return "failed";
-  if (s === "cancelled") return "stopped";
-  return "working…";
+function Figure({ value, label }: { value: string; label: string }) {
+  return (
+    <div>
+      <div style={figureValue}>{value}</div>
+      <div style={figureLabel}>{label}</div>
+    </div>
+  );
 }
 
-// ── styles ────────────────────────────────────────────────────────────────────
+// ── styles ──────────────────────────────────────────────────────────────────
 
-const page: React.CSSProperties = {
-  maxWidth: layout.shell,
-  margin: "0 auto",
-  padding: `${space.lg}px ${layout.gutter}px ${space.page}px`,
-};
+const page: React.CSSProperties = { maxWidth: layout.shell };
 
-const masthead: React.CSSProperties = { marginBottom: space.xxl };
-const mastheadTop: React.CSSProperties = {
-  display: "flex",
-  alignItems: "baseline",
-  gap: space.sm,
-  marginBottom: space.md,
-};
-const topRule: React.CSSProperties = {
-  height: 2,
-  backgroundColor: c.ink,
-  transformOrigin: "left",
-};
-
-const intake: React.CSSProperties = { marginBottom: space.section };
-
-const intakeLead: React.CSSProperties = {
+const kicker: React.CSSProperties = {
   display: "block",
-  fontFamily: font.display,
-  fontSize: display,
-  fontWeight: 600,
-  lineHeight: 0.98,
-  letterSpacing: "-0.02em",
-  color: c.ink,
-  marginBottom: space.base,
-  overflowWrap: "break-word",
-};
-
-const intakeSub: React.CSSProperties = {
-  fontSize: size.lead,
-  color: c.inkSoft,
-  maxWidth: layout.measure,
-  marginBottom: space.lg,
-};
-
-const slip: React.CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  gap: space.md,
-  border: `1px solid ${c.ink}`,
-  backgroundColor: c.paperCard,
-  padding: `${space.base}px ${space.base}px`,
-};
-
-const slipTick: React.CSSProperties = {
-  fontFamily: font.mono,
   fontSize: size.small,
-  fontWeight: 700,
-  color: c.inkFaint,
-  paddingTop: space.xs,
-  flexShrink: 0,
+  fontStyle: "italic",
+  color: c.reagentDeep,
+  marginBottom: space.sm,
 };
 
-const textarea: React.CSSProperties = {
-  flex: 1,
-  border: "none",
-  outline: "none",
-  resize: "none",
-  background: "transparent",
-  fontFamily: font.body,
-  fontSize: size.title,
-  lineHeight: 1.4,
-  color: c.ink,
+const heading: React.CSSProperties = {
+  fontFamily: font.display,
+  fontWeight: headingWeight,
+  fontSize: display,
+  lineHeight: 1.05,
+  margin: `0 0 ${space.sm}px`,
 };
 
-const exampleRow: React.CSSProperties = {
+const intro: React.CSSProperties = {
+  fontSize: size.lead,
+  color: muted,
+  maxWidth: layout.measure,
+  margin: `0 0 ${space.lg}px`,
+};
+
+const composer: React.CSSProperties = { maxWidth: 680 };
+
+const chipRow: React.CSSProperties = {
   display: "flex",
-  flexWrap: "wrap",
   gap: space.sm,
-  marginTop: space.base,
+  flexWrap: "wrap",
+  marginTop: space.md,
 };
 
 const chip: React.CSSProperties = {
-  fontFamily: font.body,
-  fontSize: size.body,
-  color: c.inkSoft,
-  border: `1px solid ${c.rule}`,
-  padding: `${space.sm}px ${space.md}px`,
-  lineHeight: 1.3,
-  transition: "border-color 0.15s, color 0.15s",
+  cursor: "pointer",
+  border: "none",
+  fontSize: size.small,
+  padding: "6px 12px",
 };
 
-const modeRow: React.CSSProperties = {
+const controls: React.CSSProperties = {
   display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
   flexWrap: "wrap",
-  gap: space.sm,
-  marginTop: space.base,
-};
-
-const modeBtn: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.small,
-  color: c.inkSoft,
-  border: `1px solid ${c.rule}`,
-  padding: `${space.sm}px ${space.md}px`,
-  transition: "border-color 0.15s, color 0.15s, background-color 0.15s",
-};
-
-const modeBtnActive: React.CSSProperties = {
-  backgroundColor: c.reagent,
-  color: c.paper,
-  borderColor: c.reagent,
-};
-
-const errorLine: React.CSSProperties = {
-  color: c.flag,
-  fontFamily: font.mono,
-  fontSize: size.small,
+  gap: space.md,
   marginTop: space.base,
 };
 
@@ -344,86 +272,57 @@ const videoToggle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: space.sm,
-  margin: `${space.base}px 0 ${space.xs}px`,
-  fontFamily: font.body,
+  marginTop: space.md,
   fontSize: size.body,
-  color: c.inkSoft,
+  color: muted,
   cursor: "pointer",
 };
 
-const videoToggleHint: React.CSSProperties = {
-  color: c.inkFaint,
+const errorLine: React.CSSProperties = {
+  color: c.flagDeep,
+  fontSize: size.body,
+  marginTop: space.md,
 };
 
-const cta: React.CSSProperties = {
-  marginTop: space.lg,
-  backgroundColor: c.reagent,
-  color: c.paper,
-  fontFamily: font.body,
-  fontSize: size.lead,
-  fontWeight: 600,
-  padding: `${space.md}px ${space.xl}px`,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: space.md,
-  transition: "background-color 0.15s",
-};
-
-const ctaHint: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.small,
-  opacity: 0.7,
-};
-
-const ledger: React.CSSProperties = { borderTop: hairline, paddingTop: space.lg };
-const ledgerHead: React.CSSProperties = {
+const figures: React.CSSProperties = {
   display: "flex",
-  justifyContent: "space-between",
+  gap: space.section,
+  flexWrap: "wrap",
+  margin: `${space.page}px 0 ${space.section}px`,
+};
+
+const figureValue: React.CSSProperties = {
+  fontFamily: font.display,
+  fontWeight: headingWeight,
+  fontSize: size.hero,
+  lineHeight: 1,
+};
+
+const figureLabel: React.CSSProperties = {
+  fontSize: size.micro,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: c.reagentDeep,
+  marginTop: space.xs,
+};
+
+const recentHead: React.CSSProperties = {
+  display: "flex",
   alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: space.base,
   marginBottom: space.md,
 };
-const ledgerRefresh: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.micro,
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  color: c.inkSoft,
-};
-const emptyLedger: React.CSSProperties = {
-  color: c.inkFaint,
-  fontSize: size.body,
-  padding: `${space.sm}px 0`,
+
+const recentTitle: React.CSSProperties = {
+  fontFamily: font.display,
+  fontWeight: headingWeight,
+  fontSize: size.title,
+  margin: 0,
 };
 
-const ledgerList: React.CSSProperties = { listStyle: "none" };
-const ledgerRow: React.CSSProperties = {
-  width: "100%",
-  display: "flex",
-  alignItems: "center",
+const grid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
   gap: space.base,
-  padding: `${space.md}px 0`,
-  borderBottom: `1px solid ${c.ruleSoft}`,
-  textAlign: "left",
-};
-const ledgerNum: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.small,
-  color: c.inkFaint,
-  flexShrink: 0,
-};
-const ledgerTopic: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  fontSize: size.body,
-  color: c.ink,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-const ledgerStatus: React.CSSProperties = {
-  fontFamily: font.mono,
-  fontSize: size.micro,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase",
-  flexShrink: 0,
 };

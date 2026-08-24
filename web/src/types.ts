@@ -197,6 +197,21 @@ export interface RunSummary {
   mode?: RunMode;
 }
 
+/** A benchmark run kept deliberately, from benchmarks/. */
+export interface CuratedBenchmark {
+  name: string;
+  report: BenchmarkReport;
+}
+
+/** Counts behind the sidebar meters. Run figures are per-user; the prompt
+ *  cache is process-wide, so its numbers are the same for everybody. */
+export interface Stats {
+  runs_total: number;
+  runs_complete: number;
+  runs_active: number;
+  cache: { entries: number; hits: number };
+}
+
 export interface SSEEvent {
   log?: string | null; // present on log-line events; null for phase-only updates
   phase?: RunPhase; // current phase at time of event

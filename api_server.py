@@ -45,7 +45,7 @@ import prompt_cache
 # Config
 # ---------------------------------------------------------------------------
 
-from paths import OUTPUT_ROOT  # noqa: E402
+from paths import OUTPUT_ROOT, PROJECT_ROOT  # noqa: E402
 
 
 @asynccontextmanager
@@ -360,6 +360,56 @@ async def list_runs(authorization: str | None = Header(default=None)):
         for s in reversed(list(live.values()))
         if s.user_id is None
     ]
+
+
+@app.get("/benchmarks")
+async def curated_benchmarks():
+    """The benchmark runs kept deliberately, from benchmarks/.
+
+    These are committed results with their caveats written up in
+    benchmarks/README.md, as opposed to output/ and the profiling_results_*.json
+    at the repo root, which are working artifacts and git-ignored. Serving them
+    means the Benchmark page has something real to show on a machine that has
+    never run the pipeline, and there is still only one copy of the numbers.
+    """
+    root = os.path.join(PROJECT_ROOT, "benchmarks")
+    out = []
+    if not os.path.isdir(root):
+        return out
+    for name in sorted(os.listdir(root)):
+        if not name.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(root, name), encoding="utf-8") as f:
+                out.append({"name": name[:-5], "report": json.load(f)})
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"[api] Warning: skipping benchmark {name}: {exc}")
+    return out
+
+
+@app.get("/stats")
+async def stats(authorization: str | None = Header(default=None)):
+    """Counts for the sidebar meters.
+
+    Deliberately small and deliberately real: the design this UI is ported from
+    had plan tiers and "agent credits", which do not exist here. These are the
+    numbers the app can actually answer for.
+
+    Run counts are per-user; the prompt cache is process-wide, so its figures
+    are the same for everybody.
+    """
+    user = current_user(authorization)
+    runs = auth_db.runs_for_user(user["id"]) if user else []
+
+    with _runs_lock:
+        active = sum(1 for s in _runs.values() if s.status == "running")
+
+    return {
+        "runs_total": len(runs),
+        "runs_complete": sum(1 for r in runs if r["status"] == "complete"),
+        "runs_active": active,
+        "cache": auth_db.cache_stats(),
+    }
 
 
 @app.get("/file/{run_id}/{filename}")
