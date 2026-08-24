@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Any
-from .run_context import notes_system_block, split_notes_and_timing
+from .run_context import notes_system_block, split_notes_and_timing, strip_code_fence
 from .base_agent import AbstractStudyAgent, TOOL_DEFINITIONS
 
 log = logging.getLogger(__name__)
@@ -135,9 +135,7 @@ class NotesAgent(AbstractStudyAgent):
                 f"NOTES:\n{content}"
             )
             timing_raw = self._call_api(timing_prompt, use_tools=False).strip()
-            if timing_raw.startswith("```"):
-                lines = timing_raw.split("\n", 1)
-                timing_raw = lines[1].rsplit("```", 1)[0].strip() if len(lines) > 1 else ""
+            timing_raw = strip_code_fence(timing_raw)
             try:
                 sections = json.loads(timing_raw)
             except json.JSONDecodeError:

@@ -29,7 +29,7 @@ from google.adk.models.anthropic_llm import AnthropicLlm
 from google.adk.events import Event
 from google.genai import types
 
-from .run_context import split_notes_and_timing
+from .run_context import split_notes_and_timing, strip_code_fence
 from .adk_tools import WEB_SEARCH_TOOL, IMAGE_SEARCH_TOOL
 from .specialist_agent import NotesAgent, VideoAgent, PDFAgent
 
@@ -146,9 +146,7 @@ class NotesPostProcessAgent(BaseAgent):
             timing_raw = (await asyncio.to_thread(
                 _agent._call_api, timing_prompt, False
             )).strip()
-            if timing_raw.startswith("```"):
-                lines = timing_raw.split("\n", 1)
-                timing_raw = lines[1].rsplit("```", 1)[0].strip() if len(lines) > 1 else ""
+            timing_raw = strip_code_fence(timing_raw)
             try:
                 sections = json.loads(timing_raw)
             except json.JSONDecodeError:

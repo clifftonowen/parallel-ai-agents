@@ -16,7 +16,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .base_agent import AbstractStudyAgent
-from .run_context import notes_system_block
+from .run_context import notes_system_block, strip_code_fence
 
 log = logging.getLogger(__name__)
 
@@ -261,7 +261,12 @@ class VideoAgent(AbstractStudyAgent):
                 "opened in a browser\n"
                 "Return ONLY the HTML, no explanation."
             )
-            html_content = self._call_api(prompt, system=_system, use_tools=False)
+            # "Return ONLY the HTML" is not binding, and an unstripped ```html
+            # renders as body text before the doctype -- visible in the corner
+            # of every slide, and so in every frame of the finished video.
+            html_content = strip_code_fence(
+                self._call_api(prompt, system=_system, use_tools=False)
+            )
             html_path = self._save_output(
                 html_content, f"slides/slide_{i:02d}.html", output_dir=output_dir
             )

@@ -16,6 +16,7 @@ from src.agents.run_context import (
     make_run_dir,
     slugify_topic,
     split_notes_and_timing,
+    strip_code_fence,
 )
 
 
@@ -150,3 +151,60 @@ class TestMakeRunDir:
         a = make_run_dir(str(tmp_path), "topic", when=when)
         b = make_run_dir(str(tmp_path), "topic", when=when)
         assert a == b
+
+
+class TestStripCodeFence:
+    """Every prompt says "no markdown fences" and models add them anyway.
+
+    Where the payload is JSON that surfaces as a parse failure, which is at
+    least loud. Where it is an HTML slide it is silent: the browser renders the
+    stray ```html as body text before the doctype, so it appeared in the corner
+    of every slide and therefore in every frame of every video the pipeline
+    produced.
+    """
+
+    def test_removes_a_fence_with_a_language_tag(self):
+        assert strip_code_fence("```html\n<p>hi</p>\n```") == "<p>hi</p>"
+
+    def test_removes_a_bare_fence(self):
+        assert strip_code_fence("```\nplain\n```") == "plain"
+
+    def test_leaves_unfenced_text_alone(self):
+        assert strip_code_fence("<!DOCTYPE html>\n<p>hi</p>") == "<!DOCTYPE html>\n<p>hi</p>"
+
+    def test_a_payload_starting_with_a_stripped_character_survives_intact(self):
+        """The regression. The old code was lstrip("```json"), which reads like
+        a prefix strip but is a character-set strip: it removes any leading
+        backtick, j, s, o or n in any order. "null" came back as "ll". It only
+        ever looked correct because every payload it saw began with [ or {.
+        """
+        assert strip_code_fence("```json\nnull\n```") == "null"
+        assert strip_code_fence("```json\nnojson\n```") == "nojson"
+        assert strip_code_fence("son of a json") == "son of a json"
+
+    def test_an_inner_fence_is_content_not_wrapping(self):
+        """Notes about code legitimately contain fences. Only a fence that
+        opens the string wraps it."""
+        text = "Here is an example:\n\n```python\nprint(1)\n```\n\nDone."
+        assert strip_code_fence(text) == text
+
+    def test_the_last_fence_closes_it(self):
+        """A wrapped document that itself contains a fence must close on the
+        outer one, not the first inner one."""
+        got = strip_code_fence("```html\n<pre>```</pre>\n<p>after</p>\n```")
+        assert got == "<pre>```</pre>\n<p>after</p>"
+
+    def test_an_unclosed_fence_keeps_what_there_is(self):
+        """A truncated response is still worth saving."""
+        assert strip_code_fence("```html\n<p>cut off") == "<p>cut off"
+
+    def test_a_string_that_is_only_a_fence_is_empty(self):
+        assert strip_code_fence("```") == ""
+        assert strip_code_fence("```html") == ""
+
+    def test_empty_input(self):
+        assert strip_code_fence("") == ""
+        assert strip_code_fence("   \n  ") == ""
+
+    def test_surrounding_whitespace_goes(self):
+        assert strip_code_fence("\n\n  ```json\n[1]\n```  \n") == "[1]"

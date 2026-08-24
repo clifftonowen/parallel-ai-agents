@@ -27,6 +27,7 @@ __all__ = [
     "build_summary",
     "print_summary",
     "split_notes_and_timing",
+    "strip_code_fence",
 ]
 
 # Marker the notes agent emits between the prose and its timing sidecar.
@@ -99,9 +100,7 @@ def split_notes_and_timing(raw: str) -> tuple[str, list]:
         return raw.strip(), []
 
     notes_part, _, timing_raw = raw.partition(TIMING_MARKER)
-    timing_raw = (
-        timing_raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-    )
+    timing_raw = strip_code_fence(timing_raw)
     try:
         sections = json.loads(timing_raw)
     except json.JSONDecodeError:
@@ -109,6 +108,45 @@ def split_notes_and_timing(raw: str) -> tuple[str, list]:
     if not isinstance(sections, list):
         sections = []
     return notes_part.strip(), sections
+
+
+
+def strip_code_fence(text: str) -> str:
+    """Remove one wrapping markdown code fence, if the model added one.
+
+    Every prompt here says "return ONLY the HTML" or "no markdown fences", and
+    models wrap the answer in ```lang ... ``` regardless. Where the payload is
+    JSON that shows up as a parse failure, which is at least loud. Where it is
+    HTML it is silent: the browser renders the stray ```html as body text
+    before the doctype, so it appears in the corner of every rendered slide,
+    and from there in every frame of every video the pipeline has produced.
+
+    Only a fence that opens the string is removed, and only up to its matching
+    close. A fence in the middle of the text is content -- notes about code
+    legitimately contain them -- and is left alone.
+
+    Written line-wise rather than with lstrip("```json"), which reads like a
+    prefix strip but is a character-set strip: it removes any leading ` j s o n
+    in any order, so a payload starting with "null" loses its first two
+    characters. That version happened to work only because every payload it saw
+    began with [ or {.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+
+    # Drop the opening fence line, which may carry a language tag.
+    _, newline, rest = stripped.partition("\n")
+    if not newline:
+        # A one-line string that is nothing but a fence.
+        return ""
+
+    closing = rest.rfind("```")
+    if closing == -1:
+        # Opened but never closed. Take what there is rather than returning
+        # nothing: a truncated response is still worth saving.
+        return rest.strip()
+    return rest[:closing].strip()
 
 
 def notes_system_block(notes_content: str) -> str:
