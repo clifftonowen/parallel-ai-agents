@@ -62,6 +62,10 @@ def _make_spy_create(original_create):
                 "elapsed_s": round(elapsed, 4),
                 "input_tokens": getattr(resp.usage, "input_tokens", 0) or 0,
                 "output_tokens": getattr(resp.usage, "output_tokens", 0) or 0,
+                # The cache counters are read off this further down. It was
+                # never recorded, so getattr(None, ...) made every cache
+                # figure 0 regardless of what the API actually returned.
+                "_resp_usage": resp.usage,
             })
         return resp
     return spy
@@ -404,10 +408,11 @@ def main() -> None:
             if not args.no_cprofile:
                 orig_summary = _run_with_cprofile(
                     orch_orig.run, topic,
+                    include_video=not args.skip_video,
                     out_path=os.path.join(_ROOT, "original.prof"),
                 )
             else:
-                orig_summary = orch_orig.run(topic)
+                orig_summary = orch_orig.run(topic, include_video=not args.skip_video)
         t_total = time.monotonic() - t_start
 
         orig_api_snapshot = list(_api_calls)
@@ -550,6 +555,7 @@ def main() -> None:
             if not args.no_cprofile:
                 async_summary = _run_with_cprofile(
                     orch_async.run, topic,
+                    include_video=not args.skip_video,
                     out_path=os.path.join(_ROOT, "async.prof"),
                 )
             else:

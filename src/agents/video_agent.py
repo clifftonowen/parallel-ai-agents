@@ -16,6 +16,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .base_agent import AbstractStudyAgent
+from .run_context import notes_system_block
 
 log = logging.getLogger(__name__)
 
@@ -197,16 +198,21 @@ class VideoAgent(AbstractStudyAgent):
         Returns:
             List of expanded narration strings, one per timing entry, in order.
         """
+        # Built once and reused across every section. This loop previously
+        # re-sent the whole notes text inside each per-section prompt, so a
+        # ten-section video paid for them ten times. As a cached system block
+        # the first call creates the entry and the rest read it.
+        _system = notes_system_block(notes_content)
+
         def _narrate(i: int, entry: dict) -> tuple[int, str]:
             prompt = (
-                f"Given this section from study notes: {entry['narration']}\n"
+                f"Given this section from the notes: {entry['narration']}\n"
                 f"Expand this into a spoken narration of approximately "
                 f"{entry['estimated_seconds']} seconds.\n"
-                f"Use the following full notes as context: {notes_content}\n"
                 "Tone: clear, educational, like a university lecturer.\n"
                 "Return ONLY the narration text, no labels or headers."
             )
-            return i, self._call_api(prompt, use_tools=False)
+            return i, self._call_api(prompt, system=_system, use_tools=False)
 
         workers = min(len(timing_json), 5)
         narrations: list[str] = [""] * len(timing_json)
@@ -236,6 +242,11 @@ class VideoAgent(AbstractStudyAgent):
         Returns:
             List of absolute PNG file paths, one per timing entry, in order.
         """
+        # Byte-identical to the narration block, so slides read the cache entry
+        # narration already created rather than making a second one. notes_content
+        # was accepted here but never actually reached the model before.
+        _system = notes_system_block(notes_content)
+
         def _make_slide(i: int, entry: dict) -> tuple[int, str]:
             prompt = (
                 f"Generate a single self-contained HTML slide for the concept: "
@@ -250,7 +261,7 @@ class VideoAgent(AbstractStudyAgent):
                 "opened in a browser\n"
                 "Return ONLY the HTML, no explanation."
             )
-            html_content = self._call_api(prompt, use_tools=False)
+            html_content = self._call_api(prompt, system=_system, use_tools=False)
             html_path = self._save_output(
                 html_content, f"slides/slide_{i:02d}.html", output_dir=output_dir
             )

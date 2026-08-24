@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Any
-from .run_context import split_notes_and_timing
+from .run_context import notes_system_block, split_notes_and_timing
 from .base_agent import AbstractStudyAgent, TOOL_DEFINITIONS
 
 log = logging.getLogger(__name__)
@@ -216,10 +216,8 @@ class FlashcardAgent(AbstractStudyAgent):
             A fully formatted prompt string.
         """
         return (
-            "Read the following study notes carefully, then generate between "
-            "12 and 15 flashcards.\n\n"
-            "NOTES:\n"
-            f"{notes_content}\n\n"
+            "Read the study notes in the system prompt carefully, then generate "
+            "between 12 and 15 flashcards.\n\n"
             "Use this exact Markdown format for every card — no deviations:\n\n"
             "## {{question}} #flashcard\n\n"
             "{{answer — see ANSWER REQUIREMENTS below}}\n\n"
@@ -258,7 +256,13 @@ class FlashcardAgent(AbstractStudyAgent):
         t0 = time.monotonic()
         started_at = datetime.now(timezone.utc).isoformat()
         prompt = self.build_prompt(notes_content)
-        response = self._call_api(prompt, use_tools=False)
+        # Notes go in the cached system block rather than the user turn:
+        # every agent downstream of Phase 1 sends the same notes, so they
+        # share one cache entry instead of each re-sending thousands of
+        # tokens.
+        response = self._call_api(
+            prompt, system=notes_system_block(notes_content), use_tools=False
+        )
         duration_s = round(time.monotonic() - t0, 3)
         finished_at = datetime.now(timezone.utc).isoformat()
         # Write into the run directory as flashcards.md — api_server.py maps

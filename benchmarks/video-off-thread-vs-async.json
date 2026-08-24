@@ -1,0 +1,82 @@
+{
+  "topic": "gradient descent optimisation in machine learning",
+  "timestamp": "20260824_112343",
+  "original": {
+    "total_wall_s": 111.078,
+    "phases": {
+      "phase1_wall_s": 62.672,
+      "phase2_wall_s": 39.5,
+      "phase3_wall_s": 4.546
+    },
+    "agents": {
+      "notes": {
+        "duration_s": 62.672,
+        "started_at": "2026-08-24T03:23:44.778424+00:00",
+        "finished_at": "2026-08-24T03:24:47.455897+00:00"
+      },
+      "flashcard": {
+        "duration_s": 25.469,
+        "started_at": "2026-08-24T03:24:47.489176+00:00",
+        "finished_at": "2026-08-24T03:25:12.961216+00:00"
+      },
+      "video": {},
+      "notes_pdf": {
+        "duration_s": 39.5,
+        "started_at": "2026-08-24T03:24:51.740211+00:00",
+        "finished_at": "2026-08-24T03:25:31.237349+00:00"
+      },
+      "flashcards_pdf": {
+        "duration_s": 4.546,
+        "started_at": "2026-08-24T03:25:31.321491+00:00",
+        "finished_at": "2026-08-24T03:25:35.863368+00:00"
+      }
+    },
+    "tokens": {
+      "total_input": 9496,
+      "total_output": 5290,
+      "llm_calls": 4,
+      "llm_total_s": 77.001
+    }
+  },
+  "adk": null,
+  "async": {
+    "total_wall_s": 94.453,
+    "phases": {
+      "phase1_wall_s": 59.468,
+      "phase2_wall_s": 27.485,
+      "phase3_wall_s": 4.0
+    },
+    "agents": {
+      "notes": {
+        "duration_s": 59.468,
+        "started_at": "2026-08-24T03:26:38.563919+00:00",
+        "finished_at": "2026-08-24T03:27:38.041266+00:00"
+      },
+      "flashcard": {
+        "duration_s": 23.093,
+        "started_at": "2026-08-24T03:27:38.319211+00:00",
+        "finished_at": "2026-08-24T03:28:01.416135+00:00"
+      },
+      "video": {},
+      "notes_pdf": {
+        "duration_s": 27.485,
+        "started_at": "2026-08-24T03:27:40.914960+00:00",
+        "finished_at": "2026-08-24T03:28:08.389501+00:00"
+      },
+      "flashcards_pdf": {
+        "duration_s": 4.0,
+        "started_at": "2026-08-24T03:28:08.714097+00:00",
+        "finished_at": "2026-08-24T03:28:12.703602+00:00"
+      }
+    },
+    "tokens": {
+      "total_input": 12577,
+      "total_output": 4954,
+      "llm_calls": 5,
+      "llm_total_s": 74.874,
+      "cache_read_tokens": 0,
+      "cache_create_tokens": 0
+    }
+  },
+  "run_dirs": {}
+}
