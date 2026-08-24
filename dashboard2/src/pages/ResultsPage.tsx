@@ -5,7 +5,7 @@ import BarChart from "../components/BarChart";
 import FileCard from "../components/FileCard";
 import TokenTable from "../components/TokenTable";
 import type { AsyncMetrics, BenchmarkReport, RunState } from "../types";
-import { c, font, hairline } from "../theme";
+import { c, font, hairline, layout, size } from "../theme";
 
 type Tab = "benchmark" | "outputs" | "log";
 
@@ -87,14 +87,14 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
         <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
           {adkSpeedup && (
             <div style={tabStyles.speedupBadge}>
-              <div style={{ fontFamily: font.display, fontSize: 34, fontWeight: 600, color: c.reagent }}>{adkSpeedup}×</div>
-              <div style={{ fontFamily: font.mono, fontSize: 11, color: c.inkSoft, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>ADK Speedup</div>
+              <div style={{ fontFamily: font.display, fontSize: size.hero, fontWeight: 600, color: c.reagent }}>{adkSpeedup}×</div>
+              <div style={{ fontFamily: font.mono, fontSize: size.micro, color: c.inkSoft, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>ADK Speedup</div>
             </div>
           )}
           {asyncSpeedup && (
             <div style={tabStyles.speedupBadge}>
-              <div style={{ fontFamily: font.display, fontSize: 34, fontWeight: 600, color: c.reagentSoft }}>{asyncSpeedup}×</div>
-              <div style={{ fontFamily: font.mono, fontSize: 11, color: c.inkSoft, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Async Speedup</div>
+              <div style={{ fontFamily: font.display, fontSize: size.hero, fontWeight: 600, color: c.reagentSoft }}>{asyncSpeedup}×</div>
+              <div style={{ fontFamily: font.mono, fontSize: size.micro, color: c.inkSoft, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Async Speedup</div>
             </div>
           )}
           {parallelDetected != null && (
@@ -105,8 +105,8 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
                 border: `1px solid ${parallelDetected ? c.reagent : c.flag}`,
               }}
             >
-              <span style={{ fontSize: 18 }}>{parallelDetected ? "✓" : "✗"}</span>
-              <span style={{ color: c.ink, fontWeight: 700, fontSize: 13 }}>
+              <span style={{ fontSize: size.lead }}>{parallelDetected ? "✓" : "✗"}</span>
+              <span style={{ color: c.ink, fontWeight: 700, fontSize: size.small }}>
                 {parallelDetected ? "Parallel tool dispatch" : "Serial tool dispatch"}
               </span>
             </div>
@@ -285,7 +285,7 @@ export default function ResultsPage() {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    maxWidth: 900,
+    maxWidth: layout.shell,
     margin: "0 auto",
     padding: "20px 20px 24px",
     display: "flex",
@@ -301,7 +301,7 @@ const styles: Record<string, React.CSSProperties> = {
   backBtn: {
     fontFamily: font.mono,
     color: c.reagent,
-    fontSize: 12,
+    fontSize: size.small,
     fontWeight: 700,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
@@ -309,7 +309,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     fontFamily: font.display,
-    fontSize: 22,
+    fontSize: size.title,
     fontWeight: 600,
     color: c.ink,
     overflow: "hidden",
@@ -327,7 +327,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: "transparent",
     color: c.inkSoft,
     fontFamily: font.mono,
-    fontSize: 12,
+    fontSize: size.small,
     fontWeight: 700,
     letterSpacing: "0.06em",
     textTransform: "uppercase",
@@ -356,7 +356,7 @@ const tabStyles: Record<string, React.CSSProperties> = {
   sectionTitle: {
     fontFamily: font.mono,
     color: c.inkFaint,
-    fontSize: 11,
+    fontSize: size.micro,
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
@@ -386,7 +386,7 @@ const tabStyles: Record<string, React.CSSProperties> = {
     color: c.paper,
     fontFamily: font.body,
     padding: "14px 0",
-    fontSize: 15,
+    fontSize: size.body,
     fontWeight: 600,
     marginTop: 12,
   },
@@ -397,7 +397,7 @@ const tabStyles: Record<string, React.CSSProperties> = {
     overflow: "auto",
     color: c.paperDeep,
     fontFamily: font.mono,
-    fontSize: 11,
+    fontSize: size.micro,
     lineHeight: 1.65,
     whiteSpace: "pre-wrap",
     wordBreak: "break-all",

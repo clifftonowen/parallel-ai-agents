@@ -1,6 +1,6 @@
 :root {
-  --paper: #f1ece0;
-  --paper-deep: #e4dccb;
+  --paper: #ede7d9;
+  --paper-deep: #e0d8c5;
   --paper-card: #f7f3ea;
   --ink: #17150f;
   --ink-soft: #5a5341;
@@ -25,24 +25,26 @@ body {
 }
 
 html {
+  /* Keep iOS from auto-inflating type on rotate, which throws off the type scale. */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 body {
   background-color: var(--paper);
+  /* Belt-and-braces guard: nothing should ever produce sideways scroll on a phone. */
   overflow-x: hidden;
   /* Faint ruled-worksheet grain: a hairline baseline grid the eye reads as paper, not decoration. */
   background-image: repeating-linear-gradient(
     to bottom,
     transparent,
     transparent 31px,
-    rgba(198, 188, 165, 0.28) 31px,
-    rgba(198, 188, 165, 0.28) 32px
+    rgba(198, 188, 165, 0.16) 31px,
+    rgba(198, 188, 165, 0.16) 32px
   );
   color: var(--ink);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -67,6 +69,8 @@ a {
   text-decoration: none;
 }
 
+/* The display type is set large and tight; on a narrow screen a long single-word
+   topic ("photosynthesis…") must break rather than push the page sideways. */
 h1,
 h2,
 h3 {
@@ -74,9 +78,16 @@ h3 {
   word-break: break-word;
 }
 
+/* Media never outgrows its container. */
 img,
 video {
   max-width: 100%;
+}
+
+/* Every interactive element gets one visible, on-brand focus ring. */
+:focus-visible {
+  outline: 2px solid var(--reagent);
+  outline-offset: 2px;
 }
 
 pre,
@@ -84,16 +95,12 @@ code {
   font-family: "Space Mono", "Cascadia Code", "Consolas", monospace;
 }
 
-:focus-visible {
-  outline: 2px solid var(--reagent);
-  outline-offset: 2px;
-}
-
 ::selection {
   background: var(--reagent);
   color: var(--paper);
 }
 
+/* Hairline scrollbars, in ink not chrome-blue. */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -108,6 +115,7 @@ code {
 
 /* ── Motion: reserved for state, and only when the visitor allows it ───────── */
 
+/* The active lane "reacts" — a slow reagent pulse. */
 @keyframes reagent-pulse {
   0%,
   100% {
@@ -118,6 +126,7 @@ code {
   }
 }
 
+/* A print coming up in the tray: the focal mark slowly develops while we wait. */
 @keyframes develop {
   0%,
   100% {
@@ -132,6 +141,7 @@ code {
   }
 }
 
+/* The chosen material surfaces into focus — the final-page signature moment. */
 @keyframes material-develop {
   from {
     opacity: 0;
@@ -145,6 +155,7 @@ code {
   }
 }
 
+/* Page-load: the worksheet settles in, top rule drawing across. */
 @keyframes rule-draw {
   from {
     transform: scaleX(0);
@@ -165,12 +176,6 @@ code {
   }
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .animate-pulse {
   animation: reagent-pulse 1.9s ease-in-out infinite;
 }
@@ -185,6 +190,12 @@ code {
 }
 .rule-draw {
   animation: rule-draw 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

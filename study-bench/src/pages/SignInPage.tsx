@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { c, font, eyebrow } from "../theme";
+import { c, font, eyebrow, layout, size, displaySmall } from "../theme";
 
 // ── The borrower's card ──────────────────────────────────────────────────────
 // A login page is where generic templates take over (centered box, two inputs, a
@@ -58,7 +58,7 @@ export default function SignInPage() {
         {/* Card header — stamped like a catalog card. */}
         <div style={cardHead}>
           <span style={eyebrow}>Study Bench</span>
-          <span style={{ ...eyebrow, color: c.reagent }}>· borrower's card</span>
+          <span style={{ ...eyebrow, color: c.inkFaint }}>· borrower's card</span>
         </div>
         <div style={cardRule} />
 
@@ -138,11 +138,11 @@ export default function SignInPage() {
 
 // ── styles ────────────────────────────────────────────────────────────────────
 
-const page: React.CSSProperties = { maxWidth: 460, margin: "0 auto", padding: "40px 22px 80px" };
+const page: React.CSSProperties = { maxWidth: layout.narrow, margin: "0 auto", padding: "40px 22px 80px" };
 
 const backLink: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
   color: c.inkSoft,
@@ -168,18 +168,18 @@ const cardRule: React.CSSProperties = { height: 2, backgroundColor: c.ink, margi
 
 const cardTitle: React.CSSProperties = {
   fontFamily: font.display,
-  fontSize: "clamp(26px, 6vw, 34px)",
+  fontSize: displaySmall,
   fontWeight: 600,
   lineHeight: 1.05,
   letterSpacing: "-0.015em",
   color: c.ink,
 };
-const cardSub: React.CSSProperties = { fontSize: 14.5, color: c.inkSoft, marginTop: 8, marginBottom: 22 };
+const cardSub: React.CSSProperties = { fontSize: size.body, color: c.inkSoft, marginTop: 8, marginBottom: 22 };
 
 const fieldLabel: React.CSSProperties = {
   display: "block",
   fontFamily: font.mono,
-  fontSize: 10.5,
+  fontSize: size.micro,
   fontWeight: 700,
   letterSpacing: "0.16em",
   textTransform: "uppercase",
@@ -196,7 +196,7 @@ const field: React.CSSProperties = {
   padding: "8px 2px",
   marginBottom: 18,
   fontFamily: font.body,
-  fontSize: 17,
+  fontSize: size.lead,
   color: c.ink,
   outline: "none",
 };
@@ -204,7 +204,7 @@ const field: React.CSSProperties = {
 const errorLine: React.CSSProperties = {
   color: c.flag,
   fontFamily: font.mono,
-  fontSize: 13,
+  fontSize: size.small,
   marginBottom: 14,
 };
 
@@ -213,7 +213,7 @@ const primary: React.CSSProperties = {
   backgroundColor: c.reagent,
   color: c.paper,
   fontFamily: font.body,
-  fontSize: 16,
+  fontSize: size.lead,
   fontWeight: 600,
   padding: "13px 20px",
 };
@@ -225,7 +225,7 @@ const googleBtn: React.CSSProperties = {
   color: c.inkFaint,
   backgroundColor: "transparent",
   fontFamily: font.body,
-  fontSize: 14,
+  fontSize: size.body,
   fontWeight: 500,
   padding: "11px 20px",
   display: "flex",
@@ -236,7 +236,7 @@ const googleBtn: React.CSSProperties = {
 };
 const soonTag: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 9.5,
+  fontSize: size.micro,
   fontWeight: 700,
   letterSpacing: "0.14em",
   textTransform: "uppercase",
@@ -257,13 +257,13 @@ const cardFoot: React.CSSProperties = {
 };
 const issuedLine: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   letterSpacing: "0.08em",
   color: c.inkFaint,
 };
 const switchLink: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   fontWeight: 700,
   letterSpacing: "0.06em",
   color: c.reagent,

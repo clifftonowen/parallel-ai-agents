@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { c, font } from "../theme";
+import { c, font, layout, size, space } from "../theme";
 
 // A quiet, consistent top bar, mirroring study-bench/src/components/AppHeader.tsx.
 // Left: the wordmark (home). Right: a cross-link to the learner app, which runs
@@ -21,9 +21,9 @@ export default function AppHeader() {
 }
 
 const bar: React.CSSProperties = {
-  maxWidth: 900,
+  maxWidth: layout.shell,
   margin: "0 auto",
-  padding: "18px 20px 0",
+  padding: `${space.base}px ${layout.gutter}px 0`,
   display: "flex",
   alignItems: "baseline",
   justifyContent: "space-between",
@@ -32,20 +32,26 @@ const bar: React.CSSProperties = {
 
 const wordmark: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 12,
+  fontSize: size.small,
   fontWeight: 700,
   letterSpacing: "0.18em",
   textTransform: "uppercase",
+  whiteSpace: "nowrap",
   color: c.ink,
 };
 
-const right: React.CSSProperties = { display: "flex", alignItems: "baseline", gap: 14 };
+const right: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: space.base,
+  flexWrap: "wrap",
+};
 
 const navLink: React.CSSProperties = {
   fontFamily: font.mono,
-  fontSize: 11,
+  fontSize: size.micro,
   fontWeight: 700,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
-  color: c.reagent,
+  color: c.inkSoft,
 };

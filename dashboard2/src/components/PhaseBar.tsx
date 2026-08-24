@@ -1,4 +1,4 @@
-import { c, font } from "../theme";
+import { c, font, size } from "../theme";
 
 interface Props {
   label: string;
@@ -50,7 +50,7 @@ export default function PhaseBar({ label, state }: Props) {
         style={{
           color: TEXT_COLORS[state],
           fontFamily: font.mono,
-          fontSize: 11,
+          fontSize: size.micro,
           fontWeight: 700,
           letterSpacing: "0.04em",
           textAlign: "center",
