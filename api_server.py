@@ -170,6 +170,21 @@ async def get_run(run_id: str, authorization: str | None = Header(default=None))
     user = current_user(authorization)
     if not user or user["id"] != persisted["user_id"]:
         raise HTTPException(status_code=404, detail="run not found")
+    # The run's own benchmark JSON, if it wrote one. This used to be hardcoded
+    # to {}, so every run served from the database reported "no benchmark data"
+    # even when the file sat next to its outputs -- the numbers survived a
+    # restart on disk but not through this endpoint. The ZIP download already
+    # read the same path.
+    benchmark: dict = {}
+    bench_path = run_manager.benchmark_json_path(run_id)
+    if os.path.isfile(bench_path):
+        try:
+            with open(bench_path, encoding="utf-8") as f:
+                benchmark = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            # Same "[api]" prefix the run log uses, which infer_phase filters out.
+            print(f"[api] Warning: could not read benchmark JSON for {run_id}: {exc}")
+
     return {
         "run_id": persisted["run_id"],
         "topic": persisted["topic"],
@@ -179,7 +194,7 @@ async def get_run(run_id: str, authorization: str | None = Header(default=None))
         "phase": "done" if persisted["status"] == "complete" else "error",
         "progress_pct": 100 if persisted["status"] == "complete" else 0,
         "log_lines": [],
-        "benchmark": {},
+        "benchmark": benchmark,
         "outputs": persisted["outputs"],
         "run_dir": persisted["run_dir"],
         "error": None,
