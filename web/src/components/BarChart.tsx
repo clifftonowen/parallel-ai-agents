@@ -9,7 +9,7 @@ interface Props {
 }
 
 function fmt(v?: number) {
-  return v != null ? `${v.toFixed(1)}s` : "—";
+  return v != null ? `${v.toFixed(1)}s` : "n/a";
 }
 
 const SERIES = {

@@ -11,10 +11,10 @@ import {
 } from "../theme";
 
 function secs(v?: number) {
-  return v != null ? `${v.toFixed(1)}s` : "—";
+  return v != null ? `${v.toFixed(1)}s` : "n/a";
 }
 function num(v?: number) {
-  return v != null ? v.toLocaleString() : "—";
+  return v != null ? v.toLocaleString() : "n/a";
 }
 
 /** Speedup of `arm` against `base`, or null when either is missing. */
@@ -82,9 +82,9 @@ function Report({ report }: { report: BenchmarkReport }) {
 
       <p style={sectionLabel}>By phase</p>
       <div style={chartBlock}>
-        <BarChart label="Phase 1 — notes (sequential in all arms)" original={orig?.phases?.phase1_wall_s} adk={adk?.phases?.phase1} async={asyn?.phases?.phase1_wall_s} maxValue={maxPhase} />
-        <BarChart label="Phase 2 — the parallel fan-out" original={orig?.phases?.phase2_wall_s} adk={adk?.phases?.phase2} async={asyn?.phases?.phase2_wall_s} maxValue={maxPhase} />
-        <BarChart label="Phase 3 — flashcards PDF (sequential in all arms)" original={orig?.phases?.phase3_wall_s} adk={adk?.phases?.phase3} async={asyn?.phases?.phase3_wall_s} maxValue={maxPhase} />
+        <BarChart label="Phase 1: notes (sequential in all arms)" original={orig?.phases?.phase1_wall_s} adk={adk?.phases?.phase1} async={asyn?.phases?.phase1_wall_s} maxValue={maxPhase} />
+        <BarChart label="Phase 2: the parallel fan-out" original={orig?.phases?.phase2_wall_s} adk={adk?.phases?.phase2} async={asyn?.phases?.phase2_wall_s} maxValue={maxPhase} />
+        <BarChart label="Phase 3: flashcards PDF (sequential in all arms)" original={orig?.phases?.phase3_wall_s} adk={adk?.phases?.phase3} async={asyn?.phases?.phase3_wall_s} maxValue={maxPhase} />
       </div>
 
       <p style={sectionLabel}>Tokens</p>
@@ -96,7 +96,7 @@ function Report({ report }: { report: BenchmarkReport }) {
           { label: "LLM calls", original: num(orig?.tokens?.llm_calls), adk: num(adkLlmEvents), async: num(asyn?.tokens?.llm_calls) },
           { label: "LLM latency", original: secs(orig?.tokens?.llm_total_s), adk: secs(adk?.otel?.avg_llm_latency_s), async: secs(asyn?.tokens?.llm_total_s) },
           ...(asyn?.tokens?.cache_read_tokens != null
-            ? [{ label: "Cache read tokens", original: "—", adk: "—", async: num(asyn.tokens.cache_read_tokens) }]
+            ? [{ label: "Cache read tokens", original: "n/a", adk: "n/a", async: num(asyn.tokens.cache_read_tokens) }]
             : []),
         ]}
       />
@@ -126,10 +126,10 @@ export default function BenchmarkPage() {
       <span style={kicker}>Research output</span>
       <h1 style={heading}>Does concurrency actually help?</h1>
       <p style={intro}>
-        The pipeline runs the same work through three orchestrators — a thread
-        pool, asyncio, and a Google ADK agent graph. These are the runs kept
-        deliberately, with their caveats. The short answer is that it depends
-        entirely on what you leave in the measurement.
+        The pipeline runs the same work through three orchestrators: a thread
+        pool, asyncio, and a Google ADK agent graph. These are the runs I kept,
+        with their caveats. Whether concurrency helps turns out to depend on
+        what you leave in the measurement.
       </p>
 
       {curated.length === 0 ? (
@@ -151,13 +151,13 @@ export default function BenchmarkPage() {
       <div style={caveat}>
         <p style={caveatTitle}>Read the caveats before quoting a number</p>
         <p style={caveatBody}>
-          Video assembly is single-threaded ffmpeg and 76–81% of a full run's
-          wall time, so on the full pipeline the orchestration difference
-          drowns — that is Amdahl's law, not a null result. These runs skip
-          video to isolate the part the project is about. They are also a single
-          run per arm, and the arms made a different number of LLM calls, so
-          treat the overall figure as indicative and the phase 2 figure as the
-          more robust signal. The full write-up is in{" "}
+          Video assembly is single-threaded ffmpeg and takes 76 to 81% of wall
+          time on a full run, so the orchestration difference disappears
+          underneath it. That is Amdahl's law rather than a null result about
+          concurrency. These runs skip video to isolate the part the project is
+          about. They are also one run per arm, and the arms made a different
+          number of LLM calls, so treat the overall figure as indicative and the
+          phase 2 figure as the stronger signal. The full write-up is in{" "}
           <code>benchmarks/README.md</code>.
         </p>
       </div>

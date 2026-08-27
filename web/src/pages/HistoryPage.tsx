@@ -86,7 +86,7 @@ export default function HistoryPage() {
                   <td style={contents}>
                     {r.status === "complete"
                       ? "Notes · Flashcards · PDFs"
-                      : `${r.progress_pct}% — ${r.phase}`}
+                      : `${r.progress_pct}%, ${r.phase}`}
                   </td>
                   <td>
                     <button className="btn btn-ghost" onClick={() => openRun(r)}>

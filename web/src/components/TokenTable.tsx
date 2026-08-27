@@ -28,9 +28,9 @@ export default function TokenTable({ rows, showAsync = false }: Props) {
           {rows.map((row, i) => (
             <tr key={i} style={{ backgroundColor: i % 2 === 0 ? c.paper : c.paperCard }}>
               <td style={tdLabelStyle}>{row.label}</td>
-              <td style={tdStyle}>{row.original != null ? String(row.original) : "—"}</td>
-              <td style={tdStyle}>{row.adk != null ? String(row.adk) : "—"}</td>
-              {showAsync && <td style={tdStyle}>{row.async != null ? String(row.async) : "—"}</td>}
+              <td style={tdStyle}>{row.original != null ? String(row.original) : "n/a"}</td>
+              <td style={tdStyle}>{row.adk != null ? String(row.adk) : "n/a"}</td>
+              {showAsync && <td style={tdStyle}>{row.async != null ? String(row.async) : "n/a"}</td>}
             </tr>
           ))}
         </tbody>

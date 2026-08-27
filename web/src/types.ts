@@ -245,5 +245,5 @@ export interface SSEEvent {
   log?: string | null; // present on log-line events; null for phase-only updates
   phase?: RunPhase; // current phase at time of event
   progress_pct?: number; // 0-100
-  done?: boolean; // terminal sentinel — close EventSource on receipt
+  done?: boolean; // terminal sentinel: close EventSource on receipt
 }

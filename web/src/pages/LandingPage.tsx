@@ -32,14 +32,14 @@ export default function LandingPage() {
         <div className="standfirst" style={standfirst}>
           <p style={{ margin: 0 }}>
             One topic goes in. Four agents turn it into lecture notes,
-            flashcards, a narrated video and printable PDFs, fanning out as soon
-            as the notes they all depend on exist.
+            flashcards, a narrated video and printable PDFs. All four need the
+            notes first, so they start together the moment those are done.
           </p>
           <p style={{ margin: `${space.md}px 0 0` }}>
-            Three interchangeable orchestrators run that same pipeline — a
-            thread pool, pure <code style={code}>asyncio</code>, and a Google ADK
-            agent graph — so the framework is the variable and the work is held
-            constant. This is what the numbers say.
+            Three orchestrators run that same pipeline: a thread pool, pure{" "}
+            <code style={code}>asyncio</code>, and a Google ADK agent graph.
+            Same work each time, so the framework is the only thing being
+            measured.
           </p>
         </div>
       </header>
@@ -48,7 +48,7 @@ export default function LandingPage() {
       <section style={section} aria-labelledby="finding">
         <span style={eyebrow}>The result</span>
         <h2 id="finding" style={sectionHeading}>
-          asyncio wins the phase it should, and only that phase
+          Where asyncio actually wins
         </h2>
 
         <div style={figureRow}>
@@ -56,38 +56,40 @@ export default function LandingPage() {
             <PlateNumber value="1.44×" fontSize={58} />
             <figcaption style={figCaption}>
               faster on <strong style={strong}>phase 2</strong>, the parallel
-              fan-out — the one phase whose implementation actually differs
+              fan-out. It is the only phase where the two arms do anything
+              differently.
             </figcaption>
           </figure>
           <figure style={figure}>
             <PlateNumber value="1.18×" fontSize={58} />
             <figcaption style={figCaption}>
-              faster overall, with video off. Phases 1 and 3 are sequential in
-              both arms and land within a few percent, which is the sanity check
+              faster end to end with video switched off. Phases 1 and 3 are
+              sequential in both arms and landed within a few percent of each
+              other, so the gain is coming from where it should.
             </figcaption>
           </figure>
         </div>
 
         <blockquote style={pullQuote}>
           <p style={{ margin: 0 }}>
-            On a <em>full</em> run, asyncio measured 0.96× — no better than
-            threads. That was not a null result about concurrency. Video
-            assembly is single-threaded ffmpeg and{" "}
-            <strong style={strong}>76–81% of wall time</strong>, so
-            parallelising the LLM stages could only ever touch the remaining
-            fifth, and the difference drowned.
+            On a <em>full</em> run asyncio measured 0.96×, which is no better
+            than threads. Concurrency was not the problem. Video assembly is
+            single-threaded ffmpeg and takes{" "}
+            <strong style={strong}>76 to 81% of wall time</strong>, so
+            parallelising the LLM stages could only ever affect the remaining
+            fifth. That was too small to see.
           </p>
           <footer style={quoteFooter}>
-            Amdahl's law, arriving uninvited. Removing the video stage isolates
-            the variable the project is about.
+            That is Amdahl's law. Dropping the video stage is what isolates the
+            part this project is actually about.
           </footer>
         </blockquote>
 
         <p style={caveat}>
-          One run per arm, so treat 1.18× as indicative rather than
-          measured-with-confidence. The full caveats — including that the two
-          arms made a different number of LLM calls — are on the benchmark page
-          and in the repository, not buried.
+          One run per arm, so 1.18× is indicative rather than something I
+          would quote with confidence. The rest of the caveats, including the
+          fact that the two arms made a different number of LLM calls, are on
+          the benchmark page and in the repository.
         </p>
       </section>
 
@@ -130,7 +132,7 @@ export default function LandingPage() {
       {/* ── Ways in ──────────────────────────────────────────────────────── */}
       <section style={section} aria-labelledby="look">
         <span style={eyebrow}>Have a look</span>
-        <h2 id="look" style={sectionHeading}>Three things worth opening</h2>
+        <h2 id="look" style={sectionHeading}>Where to start</h2>
 
         <div style={cardRow}>
           <article className="card elev-sm" style={card}>
@@ -138,7 +140,7 @@ export default function LandingPage() {
             <div className="card-title">The benchmark</div>
             <p className="card-body">
               Per-phase wall clock and token counts for each orchestrator, with
-              every caveat written next to the number it qualifies.
+              the caveats sitting next to the numbers they apply to.
             </p>
             <Link to="/benchmark" className="btn btn-primary" style={cardBtn}>
               See the numbers
@@ -149,8 +151,8 @@ export default function LandingPage() {
             <div className="card-kicker">Output</div>
             <div className="card-title">A finished session</div>
             <p className="card-body">
-              Real generated notes, flashcards, a narrated video and PDFs from
-              one run on binary search. Unedited, rough edges included.
+              Notes, flashcards, a narrated video and PDFs from one run on
+              binary search. Nothing has been tidied up afterwards.
             </p>
             {/* Without the demo fixture there is no one session to open, so
                 this goes to the list. `/session/` with an empty id is a route
@@ -169,7 +171,7 @@ export default function LandingPage() {
             <div className="card-title">The code</div>
             <p className="card-body">
               Three orchestrators, the profiling harness, and the FastAPI
-              backend that drives them. Python, with a Rust port under
+              backend behind them. Python for now, with a Rust port under
               consideration.
             </p>
             <a
@@ -189,28 +191,26 @@ export default function LandingPage() {
       <section style={{ ...section, borderBottom: "none" }} aria-labelledby="live">
         <span style={eyebrow}>Before you click Generate</span>
         <h2 id="live" style={sectionHeading}>
-          {DEMO ? "This is the standalone build" : "Running it costs real money"}
+          {DEMO ? "There is no backend behind this" : "Running it costs real money"}
         </h2>
         <p style={prose}>
           {DEMO ? (
             <>
-              Everything on this site is served as static files. There is no
-              backend attached, because a run is a ten-to-thirty-minute
-              subprocess driving ffmpeg, pandoc and headless Chromium, which is
-              not something a static host will do. The session and the
-              benchmarks above are real artifacts from real runs, compiled into
-              the page.
+              This site is static files. A run is a ten to thirty minute
+              subprocess driving ffmpeg, pandoc and headless Chromium, and no
+              static host will do that. The session and the benchmark numbers
+              above came out of actual runs and are built into the page.
             </>
           ) : (
             <>
               A run calls the Anthropic and OpenAI APIs and spends real credits,
-              so signing up and being allowed to start one are deliberately
-              separate. Create an account, ask, and it gets switched on by hand.
+              so having an account and being allowed to start one are separate
+              things. Sign up, ask, and I switch it on by hand.
             </>
           )}
         </p>
         <p style={prose}>
-          Want to watch it generate something live?{" "}
+          Want to see it generate something live?{" "}
           {CONTACT_EMAIL ? (
             <a href={`mailto:${CONTACT_EMAIL}`} style={link}>Get in touch</a>
           ) : (

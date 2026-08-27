@@ -146,7 +146,7 @@ export default function PackagePage() {
 
       {run.from_cache && (
         <p style={cacheNote}>
-          Ready instantly — reused from a similar topic studied earlier
+          Ready instantly, reused from a similar topic studied earlier
           {run.cached_topic ? ` (“${run.cached_topic}”)` : ""}.
         </p>
       )}

@@ -59,14 +59,12 @@ export default function SignInPage() {
 
           <h1 style={cardTitle}>No accounts here</h1>
           <p style={cardSub}>
-            Accounts live on the deployment with a backend behind it. This one
-            is static files, so there is nothing to sign in to and nothing to
-            keep private.
+            Accounts live on the deployment that has a backend behind it. This
+            one is static files, so there is nothing to sign in to.
           </p>
           <p style={cardSub}>
-            Everything worth seeing is open anyway: a{" "}
-            <Link to={`/session/${DEMO_RUN_ID}`}>finished session</Link> and the{" "}
-            <Link to="/benchmark">benchmark numbers</Link>.
+            The <Link to={`/session/${DEMO_RUN_ID}`}>finished session</Link> and
+            the <Link to="/benchmark">benchmark numbers</Link> are open anyway.
           </p>
 
           <a

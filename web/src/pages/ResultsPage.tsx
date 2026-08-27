@@ -17,10 +17,10 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 function fmt(v?: number) {
-  return v != null ? `${v.toFixed(1)}s` : "—";
+  return v != null ? `${v.toFixed(1)}s` : "n/a";
 }
 function fmtN(v?: number) {
-  return v != null ? v.toLocaleString() : "—";
+  return v != null ? v.toLocaleString() : "n/a";
 }
 
 // ─── Benchmark Tab ───────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
     { label: "LLM calls",     original: fmtN(orig?.tokens?.llm_calls),    adk: fmtN(adkTotalLlmEvents),         async: fmtN(asyn?.tokens?.llm_calls) },
     { label: "LLM latency",   original: fmt(orig?.tokens?.llm_total_s),   adk: fmt(adk?.otel?.avg_llm_latency_s), async: fmt(asyn?.tokens?.llm_total_s) },
     ...(showAsync && asyn?.tokens?.cache_read_tokens != null
-      ? [{ label: "Cache read tokens", original: "—", adk: "—", async: fmtN(asyn?.tokens?.cache_read_tokens) }]
+      ? [{ label: "Cache read tokens", original: "n/a", adk: "n/a", async: fmtN(asyn?.tokens?.cache_read_tokens) }]
       : []),
   ];
 
@@ -119,9 +119,9 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
       <p style={tabStyles.sectionTitle}>Wall-Clock Times</p>
       <div style={tabStyles.chartBlock}>
         <BarChart label="Total end-to-end" original={orig?.total_wall_s} adk={adk?.total_wall_s} async={asyn?.total_wall_s} maxValue={maxWall} />
-        <BarChart label="Phase 1 — Notes" original={orig?.phases?.phase1_wall_s} adk={adk?.phases?.phase1} async={asyn?.phases?.phase1_wall_s} maxValue={maxWall} />
-        <BarChart label="Phase 2 — Flashcards + Video" original={orig?.phases?.phase2_wall_s} adk={adk?.phases?.phase2} async={asyn?.phases?.phase2_wall_s} maxValue={maxWall} />
-        <BarChart label="Phase 3 — PDFs" original={orig?.phases?.phase3_wall_s} adk={adk?.phases?.phase3} async={asyn?.phases?.phase3_wall_s} maxValue={maxWall} />
+        <BarChart label="Phase 1: Notes" original={orig?.phases?.phase1_wall_s} adk={adk?.phases?.phase1} async={asyn?.phases?.phase1_wall_s} maxValue={maxWall} />
+        <BarChart label="Phase 2: Flashcards + Video" original={orig?.phases?.phase2_wall_s} adk={adk?.phases?.phase2} async={asyn?.phases?.phase2_wall_s} maxValue={maxWall} />
+        <BarChart label="Phase 3: PDFs" original={orig?.phases?.phase3_wall_s} adk={adk?.phases?.phase3} async={asyn?.phases?.phase3_wall_s} maxValue={maxWall} />
       </div>
 
       {/* Video sub-phases */}
@@ -132,9 +132,9 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
         <>
           <p style={tabStyles.sectionTitle}>Video Sub-Phases</p>
           <div style={tabStyles.chartBlock}>
-            <BarChart label="Stage A — narrations ‖ slides" original={orig?.agents?.video?.stage_a_s} adk={adk?.agents?.video?.stage_a_s} async={asyn?.agents?.video?.stage_a_s} maxValue={videoMax} />
-            <BarChart label="Stage B+C — audio ‖ pptx" original={orig?.agents?.video?.stage_bc_s} adk={adk?.agents?.video?.stage_bc_s} async={asyn?.agents?.video?.stage_bc_s} maxValue={videoMax} />
-            <BarChart label="Stage D — assemble" original={orig?.agents?.video?.assemble_s} adk={adk?.agents?.video?.assemble_s} async={asyn?.agents?.video?.assemble_s} maxValue={videoMax} />
+            <BarChart label="Stage A: narrations ‖ slides" original={orig?.agents?.video?.stage_a_s} adk={adk?.agents?.video?.stage_a_s} async={asyn?.agents?.video?.stage_a_s} maxValue={videoMax} />
+            <BarChart label="Stage B+C: audio ‖ pptx" original={orig?.agents?.video?.stage_bc_s} adk={adk?.agents?.video?.stage_bc_s} async={asyn?.agents?.video?.stage_bc_s} maxValue={videoMax} />
+            <BarChart label="Stage D: assemble" original={orig?.agents?.video?.assemble_s} adk={adk?.agents?.video?.assemble_s} async={asyn?.agents?.video?.assemble_s} maxValue={videoMax} />
           </div>
         </>
       )}

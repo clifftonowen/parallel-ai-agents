@@ -10,7 +10,7 @@ import { renderMarkdown } from "./markdown";
  * dangerouslySetInnerHTML, so anything that survives sanitising executes in the
  * reader's session.
  */
-describe("renderMarkdown — sanitising", () => {
+describe("renderMarkdown: sanitising", () => {
   it("strips script tags", () => {
     const html = renderMarkdown("# Notes\n\n<script>alert(1)</script>");
     expect(html).not.toContain("<script");
@@ -69,7 +69,7 @@ describe("renderMarkdown — sanitising", () => {
   });
 });
 
-describe("renderMarkdown — legitimate content survives", () => {
+describe("renderMarkdown: legitimate content survives", () => {
   it("renders headings, emphasis, code and lists", () => {
     const html = renderMarkdown("# Title\n\n**bold** and `code`\n\n- one\n- two");
     expect(html).toContain("<h1>Title</h1>");

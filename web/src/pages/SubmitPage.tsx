@@ -12,10 +12,10 @@ import {
 // benchmark dashboard could set. "All three" runs them in sequence — roughly
 // 36 minutes and 3x the token spend — so it is never the default.
 const MODES: { value: RunMode; label: string; note: string }[] = [
-  { value: "async", label: "Async", note: "asyncio — the default path" },
+  { value: "async", label: "Async", note: "asyncio, the default path" },
   { value: "adk", label: "ADK", note: "Google ADK agent graph" },
   { value: "original", label: "Threads", note: "ThreadPoolExecutor baseline" },
-  { value: "all", label: "All three", note: "sequential — slow and expensive" },
+  { value: "all", label: "All three", note: "sequential, slow and expensive" },
 ];
 
 /** Whether this orchestrator can actually skip the video stage.
@@ -80,7 +80,7 @@ export default function SubmitPage() {
   const submit = async () => {
     const t = topic.trim();
     if (!t) {
-      setError("Type a topic first — a sentence works better than a single word.");
+      setError("Type a topic first. A sentence works better than a single word.");
       taRef.current?.focus();
       return;
     }
@@ -111,8 +111,8 @@ export default function SubmitPage() {
         <span style={kicker}>New session</span>
         <h1 style={heading}>What do you want to understand today?</h1>
         <p style={intro}>
-          Describe a topic. Four agents run in parallel — notes, flashcards,
-          video and PDF — and hand back a full study set.
+          Describe a topic. Four agents run in parallel on notes, flashcards,
+          video and PDF, and hand back a full study set.
         </p>
 
         <div style={composer}>
@@ -147,12 +147,12 @@ export default function SubmitPage() {
             <div style={gate}>
               <p style={gateLead}>This build has no backend attached.</p>
               <p style={gateBody}>
-                The composer is real and so is everything it would send — but a
-                run is a ten-to-thirty-minute subprocess driving ffmpeg, pandoc
-                and headless Chromium, and a static host will not do that. The{" "}
+                The composer works, and so does everything it would send. But a
+                run is a ten to thirty minute subprocess driving ffmpeg, pandoc
+                and headless Chromium, and no static host will do that. The{" "}
                 <Link to={`/session/${DEMO_RUN_ID}`}>finished session</Link> and
-                the <Link to="/benchmark">benchmark numbers</Link> are real
-                output from real runs.
+                the <Link to="/benchmark">benchmark numbers</Link> came out of
+                actual runs.
               </p>
               <a
                 href={REPO_URL}
@@ -168,10 +168,10 @@ export default function SubmitPage() {
             <div style={gate}>
               <p style={gateLead}>Sign in to run the pipeline.</p>
               <p style={gateBody}>
-                Reading is open to everyone — the{" "}
+                Reading is open to everyone, and the{" "}
                 <Link to="/benchmark">benchmark page</Link> works signed out.
-                Generating calls the Anthropic and OpenAI APIs, so it needs an
-                account.
+                Generating calls the Anthropic and OpenAI APIs, so that part
+                needs an account.
               </p>
               <Link to="/signin" className="btn btn-primary" style={{ textDecoration: "none" }}>
                 Sign in
@@ -238,10 +238,10 @@ export default function SubmitPage() {
               Include narrated video
               <span style={{ color: mutedFaint }}>
                 {!canSkipVideo(mode)
-                  ? " — always on for this orchestrator; only Async and Threads can skip it"
+                  ? ". Always on for this orchestrator; only Async and Threads can skip it"
                   : includeVideo
-                  ? " — adds roughly 8 minutes of ffmpeg"
-                  : " — about 2 minutes without it"}
+                  ? ". Adds roughly 8 minutes of ffmpeg"
+                  : ". About 2 minutes without it"}
               </span>
             </span>
           </label>
@@ -284,7 +284,7 @@ export default function SubmitPage() {
               <p className="card-body">
                 {r.status === "complete"
                   ? "Notes, flashcards and PDFs are ready to open."
-                  : `${r.progress_pct}% — ${r.phase}`}
+                  : `${r.progress_pct}%, ${r.phase}`}
               </p>
             </button>
           ))}

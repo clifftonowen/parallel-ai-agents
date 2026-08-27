@@ -46,13 +46,13 @@ export default function RequestAccessPage() {
         <span style={kicker}>Access</span>
         <h1 style={heading}>Nothing to request here</h1>
         <p style={intro}>
-          Access controls who may spend API credits on the live deployment. This
+          Access decides who can spend API credits on the live deployment. This
           build has no backend and spends nothing, so there is no queue to join.
         </p>
         <p style={note}>
           The finished session and the benchmark numbers are open, and the
-          source is public. If you want to watch it generate something new, say
-          so on the repository.
+          source is public. If you want to see it generate something new, say so
+          on the repository.
         </p>
         <a
           href={REPO_URL}
@@ -106,8 +106,8 @@ export default function RequestAccessPage() {
         <span style={kicker}>Access</span>
         <h1 style={heading}>Request sent</h1>
         <p style={intro}>
-          It's with the developer. You'll be able to start runs as soon as it's
-          approved — sign in again later and the Generate button will work.
+          It's with the developer. You'll be able to start runs once it's
+          approved. Sign in again later and the Generate button will work.
         </p>
         <p style={note}>
           In the meantime the Benchmark page works without access: it's the
@@ -125,8 +125,8 @@ export default function RequestAccessPage() {
       <span style={kicker}>Access</span>
       <h1 style={heading}>Ask for a demo account</h1>
       <p style={intro}>
-        Anyone can sign up and read, but starting a run calls the Anthropic and
-        OpenAI APIs and costs real money, so it's granted by hand. Tell me who
+        Anyone can sign up and read. Starting a run calls the Anthropic and
+        OpenAI APIs and costs real money, so I grant that by hand. Tell me who
         you are and I'll switch it on.
       </p>
 
@@ -158,7 +158,7 @@ export default function RequestAccessPage() {
             Why you'd like access
             <span style={{ color: mutedFaint }}>
               {" "}
-              — {MESSAGE_MAX - message.length} characters left
+              ({MESSAGE_MAX - message.length} characters left)
             </span>
           </span>
           <textarea
