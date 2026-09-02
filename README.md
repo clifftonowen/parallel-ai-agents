@@ -363,6 +363,30 @@ Nothing in it is mocked up. Where a feature genuinely needs the backend —
 signing in, starting a run, the ZIP download — the UI says so instead of
 offering a control that throws.
 
+### Getting told when somebody asks for access
+
+Requests are always written to the database and always visible at `/requests`.
+The notification is a convenience on top, and it is off unless configured.
+
+For email, ntfy forwards a message to an address without this project holding
+any mail credentials:
+
+```
+ALERT_NTFY_TOPIC=<long random string>
+ALERT_EMAIL=you@example.com
+```
+
+The topic is the only thing protecting that channel. Anyone who knows it can
+read every message published to it, and these messages name the account that
+asked, so generate one rather than picking a word:
+
+```bash
+python -c "import secrets; print('urop-requests-' + secrets.token_urlsafe(24))"
+```
+
+For Discord or Slack instead, leave the topic unset and point
+`ALERT_WEBHOOK_URL` at an incoming webhook.
+
 ### Backend
 
 Not deployed yet. It needs a persistent volume, one replica and one worker (run
