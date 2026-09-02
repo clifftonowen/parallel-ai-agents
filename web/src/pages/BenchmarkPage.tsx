@@ -149,15 +149,15 @@ export default function BenchmarkPage() {
       )}
 
       <div style={caveat}>
-        <p style={caveatTitle}>Read the caveats before quoting a number</p>
+        <p style={caveatTitle}>How much to trust these numbers</p>
         <p style={caveatBody}>
           Video assembly is single-threaded ffmpeg and takes 76 to 81% of wall
-          time on a full run, so the orchestration difference disappears
-          underneath it. That is Amdahl's law rather than a null result about
-          concurrency. These runs skip video to isolate the part the project is
-          about. They are also one run per arm, and the arms made a different
-          number of LLM calls, so treat the overall figure as indicative and the
-          phase 2 figure as the stronger signal. The full write-up is in{" "}
+          time on a full run. On the full pipeline that swamps any difference
+          between orchestrators, which is Amdahl's law doing what it does. These
+          runs skip video so the part I actually changed becomes visible. They
+          are also one run per arm, and the two arms made a different number of
+          LLM calls, so the overall figure is indicative at best. Phase 2 is the
+          number I would trust. The full write-up is in{" "}
           <code>benchmarks/README.md</code>.
         </p>
       </div>

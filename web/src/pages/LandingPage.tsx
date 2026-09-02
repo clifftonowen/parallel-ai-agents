@@ -14,8 +14,8 @@ import {
  * offering to spend money on anyone's behalf.
  *
  * It leads with the measurement rather than the product, because the
- * measurement is the point: this is a UROP about whether parallelising a
- * heterogeneous pipeline pays, and the study-materials app is the workload it
+ * measurement is the point: this is a UROP about where parallelising a
+ * heterogeneous pipeline helps, and the study-materials app is the workload it
  * is measured on. It also leads with the result that complicates the headline
  * — Amdahl's law drowning the effect on a full run — since a benchmark page
  * that shows only its best number is advertising, not a finding.
@@ -25,9 +25,11 @@ export default function LandingPage() {
     <main style={page}>
       {/* ── Masthead ─────────────────────────────────────────────────────── */}
       <header style={masthead}>
-        <span style={eyebrow}>SUTD undergraduate research · supervised by Prof Oka</span>
+        <span style={eyebrow}>
+          SUTD undergraduate research · supervised by Prof Oka Kurniawan
+        </span>
         <h1 style={heading}>
-          Does parallelising a multi-agent pipeline actually pay?
+          Three orchestrators, one multi-agent pipeline
         </h1>
         <div className="standfirst" style={standfirst}>
           <p style={{ margin: 0 }}>
@@ -189,23 +191,24 @@ export default function LandingPage() {
 
       {/* ── What is and is not live ──────────────────────────────────────── */}
       <section style={{ ...section, borderBottom: "none" }} aria-labelledby="live">
-        <span style={eyebrow}>Before you click Generate</span>
+        <span style={eyebrow}>{DEMO ? "About this build" : "Before you start one"}</span>
         <h2 id="live" style={sectionHeading}>
-          {DEMO ? "There is no backend behind this" : "Running it costs real money"}
+          {DEMO ? "There is no backend behind this" : "Runs are granted by hand"}
         </h2>
         <p style={prose}>
           {DEMO ? (
             <>
-              This site is static files. A run is a ten to thirty minute
-              subprocess driving ffmpeg, pandoc and headless Chromium, and no
-              static host will do that. The session and the benchmark numbers
-              above came out of actual runs and are built into the page.
+              This site is static files. A run takes ten to thirty minutes and
+              needs ffmpeg, pandoc and a headless browser, none of which a
+              static host can give it. The session and the numbers above came
+              out of runs I did on my own machine, and they are built into the
+              page.
             </>
           ) : (
             <>
-              A run calls the Anthropic and OpenAI APIs and spends real credits,
-              so having an account and being allowed to start one are separate
-              things. Sign up, ask, and I switch it on by hand.
+              Every run calls the Anthropic and OpenAI APIs, and those calls come
+              off my own credits. So an account by itself does not let you start
+              one. Sign up and ask, and I will turn it on for you.
             </>
           )}
         </p>
