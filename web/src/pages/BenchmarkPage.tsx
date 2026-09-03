@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { curatedBenchmarks, listRuns } from "../api/client";
 import BarChart from "../components/BarChart";
-import PlateNumber from "../components/PlateNumber";
+import BenchmarkFindings from "../components/BenchmarkFindings";
 import TokenTable from "../components/TokenTable";
 import type { BenchmarkReport, CuratedBenchmark, RunSummary } from "../types";
 import {
@@ -17,20 +17,10 @@ function num(v?: number) {
   return v != null ? v.toLocaleString() : "n/a";
 }
 
-/** Speedup of `arm` against `base`, or null when either is missing. */
-function speedup(base?: number, arm?: number): number | null {
-  if (!base || !arm) return null;
-  return base / arm;
-}
-
 function Report({ report }: { report: BenchmarkReport }) {
   const orig = report.original;
   const adk = report.adk;
   const asyn = report.async;
-
-  const asyncX = speedup(orig?.total_wall_s, asyn?.total_wall_s);
-  const adkX = speedup(orig?.total_wall_s, adk?.total_wall_s);
-  const phase2X = speedup(orig?.phases?.phase2_wall_s, asyn?.phases?.phase2_wall_s);
 
   const maxWall = Math.max(
     orig?.total_wall_s ?? 0, adk?.total_wall_s ?? 0, asyn?.total_wall_s ?? 0, 1
@@ -49,32 +39,6 @@ function Report({ report }: { report: BenchmarkReport }) {
 
   return (
     <div style={{ marginBottom: space.page }}>
-      {/* The headline figures, set as misregistered process plates. This is the
-          one place the treatment is used. */}
-      <div style={figures}>
-        {phase2X && (
-          <div>
-            <PlateNumber value={`${phase2X.toFixed(2)}×`} />
-            <div style={figureLabel}>asyncio on phase 2</div>
-            <div style={figureNote}>the only phase whose implementation differs</div>
-          </div>
-        )}
-        {asyncX && (
-          <div>
-            <PlateNumber value={`${asyncX.toFixed(2)}×`} />
-            <div style={figureLabel}>asyncio overall</div>
-            <div style={figureNote}>end to end, same topic</div>
-          </div>
-        )}
-        {adkX && (
-          <div>
-            <PlateNumber value={`${adkX.toFixed(2)}×`} />
-            <div style={figureLabel}>ADK overall</div>
-            <div style={figureNote}>declarative agent graph</div>
-          </div>
-        )}
-      </div>
-
       <p style={sectionLabel}>Wall clock</p>
       <div style={chartBlock}>
         <BarChart label="Total end to end" original={orig?.total_wall_s} adk={adk?.total_wall_s} async={asyn?.total_wall_s} maxValue={maxWall} />
@@ -126,11 +90,13 @@ export default function BenchmarkPage() {
       <span style={kicker}>Research output</span>
       <h1 style={heading}>Does concurrency actually help?</h1>
       <p style={intro}>
-        The pipeline runs the same work through three orchestrators: a thread
-        pool, asyncio, and a Google ADK agent graph. These are the runs I kept,
-        with their caveats. Whether concurrency helps turns out to depend on
-        what you leave in the measurement.
+        The app is a workload for one question: does running a multi-agent
+        pipeline in parallel actually pay, and if so how. Two experiments, both
+        repeated rather than run once, and both reported here including the one
+        that went the wrong way.
       </p>
+
+      <BenchmarkFindings />
 
       {curated.length === 0 ? (
         <p style={{ color: muted }}>
@@ -228,27 +194,6 @@ const runTitle: React.CSSProperties = {
 };
 
 const runMeta: React.CSSProperties = {
-  fontSize: size.small,
-  fontStyle: "italic",
-  color: mutedFaint,
-};
-
-const figures: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: space.section,
-  marginBottom: space.section,
-};
-
-const figureLabel: React.CSSProperties = {
-  fontSize: size.micro,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  color: c.reagentDeep,
-  marginTop: space.sm,
-};
-
-const figureNote: React.CSSProperties = {
   fontSize: size.small,
   fontStyle: "italic",
   color: mutedFaint,

@@ -124,7 +124,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="shell">
       <aside className="shell-rail">
         <div style={{ marginBottom: space.lg }}>
-          <Link to="/" style={wordmark}>UROP</Link>
+          <Link to="/" style={wordmarkRow}>
+            {/* Decorative: the wordmark beside it already names the place. */}
+            <img src="/mark.svg" alt="" width={26} height={26} />
+            <span style={wordmark}>UROP</span>
+          </Link>
           <div style={tagline}>Multi-agent content lab</div>
         </div>
 
@@ -264,6 +268,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 // ── styles ──────────────────────────────────────────────────────────────────
 
 
+
+const wordmarkRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: space.sm,
+  textDecoration: "none",
+};
 
 const wordmark: React.CSSProperties = {
   fontFamily: font.display,

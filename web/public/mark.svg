@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="UROP">
+  <!--
+    A printer's registration mark, slightly out of register.
+
+    The crosshair-in-a-circle is what a press uses to check that its separate
+    colour plates line up. Borrowed rather than invented: the whole design
+    system is a press sheet, and the benchmark page already sets its headline
+    figure as three misregistered plates.
+
+    It also says the right thing about this project. Separate passes, run at the
+    same time, that have to align into one result. The cyan plate sits up and
+    left of the magenta one, so above favicon size you can see the registration
+    is off, which is the honest version of the metaphor.
+
+    Two things learned from rendering it small:
+
+    Stroke width is 4 on a 64 unit grid, so it lands on a whole pixel at 16px.
+    The first version used 2.5, which is 0.6px in a browser tab and rendered as
+    a grey smudge.
+
+    The key plate is a fixed ink colour here. favicon.svg carries a dark-mode
+    variant instead, because a prefers-color-scheme rule inside an <img> follows
+    the OS rather than the background it is placed on: in dark-mode Chrome it
+    turned the mark paper-coloured on a paper-coloured page and it disappeared.
+  -->
+  <g fill="none" stroke-width="4" stroke-linecap="butt">
+    <!-- cyan plate, off up and left -->
+    <circle cx="30.5" cy="30.5" r="14" stroke="#0088b0" opacity="0.85"/>
+    <!-- magenta plate, off down and right -->
+    <circle cx="33.5" cy="33.5" r="14" stroke="#d6006c" opacity="0.85"/>
+    <!-- the key plate, in register, carrying the crosshair -->
+    <g stroke="#201e1d">
+      <circle cx="32" cy="32" r="14"/>
+      <path d="M32 4 V20 M32 44 V60 M4 32 H20 M44 32 H60"/>
+    </g>
+  </g>
+</svg>
