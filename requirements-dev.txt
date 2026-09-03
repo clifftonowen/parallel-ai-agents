@@ -5,18 +5,26 @@
 # well over a gigabyte, several minutes, and a large surface of things that can
 # break a CI run that is only exercising pure functions.
 #
-# The tested modules need exactly three third-party packages at import time:
-#   numpy         prompt_cache imports it at module scope
+# The tested modules need these at import time, and nothing else:
+#   numpy          prompt_cache imports it at module scope
 #   python-dotenv  config.py and benchmark_profile.py import it at module scope
-#   pytest        the runner
+#   fastapi        security.py raises HTTPException, so tests/test_security.py
+#                  cannot even be collected without it
+#   pytest         the runner
 #
 # openai is NOT here on purpose: prompt_cache imports it inside _openai_client(),
 # so it is never touched during collection. If a future test needs a heavier
 # module, prefer moving that module's import inside the function over growing
 # this file.
+#
+# fastapi did not follow that rule and was added instead, because the thing it
+# is needed for is the exception type the authorisation layer raises. Moving
+# that import inside a function to keep this file short would be contorting the
+# code to flatter a dependency list.
 
 pytest>=8,<10
 ruff>=0.6,<1
 
 numpy>=1.26,<3
 python-dotenv>=1.0,<2
+fastapi>=0.115,<1

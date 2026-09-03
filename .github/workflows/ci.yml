@@ -1,8 +1,11 @@
 name: ci
 
 on:
+  # Every branch, not just main. Running only on main meant a feature branch
+  # could be pushed a dozen times without CI ever seeing it, and the first
+  # thing to notice a break was main itself. The deploy job below is still
+  # gated on main, so this only ever costs test runs.
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
