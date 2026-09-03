@@ -95,8 +95,25 @@ jobs:
       group: deploy-api
       cancel-in-progress: false
 
+    # Lifted to the job so the steps below can test it. Secrets are not
+    # available in a job-level `if`, but they are readable through env in a
+    # step-level one, which is what lets this skip rather than fail.
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
     steps:
+      # Until the Fly app exists and the token is set, deploying is not
+      # something this repository can do, and a red badge for a step nobody
+      # asked to run yet trains people to ignore the badge.
+      - name: not configured
+        if: env.FLY_API_TOKEN == ''
+        run: |
+          echo "FLY_API_TOKEN is not set, so there is nothing to deploy to."
+          echo "Set it in Settings > Secrets and variables > Actions once"
+          echo "'flyctl launch' has created the app."
+
       - uses: actions/checkout@v5
+        if: env.FLY_API_TOKEN != ''
 
       # Pinned to a commit, not @master. This step is the one place in the
       # repository where FLY_API_TOKEN exists, so a mutable ref means whoever
@@ -105,19 +122,18 @@ jobs:
       # which is GitHub's own recommendation and a smaller blast radius; this
       # one gets a SHA because of what it can reach.
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1.5
+        if: env.FLY_API_TOKEN != ''
 
       # --remote-only builds on Fly's builders. The image carries ffmpeg,
       # pandoc, tectonic and Chromium, so building it here and pushing it would
       # mean moving a couple of gigabytes out of the runner for no reason.
       - name: deploy
+        if: env.FLY_API_TOKEN != ''
         run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       # A deploy replaces the machine, so anything mid-run dies. The server
       # marks those rows failed at boot rather than leaving them "running"
       # forever, and this is where you would see that it did.
       - name: show boot log
+        if: env.FLY_API_TOKEN != ''
         run: flyctl logs --no-tail | tail -40
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
