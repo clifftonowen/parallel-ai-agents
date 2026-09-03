@@ -98,7 +98,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # Pinned to a commit, not @master. This step is the one place in the
+      # repository where FLY_API_TOKEN exists, so a mutable ref means whoever
+      # controls that action can take the deploy token by pushing to their own
+      # default branch. The first-party actions above are pinned to major tags,
+      # which is GitHub's own recommendation and a smaller blast radius; this
+      # one gets a SHA because of what it can reach.
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1.5
 
       # --remote-only builds on Fly's builders. The image carries ffmpeg,
       # pandoc, tectonic and Chromium, so building it here and pushing it would
