@@ -1,0 +1,75 @@
+{
+  "run": "teach_me_about_gaussian_proces_20260716_200657",
+  "slides": 7,
+  "cpu_count": 16,
+  "repeats": 3,
+  "configs": {
+    "parallel_1": {
+      "n": 3,
+      "mean_s": 38.7,
+      "stdev_s": 0.92,
+      "min_s": 37.89,
+      "runs_s": [
+        39.7,
+        38.5,
+        37.89
+      ],
+      "speedup_vs_moviepy": 12.64
+    },
+    "parallel_2": {
+      "n": 3,
+      "mean_s": 32.58,
+      "stdev_s": 1.18,
+      "min_s": 31.22,
+      "runs_s": [
+        33.25,
+        33.27,
+        31.22
+      ],
+      "speedup_vs_moviepy": 15.02
+    },
+    "parallel_4": {
+      "n": 3,
+      "mean_s": 28.95,
+      "stdev_s": 0.6,
+      "min_s": 28.42,
+      "runs_s": [
+        28.42,
+        28.81,
+        29.61
+      ],
+      "speedup_vs_moviepy": 16.9
+    },
+    "parallel_7": {
+      "n": 3,
+      "mean_s": 28.17,
+      "stdev_s": 1.38,
+      "min_s": 26.69,
+      "runs_s": [
+        26.69,
+        28.41,
+        29.41
+      ],
+      "speedup_vs_moviepy": 17.37
+    },
+    "sequential": {
+      "n": 3,
+      "mean_s": 489.3,
+      "stdev_s": 43.3,
+      "min_s": 441.8,
+      "runs_s": [
+        526.6,
+        499.7,
+        441.8
+      ],
+      "note": "MoviePy. Measured before the -t correctness fix, which did not touch this path."
+    }
+  },
+  "finding": {
+    "moviepy_to_serial_ffmpeg": 12.64,
+    "serial_to_parallel_ffmpeg": 1.37,
+    "combined": 17.37,
+    "summary": "98% of the speedup is present before any parallelism. Replacing MoviePy with one direct ffmpeg per slide, still fully serial, is 12.64x on its own. Running those encodes concurrently adds a further 1.37x and saturates around 4 workers, because each ffmpeg is already multi-threaded. The bottleneck was the library, not the lack of parallelism."
+  },
+  "correctness": "Output verified at 417.56s against a 417.42s narration total and the original run's own video, identical at every pool width. An earlier version used -shortest and overran by ~2.9s per segment by a differing amount each run; it is now given an explicit -t."
+}
