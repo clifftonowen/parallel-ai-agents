@@ -194,6 +194,12 @@ def build_summary(topic: str, run_dir: str, **agent_results) -> dict:
     return summary
 
 
+#: Summary keys that are measurements about the run rather than results from an
+#: agent. They are carried in the summary for the benchmark harness and skipped
+#: in the printed table, which lists what each agent produced.
+_META_KEYS = frozenset({"phase_wall_s"})
+
+
 def print_summary(summary: dict, title: str) -> None:
     """Print the closing summary block.
 
@@ -204,6 +210,8 @@ def print_summary(summary: dict, title: str) -> None:
     """
     banner(title)
     for key, val in summary.items():
-        status = val.get("status", "—") if isinstance(val, dict) else val
+        if key in _META_KEYS:
+            continue
+        status = val.get("status", "-") if isinstance(val, dict) else val
         print(f"  {key:<20} {status}")
     print()

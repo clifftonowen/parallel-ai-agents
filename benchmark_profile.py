@@ -212,6 +212,31 @@ def _extract_otel_stats(exporter) -> dict:
 
 # ── cProfile wrapper ──────────────────────────────────────────────────────────
 
+
+def _phases(summary: dict, notes_dur: float, component_max: float,
+            fpdf_dur: float) -> dict:
+    """Phase wall clock, measured where the orchestrator reports it.
+
+    The orchestrators now bracket each phase with time.monotonic() and pass the
+    result back as `phase_wall_s`. Before that this file computed phase 2 as
+    max(flashcards, video, notes_pdf) -- the largest of the components' own
+    self-reported durations, which excludes pool spin-up, submit latency and
+    contention. Those are the only things the two arms differ on, so the metric
+    could not see the difference it was being used to argue about.
+
+    The derived figure is kept alongside rather than dropped: every committed
+    report predates the fix, and `phase2_component_max_s` is what those older
+    numbers were.
+    """
+    measured = summary.get("phase_wall_s") or {}
+    return {
+        "phase1_wall_s": round(measured.get("phase1", notes_dur), 3),
+        "phase2_wall_s": round(measured.get("phase2", component_max), 3),
+        "phase3_wall_s": round(measured.get("phase3", fpdf_dur), 3),
+        "phase2_component_max_s": round(component_max, 3),
+        "phase_timing": "measured" if measured else "derived",
+    }
+
 def _run_with_cprofile(fn, *args, out_path: str, **kwargs):
     """Run fn(*args, **kwargs) under cProfile; dump .prof and print top-20."""
     pr = cProfile.Profile()
@@ -352,10 +377,12 @@ def main() -> None:
     parser.add_argument("--no-cprofile", action="store_true",
                         help="Skip cProfile (faster; omits .prof files)")
     parser.add_argument("--skip-video", action="store_true",
-                        help="Skip the video stage (async orchestrator only). "
-                             "Video assembly is 76-81%% of wall time, so this "
-                             "cuts a run from ~10 minutes to ~2 and isolates "
-                             "orchestration cost from ffmpeg encoding.")
+                        help="Skip the video stage. Honoured by the thread-pool "
+                             "and async arms; ADK builds its pipeline as a "
+                             "declarative graph and ignores it. Video assembly "
+                             "is 76-81%% of wall time, so this cuts a run from "
+                             "~10 minutes to ~2 and isolates orchestration cost "
+                             "from ffmpeg encoding.")
     parser.add_argument("--run-root", default=None,
                         help="Directory to write this run's artifacts into. "
                              "Defaults to OUTPUT_ROOT. The API server passes a "
@@ -434,11 +461,9 @@ def main() -> None:
         results.setdefault("run_dirs", {})["original"] = orig_summary.get("run_dir", "")
         results["original"] = {
             "total_wall_s": round(t_total, 3),
-            "phases": {
-                "phase1_wall_s": round(notes_dur, 3),
-                "phase2_wall_s": round(max(fc_dur, vid_total, npdf_dur), 3),
-                "phase3_wall_s": round(fpdf_dur, 3),
-            },
+            "phases": _phases(
+                orig_summary, notes_dur, max(fc_dur, vid_total, npdf_dur), fpdf_dur
+            ),
             "agents": {
                 "notes":          {"duration_s": notes_dur,
                                    "started_at": notes_res.get("started_at"),
@@ -586,11 +611,9 @@ def main() -> None:
         results.setdefault("run_dirs", {})["async"] = async_summary.get("run_dir", "")
         results["async"] = {
             "total_wall_s": round(t_total, 3),
-            "phases": {
-                "phase1_wall_s": round(notes_dur, 3),
-                "phase2_wall_s": round(max(fc_dur, vid_total, npdf_dur), 3),
-                "phase3_wall_s": round(fpdf_dur, 3),
-            },
+            "phases": _phases(
+                orig_summary, notes_dur, max(fc_dur, vid_total, npdf_dur), fpdf_dur
+            ),
             "agents": {
                 "notes":          {"duration_s": notes_dur,
                                    "started_at": notes_res.get("started_at"),

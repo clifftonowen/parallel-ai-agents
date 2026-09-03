@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from benchmark_profile import _check_tool_parallelism
+from benchmark_profile import _check_tool_parallelism, _phases
 
 
 def span(start: int, end: int, *, tool: bool = True, name: str = "span") -> SimpleNamespace:
@@ -105,3 +105,48 @@ class TestOverlapDetection:
         result = _check_tool_parallelism(spans)
         assert result["tool_call_count"] == 1
         assert result["parallel_detected"] is False
+
+
+class TestPhaseTiming:
+    """Phase 2 used to be reported as max(flashcards, video, notes_pdf).
+
+    That is the largest of the components' own self-reported durations, so
+    everything between them -- pool spin-up, submit latency, contention -- fell
+    outside the number. Those are the only things the two orchestrators differ
+    on, which means the metric structurally could not see the effect it was
+    being quoted for. The orchestrators now bracket each phase with a clock.
+    """
+
+    def test_a_measured_phase_wins_over_the_derived_one(self):
+        """The bug, stated as a test. The components each took 10s, but the
+        phase took 18s; the missing 8s is the coordination overhead that the
+        old metric threw away."""
+        summary = {"phase_wall_s": {"phase1": 40.0, "phase2": 18.0, "phase3": 4.0}}
+        got = _phases(summary, notes_dur=40.0, component_max=10.0, fpdf_dur=4.0)
+        assert got["phase2_wall_s"] == 18.0
+        assert got["phase2_component_max_s"] == 10.0
+        assert got["phase_timing"] == "measured"
+
+    def test_an_old_report_still_reads(self):
+        """Every committed profiling_results_*.json predates the fix. They must
+        keep parsing, and must say plainly which kind of number they hold."""
+        got = _phases({}, notes_dur=40.0, component_max=10.0, fpdf_dur=4.0)
+        assert got["phase2_wall_s"] == 10.0
+        assert got["phase1_wall_s"] == 40.0
+        assert got["phase_timing"] == "derived"
+
+    def test_the_derived_figure_is_kept_alongside(self):
+        """Kept rather than dropped, so a new run can be compared against the
+        old numbers on the terms those were measured."""
+        summary = {"phase_wall_s": {"phase1": 1.0, "phase2": 2.0, "phase3": 3.0}}
+        got = _phases(summary, notes_dur=9.0, component_max=9.0, fpdf_dur=9.0)
+        assert got["phase2_component_max_s"] == 9.0
+        assert got["phase2_wall_s"] == 2.0
+
+    def test_a_partial_report_falls_back_per_phase(self):
+        """One phase reporting is not a reason to distrust the others."""
+        got = _phases({"phase_wall_s": {"phase2": 18.0}},
+                      notes_dur=40.0, component_max=10.0, fpdf_dur=4.0)
+        assert got["phase2_wall_s"] == 18.0
+        assert got["phase1_wall_s"] == 40.0
+        assert got["phase3_wall_s"] == 4.0

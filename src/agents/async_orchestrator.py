@@ -41,6 +41,7 @@ import asyncio
 import logging
 import os
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -114,6 +115,11 @@ class AsyncStudyOrchestrator:
 
         # Phase 1: Notes (must finish before Phase 2)
         banner("Phase 1 — NotesAgent (Sonnet + caching)")
+
+        # Bracketed, not inferred. The benchmark used to report
+        # max(component durations) for a phase, which excludes exactly the
+        # coordination overhead the two arms differ on.
+        _t_phase1 = time.monotonic()
         notes_result = await self._run_notes(topic, run_dir)
 
         if notes_result.get("status") != "ok":
@@ -124,10 +130,12 @@ class AsyncStudyOrchestrator:
         timing_json: list = load_timing_sections(notes_result["timing_path"])
 
         notes_md_path: str = notes_result["md_path"]
+        phase1_wall = time.monotonic() - _t_phase1
 
         # Phase 2: Flashcards ‖ Video ‖ notes.pdf (parallel)
         # notes.pdf only depends on notes_md_path (Phase 1's output), so it
         # runs alongside flashcards/video instead of waiting for them.
+        _t_phase2 = time.monotonic()
         if include_video:
             banner("Phase 2 — FlashcardAgent ‖ VideoAgent ‖ notes.pdf (Haiku + caching, parallel)")
             flashcard_result, video_result, notes_pdf_result = await asyncio.gather(
@@ -158,10 +166,13 @@ class AsyncStudyOrchestrator:
             log.error("[Async] PDFAgent (notes) raised: %s", notes_pdf_result)
             notes_pdf_result = {}
 
+        phase2_wall = time.monotonic() - _t_phase2
+
         flashcards_md_path: str = (flashcard_result or {}).get("flashcards_path", "")
 
         # Phase 3: flashcards.pdf (needs flashcards.md to exist first)
         banner("Phase 3 — PDFAgent (flashcards)")
+        _t_phase3 = time.monotonic()
         flashcards_pdf_result: dict = {}
         if flashcards_md_path:
             flashcards_pdf_result = await self._run_pdf(flashcards_md_path)
@@ -171,6 +182,8 @@ class AsyncStudyOrchestrator:
         else:
             log.info("[Async] Skipping flashcards PDF — no flashcard output.")
 
+        phase3_wall = time.monotonic() - _t_phase3
+
         summary: dict[str, Any] = build_summary(
             topic, run_dir,
             notes_md=notes_result,
@@ -178,6 +191,11 @@ class AsyncStudyOrchestrator:
             video=video_result,
             notes_pdf=notes_pdf_result,
             flashcards_pdf=flashcards_pdf_result,
+            phase_wall_s={
+                "phase1": round(phase1_wall, 3),
+                "phase2": round(phase2_wall, 3),
+                "phase3": round(phase3_wall, 3),
+            },
         )
         print_summary(summary, "Async Pipeline — complete")
 

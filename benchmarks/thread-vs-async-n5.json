@@ -1,0 +1,224 @@
+{
+  "topic": "gradient descent optimisation in machine learning",
+  "timestamp": "20260902_225303",
+  "conditions": {
+    "skip_video": true,
+    "cache_enabled": false,
+    "cprofile": false,
+    "order": "alternating"
+  },
+  "arms": {
+    "original": {
+      "total_wall_s": {
+        "n": 5,
+        "mean_s": 96.33,
+        "stdev_s": 9.55,
+        "min_s": 84.28,
+        "max_s": 108.3,
+        "runs_s": [
+          92.84,
+          84.28,
+          92.7,
+          103.5,
+          108.3
+        ]
+      },
+      "phases": {
+        "phase1_wall_s": {
+          "n": 5,
+          "mean_s": 56.79,
+          "stdev_s": 7.6,
+          "min_s": 50.03,
+          "max_s": 68.59,
+          "runs_s": [
+            54.59,
+            50.03,
+            51.08,
+            59.67,
+            68.59
+          ]
+        },
+        "phase2_wall_s": {
+          "n": 5,
+          "mean_s": 32.07,
+          "stdev_s": 3.15,
+          "min_s": 29.16,
+          "max_s": 36.7,
+          "runs_s": [
+            30.86,
+            29.16,
+            36.7,
+            29.8,
+            33.81
+          ]
+        },
+        "phase3_wall_s": {
+          "n": 5,
+          "mean_s": 5.38,
+          "stdev_s": 0.47,
+          "min_s": 4.81,
+          "max_s": 5.84,
+          "runs_s": [
+            5.48,
+            4.98,
+            4.81,
+            5.84,
+            5.78
+          ]
+        }
+      },
+      "tokens": {
+        "total_input": {
+          "n": 5,
+          "mean_s": 11288.0,
+          "stdev_s": 2798.77,
+          "min_s": 8730,
+          "max_s": 15696,
+          "runs_s": [
+            8998,
+            11414,
+            11602,
+            8730,
+            15696
+          ]
+        },
+        "total_output": {
+          "n": 5,
+          "mean_s": 5195.4,
+          "stdev_s": 420.17,
+          "min_s": 4670,
+          "max_s": 5789,
+          "runs_s": [
+            5126,
+            4670,
+            5387,
+            5005,
+            5789
+          ]
+        },
+        "llm_calls": {
+          "n": 5,
+          "mean_s": 4.8,
+          "stdev_s": 0.84,
+          "min_s": 4,
+          "max_s": 6,
+          "runs_s": [
+            4,
+            5,
+            5,
+            4,
+            6
+          ]
+        }
+      }
+    },
+    "async": {
+      "total_wall_s": {
+        "n": 5,
+        "mean_s": 93.43,
+        "stdev_s": 8.13,
+        "min_s": 82.78,
+        "max_s": 105.22,
+        "runs_s": [
+          82.78,
+          105.22,
+          91.77,
+          91.59,
+          95.81
+        ]
+      },
+      "phases": {
+        "phase1_wall_s": {
+          "n": 5,
+          "mean_s": 54.1,
+          "stdev_s": 3.08,
+          "min_s": 50.27,
+          "max_s": 57.98,
+          "runs_s": [
+            50.27,
+            57.98,
+            52.69,
+            53.17,
+            56.39
+          ]
+        },
+        "phase2_wall_s": {
+          "n": 5,
+          "mean_s": 31.87,
+          "stdev_s": 4.43,
+          "min_s": 25.16,
+          "max_s": 37.61,
+          "runs_s": [
+            25.16,
+            37.61,
+            31.77,
+            32.48,
+            32.34
+          ]
+        },
+        "phase3_wall_s": {
+          "n": 5,
+          "mean_s": 5.66,
+          "stdev_s": 0.61,
+          "min_s": 4.74,
+          "max_s": 6.2,
+          "runs_s": [
+            6.14,
+            5.38,
+            6.2,
+            4.74,
+            5.86
+          ]
+        }
+      },
+      "tokens": {
+        "total_input": {
+          "n": 5,
+          "mean_s": 8836.4,
+          "stdev_s": 293.14,
+          "min_s": 8480,
+          "max_s": 9247,
+          "runs_s": [
+            8664,
+            8820,
+            9247,
+            8480,
+            8971
+          ]
+        },
+        "total_output": {
+          "n": 5,
+          "mean_s": 5132.0,
+          "stdev_s": 273.02,
+          "min_s": 4673,
+          "max_s": 5396,
+          "runs_s": [
+            4673,
+            5148,
+            5396,
+            5194,
+            5249
+          ]
+        },
+        "llm_calls": {
+          "n": 5,
+          "mean_s": 4.0,
+          "stdev_s": 0.0,
+          "min_s": 4,
+          "max_s": 4,
+          "runs_s": [
+            4,
+            4,
+            4,
+            4,
+            4
+          ]
+        }
+      }
+    }
+  },
+  "speedup_overall": 1.031,
+  "speedup_phase2": 1.006,
+  "measurement_note": "total_wall_s is a real time.monotonic() bracket and is trustworthy. The phase figures here were taken with the pre-fix metric, which reported max(component durations) and therefore excluded the coordination overhead the two arms differ on. That metric was fixed after these runs; the phase comparison has not been re-taken because the overall result already answers the question.",
+  "supersedes": "video-off-thread-vs-async.json"
+}

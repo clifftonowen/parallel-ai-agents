@@ -15,6 +15,7 @@ Phase 3 (sequential): PDFAgent renders flashcards.md → flashcards.pdf,
 import logging
 import os
 import sys
+import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
@@ -107,6 +108,12 @@ class StudyOrchestrator:
         # -------------------------------------------------------- #
         banner("Phase 1 — NotesAgent", detail=f"topic: {topic!r}")
 
+        # Phase wall clock, bracketed rather than inferred. The benchmark used
+        # to report max(component durations), which excludes pool spin-up,
+        # submit latency and contention -- the only things the orchestrators
+        # actually differ on. It was measuring the agents, not the arm.
+        _t_phase1 = time.monotonic()
+
         # Build a timestamped run directory so every orchestrator call
         # produces a self-contained folder:
         #   output/{topic_slug}_{YYYYMMDD_HHMMSS}/
@@ -130,6 +137,7 @@ class StudyOrchestrator:
         notes_path: str = notes_result["md_path"]
 
         timing_json: list = load_timing_sections(notes_result["timing_path"])
+        phase1_wall = time.monotonic() - _t_phase1
 
         # -------------------------------------------------------- #
         # PHASE 2 — Flashcards + Video + notes.pdf (parallel)      #
@@ -143,6 +151,7 @@ class StudyOrchestrator:
             detail="parallel" if include_video else "parallel, video skipped",
         )
 
+        _t_phase2 = time.monotonic()
         vid_future: Future | None = None
         try:
             with ThreadPoolExecutor(max_workers=3) as pool:
@@ -192,11 +201,14 @@ class StudyOrchestrator:
             log.error("PDFAgent (notes) raised: %s", exc)
             print(f"[Orchestrator] Notes PDF error (non-fatal): {exc}")
 
+        phase2_wall = time.monotonic() - _t_phase2
+
         # -------------------------------------------------------- #
         # PHASE 3 — flashcards.pdf (sequential, after flashcards)  #
         # -------------------------------------------------------- #
         banner("Phase 3 — PDFAgent (flashcards)")
 
+        _t_phase3 = time.monotonic()
         flashcards_pdf_result: dict = {}
         if flashcard_result.get("flashcards_path"):
             try:
@@ -209,6 +221,8 @@ class StudyOrchestrator:
         else:
             print("[Orchestrator] Skipping flashcards PDF — no flashcard output.")
 
+        phase3_wall = time.monotonic() - _t_phase3
+
         # -------------------------------------------------------- #
         # Summary                                                   #
         # -------------------------------------------------------- #
@@ -219,6 +233,11 @@ class StudyOrchestrator:
             video=video_result,
             notes_pdf=notes_pdf_result,
             flashcards_pdf=flashcards_pdf_result,
+            phase_wall_s={
+                "phase1": round(phase1_wall, 3),
+                "phase2": round(phase2_wall, 3),
+                "phase3": round(phase3_wall, 3),
+            },
         )
         print_summary(summary, "Pipeline complete")
 
