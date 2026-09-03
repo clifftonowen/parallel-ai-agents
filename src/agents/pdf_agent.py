@@ -22,6 +22,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 from .base_agent import AbstractStudyAgent
+from .run_context import PDF_ENGINES
 
 log = logging.getLogger(__name__)
 
@@ -112,7 +113,10 @@ def _strip_unrenderable_images(md_text: str, base_dir: str) -> tuple[str, int]:
 
 
 # Candidate PDF engines, in order of preference. The first one found wins.
-_PDF_ENGINES = ["xelatex", "lualatex", "pdflatex", "tectonic", "wkhtmltopdf", "weasyprint"]
+# Re-exported under the old name so call sites here are unchanged. The list
+# itself moved to run_context so the API server can read it without importing
+# this module and everything it depends on.
+_PDF_ENGINES = PDF_ENGINES
 
 
 def _resolve_tool(name: str) -> str | None:

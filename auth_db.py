@@ -407,6 +407,26 @@ def get_run(run_id: str) -> dict | None:
     }
 
 
+def reap_orphaned_runs() -> int:
+    """Mark rows still saying "running" as failed. Returns how many.
+
+    Run state lives in a process-local dict, so a process that has just started
+    owns no runs. Any row still marked running is therefore a casualty of
+    whatever stopped the last one: a deploy, a crash, a machine suspend. The
+    worker threads are daemons with no drain, so this is the normal outcome of
+    a restart rather than an exceptional one.
+
+    Without this they stay "running" forever, and the Library shows a spinner
+    for a run that nothing is working on.
+    """
+    with _lock:
+        cur = _get_conn().execute(
+            "UPDATE runs SET status = 'error' WHERE status = 'running'"
+        )
+        _get_conn().commit()
+        return cur.rowcount
+
+
 def runs_started_since(user_id: int, cutoff_iso: str) -> int:
     """How many runs this account has started since `cutoff_iso`.
 

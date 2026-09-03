@@ -20,6 +20,7 @@ import re
 from datetime import datetime
 
 __all__ = [
+    "PDF_ENGINES",
     "slugify_topic",
     "make_run_dir",
     "banner",
@@ -32,6 +33,14 @@ __all__ = [
 
 # Marker the notes agent emits between the prose and its timing sidecar.
 TIMING_MARKER = "---TIMING---"
+
+#: PDF engines pandoc can drive, in the order they are tried. Lives here rather
+#: than in pdf_agent because the API server probes for them at startup, and
+#: importing pdf_agent would pull anthropic and httpx into the web process for
+#: the sake of a list of six strings.
+PDF_ENGINES = [
+    "xelatex", "lualatex", "pdflatex", "tectonic", "wkhtmltopdf", "weasyprint",
+]
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 _SLUG_MAX_LEN = 30

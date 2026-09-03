@@ -1,0 +1,81 @@
+# Fly.io config for the pipeline backend.
+#
+# The shape here is dictated by one fact: run state is process-local. A run
+# lives in run_manager.runs, a plain dict, together with the handle to the
+# subprocess doing the work and the queues feeding its SSE stream. Nothing is
+# shared. So this is one machine, one worker, and that is a correctness
+# constraint rather than a cost saving.
+#
+# Before first deploy:
+#   flyctl launch --no-deploy --name urop-api
+#   flyctl volumes create urop_data --size 10 --region sin
+#   flyctl secrets set ANTHROPIC_API_KEY=... OPENAI_API_KEY=... \
+#                      SIGNING_SECRET=... CORS_ORIGINS=https://<vercel-app> \
+#                      ADMIN_EMAILS=... ALERT_NTFY_TOPIC=... ALERT_EMAIL=...
+
+app = "urop-api"
+primary_region = "sin"
+
+# A run is ten to thirty minutes of subprocess. The default 5s grace would kill
+# one mid-encode on every deploy; this at least lets a short one finish. Runs
+# that still get cut are marked failed at next boot rather than left saying
+# "running" forever (api_server lifespan).
+kill_timeout = "5m"
+
+[build]
+
+[deploy]
+  # Not "rolling": that wants a second machine, and a second machine cannot
+  # have this one's volume or see its in-memory runs.
+  strategy = "immediate"
+
+[env]
+  PORT = "8080"
+  STUDY_BENCH_DB = "/data/study_bench.db"
+  OUTPUT_ROOT = "/data/output"
+  TMPDIR = "/data/tmp"
+  # "both" and "all" run every orchestrator in sequence: ~36 minutes and 3x the
+  # token spend for one click. Left off here deliberately.
+  # ALLOW_FULL_SWEEP = "1"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_start_machines = true
+  # Stopping the machine when HTTP goes quiet would kill a run whose owner
+  # closed the tab, because the work is a subprocess and not a request. Suspend
+  # keeps the process, and min_machines_running keeps one up while demoing.
+  auto_stop_machines = "off"
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    # Concurrency here is about HTTP, not runs. Runs are capped separately by
+    # RUN_CONCURRENT_LIMIT, counted in this process's memory, which is another
+    # reason there must only ever be one of it.
+    type = "requests"
+    soft_limit = 40
+    hard_limit = 80
+
+[[vm]]
+  # 4GB, not 2. x264 and Chromium together OOM at 2, and they overlap: the
+  # video agent renders slides in a headless browser and encodes in the same
+  # run.
+  size = "shared-cpu-2x"
+  memory = "4gb"
+
+[mounts]
+  source = "urop_data"
+  destination = "/data"
+  # The database, the generated artifacts, the signing key (which follows
+  # DB_PATH) and MoviePy's temp files all live here. Losing it loses every
+  # account and every past run.
+
+[checks]
+  [checks.health]
+    type = "http"
+    port = 8080
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"

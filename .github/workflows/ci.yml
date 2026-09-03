@@ -76,3 +76,42 @@ jobs:
       # so path and encoding assumptions surface here first.
       - name: test
         run: pytest -q
+
+  # ── deploy ─────────────────────────────────────────────────────────────────
+  # Only from main, only on a push, and only behind both test jobs. The
+  # front-end deploys itself: Vercel builds on every push to main, so this is
+  # the backend half.
+  deploy:
+    name: deploy api
+    needs: [web, python]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    # Its own group, deliberately not the workflow's. The concurrency block at
+    # the top of this file sets cancel-in-progress, which is right for tests
+    # and wrong for a deploy: a second push would cancel a half-finished one
+    # and leave the machine in whatever state it had reached.
+    concurrency:
+      group: deploy-api
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # --remote-only builds on Fly's builders. The image carries ffmpeg,
+      # pandoc, tectonic and Chromium, so building it here and pushing it would
+      # mean moving a couple of gigabytes out of the runner for no reason.
+      - name: deploy
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # A deploy replaces the machine, so anything mid-run dies. The server
+      # marks those rows failed at boot rather than leaving them "running"
+      # forever, and this is where you would see that it did.
+      - name: show boot log
+        run: flyctl logs --no-tail | tail -40
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

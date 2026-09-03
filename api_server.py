@@ -22,6 +22,7 @@ import asyncio
 import io
 import json
 import os
+import shutil
 from contextlib import asynccontextmanager
 import threading
 import uuid
@@ -36,7 +37,7 @@ from pydantic import BaseModel
 import auth_db
 import routes_auth
 import run_manager
-from src.agents.run_context import slugify_topic
+from src.agents.run_context import PDF_ENGINES, slugify_topic
 from run_manager import runs as _runs, runs_lock as _runs_lock
 from run_state import RunState
 import notify  # noqa: E402
@@ -55,6 +56,29 @@ import signing
 from paths import OUTPUT_ROOT, PROJECT_ROOT  # noqa: E402
 
 
+def _probe_tools() -> dict[str, str | None]:
+    """Report which external binaries this image actually has.
+
+    Every one of these is resolved with a bare `shutil.which` on Linux, and a
+    missing one is caught by the orchestrators, which drop the artifact and let
+    the run finish. That is the right behaviour at run time and a terrible
+    property at deploy time: an image built without pandoc produces runs that
+    report success and quietly contain no PDFs.
+
+    So this says out loud, once, at boot, what the image can do. It warns
+    rather than exits: the read-only routes are still worth serving, and a
+    partially-equipped image is better than no service.
+    """
+    found: dict[str, str | None] = {
+        "ffmpeg": shutil.which("ffmpeg"),
+        "pandoc": shutil.which("pandoc"),
+    }
+    found["pdf-engine"] = next(
+        (name for name in PDF_ENGINES if shutil.which(name)), None
+    )
+    return found
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Create the schema on startup rather than at import.
@@ -69,6 +93,15 @@ async def lifespan(_app: FastAPI):
     gone = auth_db.purge_expired_sessions()
     if gone:
         print(f"[api] purged {gone} expired session(s)")
+
+    # Nothing was running when this process started, whatever the table says.
+    orphaned = auth_db.reap_orphaned_runs()
+    if orphaned:
+        print(f"[api] marked {orphaned} run(s) failed: orphaned by a restart")
+
+    for tool, path in _probe_tools().items():
+        print(f"[api] {tool:10} {path or 'MISSING, that output will be skipped'}")
+
     yield
 
 
@@ -462,9 +495,17 @@ async def curated_benchmarks():
             continue
         try:
             with open(os.path.join(root, name), encoding="utf-8") as f:
-                out.append({"name": name[:-5], "report": json.load(f)})
+                report = json.load(f)
         except (OSError, json.JSONDecodeError) as exc:
             print(f"[api] Warning: skipping benchmark {name}: {exc}")
+            continue
+        # Only per-run reports. This directory also holds summarised results
+        # (the n=5 repeat, the assembly sweep) which are shaped differently and
+        # are read at build time by the page that presents them. Handing those
+        # to the chart renderer would draw empty axes.
+        if not any(k in report for k in ("original", "adk", "async")):
+            continue
+        out.append({"name": name[:-5], "report": report})
     return out
 
 
@@ -620,5 +661,16 @@ async def health():
 
 
 if __name__ == "__main__":
+    # Local development only. The container does not use this path: it runs
+    # uvicorn directly so it can set --workers 1, which matters because run
+    # state is a process-local dict (see run_manager.runs). Never make this the
+    # image entrypoint -- reload=True watches the filesystem and restarts on
+    # the app's own writes to output/.
     import uvicorn
-    uvicorn.run("api_server:app", host="0.0.0.0", port=8010, reload=True)
+
+    uvicorn.run(
+        "api_server:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("API_PORT", "8010")),
+        reload=True,
+    )
