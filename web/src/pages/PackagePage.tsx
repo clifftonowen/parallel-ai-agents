@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { downloadFile, downloadZip, fetchFileText, fileUrl, getRun } from "../api/client";
 import Markdown from "../components/Markdown";
+import Sheet from "../components/Sheet";
 import { parseFlashcards } from "../lib/flashcards";
 import { useRunGrant } from "../hooks/useRunGrant";
 import { DEMO } from "../api/demo";
@@ -30,8 +31,12 @@ function DocTab({ run_id, filename }: { run_id: string; filename: string }) {
   if (error) return <p style={{ color: c.flagDeep }}>{error}</p>;
   if (text === null) return <p style={{ color: muted }}>Loading…</p>;
   return (
-    <div style={{ maxWidth: layout.measure }}>
-      <Markdown source={text} />
+    <div style={{ maxWidth: 780 }}>
+      <Sheet>
+        <div style={{ maxWidth: layout.measure }}>
+          <Markdown source={text} />
+        </div>
+      </Sheet>
     </div>
   );
 }

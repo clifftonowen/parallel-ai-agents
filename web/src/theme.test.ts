@@ -61,6 +61,28 @@ describe("design tokens", () => {
     expect(missing).toEqual([]);
   });
 
+  it("keeps the reading sheet in step with the root palette", () => {
+    // .sheet is a scope, not a second theme: it re-declares the same names on
+    // one selector so descendants flip with no per-component work. That only
+    // holds while it declares the same keys. A token added to :root and
+    // forgotten here would silently inherit the dark value onto a light sheet,
+    // which is the failure this catches.
+    const blockOf = (selector: string) => {
+      const i = css.indexOf(selector + " {");
+      expect(i, `${selector} block not found`).toBeGreaterThan(-1);
+      return css.slice(i, css.indexOf("\n}", i));
+    };
+    const root = declared(blockOf(":root"));
+    const sheet = declared(blockOf(".sheet"));
+
+    // Type, spacing and radii are ground-independent, so the sheet has no
+    // business restating them.
+    const themeable = [...root].filter(
+      (n) => n.startsWith("--color-") || n.startsWith("--shadow-"),
+    );
+    expect([...themeable].filter((n) => !sheet.has(n))).toEqual([]);
+  });
+
   it("keeps colour values out of theme.ts", () => {
     // The whole point. A hex literal here means the value exists in two places
     // again and the drift this test guards against can restart.
