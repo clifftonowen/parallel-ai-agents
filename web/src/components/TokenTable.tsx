@@ -12,6 +12,24 @@ interface Props {
   showAsync?: boolean;
 }
 
+/** A column header that says which arm it is twice over: a swatch and a
+ *  colour. Carrying identity in hue alone fails WCAG 1.4.1 and fails anyone
+ *  printing this in greyscale, which for a benchmark table is exactly the
+ *  audience. The swatch is the non-colour channel; the tokens are shared with
+ *  BarChart so the chart and the table read as one vocabulary. */
+function Series({ n, label }: { n: 1 | 2 | 3; label: string }) {
+  const ink = `var(--series-${n})`;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span
+        aria-hidden="true"
+        style={{ width: 8, height: 8, background: ink, flex: "none" }}
+      />
+      <span style={{ color: ink }}>{label}</span>
+    </span>
+  );
+}
+
 export default function TokenTable({ rows, showAsync = false }: Props) {
   return (
     <div style={scroller}>
@@ -19,9 +37,9 @@ export default function TokenTable({ rows, showAsync = false }: Props) {
         <thead>
           <tr style={{ backgroundColor: c.paperCard }}>
             <th style={thStyle}>Metric</th>
-            <th style={{ ...thStyle, color: c.inkSoft }}>Original</th>
-            <th style={{ ...thStyle, color: c.reagent }}>ADK</th>
-            {showAsync && <th style={{ ...thStyle, color: c.reagentSoft }}>Async</th>}
+            <th style={thStyle}><Series n={1} label="Original" /></th>
+            <th style={thStyle}><Series n={2} label="ADK" /></th>
+            {showAsync && <th style={thStyle}><Series n={3} label="Async" /></th>}
           </tr>
         </thead>
         <tbody>
