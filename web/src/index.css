@@ -811,12 +811,6 @@ textarea.input {
 
 /* ── Motion: reserved for state ─────────────────────────────────────────── */
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes rise-in {
   from {
     opacity: 0;
