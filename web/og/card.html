@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  Source for public/og.png — the card people see when the link is pasted into
+  WhatsApp, LinkedIn, Slack or Discord.
+
+  Regenerate (no dependencies beyond Chrome itself):
+
+    "C:/Program Files/Google/Chrome/Application/chrome.exe" \
+      --headless --disable-gpu --hide-scrollbars \
+      --virtual-time-budget=10000 \
+      --window-size=1200,630 \
+      --screenshot="web/public/og.png" \
+      "file:///<abs path>/web/og/card.html"
+
+  --virtual-time-budget is not optional: without it Chrome screenshots before
+  the Google Fonts request resolves and you get Georgia and a system sans.
+
+  Built from the same tokens as the app rather than imported from index.css,
+  because this file is rendered once, offline, by a different browser
+  invocation. The values are duplicated on purpose and the header comment in
+  index.css is still the source of truth if they ever disagree.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0e0d0d; --text:#f3f2f2; --meta:#8b8787;
+    --accent:#0088b0; --accent-fg:#38a6cf; --flag:#d6006c; --yellow:#edbb00;
+    --divider: color-mix(in srgb, #f3f2f2 14%, transparent);
+  }
+  * { margin:0; padding:0; box-sizing:border-box }
+  html,body { width:1200px; height:630px; overflow:hidden }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:"Source Serif 4",Georgia,serif;
+    padding:58px 72px;
+    display:flex; flex-direction:column; justify-content:space-between;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* — masthead — */
+  .top { display:flex; align-items:center; gap:16px }
+  .wordmark { font-size:34px; font-weight:600; letter-spacing:-0.015em; line-height:1 }
+  .tagline { font-size:17px; font-style:italic; color:var(--meta); margin-top:4px }
+
+  /* — headline — */
+  h1 {
+    font-size:74px; font-weight:600; line-height:1.04; letter-spacing:-0.022em;
+    max-width:15ch;
+  }
+
+  /* — the plates, additive over the dark ground (see index.css) — */
+  /* flex:none on the children matters. Without it the figure blocks shrink to
+     the width of the numeral, and the labels underneath — which are far wider
+     than "98%" — get clipped to "RALLELISM". */
+  .figures { display:flex; gap:72px; align-items:flex-end }
+  .figures > div { flex:none }
+  .fig-label {
+    font-family:Inter,system-ui,sans-serif; font-size:14px; font-weight:600;
+    letter-spacing:0.1em; text-transform:uppercase; color:var(--accent-fg);
+    margin-top:16px; white-space:nowrap;
+  }
+  .fig-note { font-size:16px; font-style:italic; color:var(--meta); margin-top:4px }
+  /* display:inline-block is load-bearing — see the note in src/index.css. */
+  .cmyk {
+    position:relative; display:inline-block; width:fit-content; line-height:0.9;
+    font-weight:600; font-size:92px; font-feature-settings:"pnum" 1;
+    background:var(--bg); padding:0.12em; margin:-0.12em; isolation:isolate;
+  }
+  .cmyk .paper { color:var(--bg) }
+  .cmyk .plate { position:absolute; inset:0.12em; mix-blend-mode:screen }
+  .plate-c { color:var(--accent) }
+  .plate-m { color:var(--flag); translate:0.036em 0.025em }
+  .plate-y { color:var(--yellow); translate:-0.031em -0.023em }
+
+  /* — footer — */
+  .foot {
+    display:flex; justify-content:space-between; align-items:flex-end;
+    border-top:1px solid var(--divider); padding-top:22px;
+    font-family:Inter,system-ui,sans-serif; font-size:15px; color:var(--meta);
+  }
+  .foot strong { color:var(--text); font-weight:510 }
+</style>
+</head>
+<body>
+
+  <div class="top">
+    <!-- The registration mark, matching components/Mark.tsx -->
+    <svg viewBox="0 0 64 64" width="42" height="42" aria-hidden="true">
+      <g fill="none" stroke-width="4" stroke-linecap="butt">
+        <circle cx="30.5" cy="30.5" r="14" stroke="var(--accent)" opacity="0.85"/>
+        <circle cx="33.5" cy="33.5" r="14" stroke="var(--flag)" opacity="0.85"/>
+        <g stroke="var(--text)">
+          <circle cx="32" cy="32" r="14"/>
+          <path d="M32 4 V20 M32 44 V60 M4 32 H20 M44 32 H60"/>
+        </g>
+      </g>
+    </svg>
+    <div>
+      <div class="wordmark">UROP</div>
+      <div class="tagline">Multi-agent content lab</div>
+    </div>
+  </div>
+
+  <h1>One topic in. A full study set out.</h1>
+
+  <div class="figures">
+    <div>
+      <span class="cmyk">
+        <span class="paper">17.4&times;</span>
+        <span class="plate plate-c" aria-hidden="true">17.4&times;</span>
+        <span class="plate plate-m" aria-hidden="true">17.4&times;</span>
+        <span class="plate plate-y" aria-hidden="true">17.4&times;</span>
+      </span>
+      <div class="fig-label">Faster video assembly</div>
+    </div>
+    <div>
+      <span class="cmyk">
+        <span class="paper">98%</span>
+        <span class="plate plate-c" aria-hidden="true">98%</span>
+        <span class="plate plate-m" aria-hidden="true">98%</span>
+        <span class="plate plate-y" aria-hidden="true">98%</span>
+      </span>
+      <div class="fig-label">Of it before any parallelism</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Notes, flashcards, a narrated video and PDFs, from one prompt.</span>
+    <span>SUTD undergraduate research &middot; <strong>Prof Oka Kurniawan</strong></span>
+  </div>
+
+</body>
+</html>

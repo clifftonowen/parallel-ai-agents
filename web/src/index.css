@@ -752,6 +752,12 @@ textarea.input {
 .cmyk-num {
   --cmyk-num-ground: var(--color-bg);
   position: relative;
+  /* Not optional, and it used to live as an inline style on PlateNumber so the
+     class was not self-sufficient. As an inline box the 0.12em padding escapes
+     the line box, the background rectangle paints over whatever follows, and
+     because the element is position:relative it wins the paint order — a label
+     underneath loses everything narrower than the numeral. */
+  display: inline-block;
   width: fit-content;
   line-height: 0.9;
   font-family: var(--font-heading);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { curatedBenchmarks, listRuns } from "../api/client";
+import { DEMO } from "../api/demo";
 import BarChart from "../components/BarChart";
 import BenchmarkFindings from "../components/BenchmarkFindings";
 import TokenTable from "../components/TokenTable";
@@ -128,7 +129,10 @@ export default function BenchmarkPage() {
         </p>
       </div>
 
-      {runs.length > 0 && (
+      {/* Hidden in the static build. The only session bundled there predates
+          the profiling harness, so every link in this list would land on a
+          page with nothing to show. */}
+      {!DEMO && runs.length > 0 && (
         <>
           <p style={sectionLabel}>Your runs</p>
           <p style={{ ...intro, marginBottom: space.base }}>

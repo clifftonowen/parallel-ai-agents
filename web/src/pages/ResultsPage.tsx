@@ -11,11 +11,32 @@ import { c, font, hairline, layout, size } from "../theme";
 
 type Tab = "benchmark" | "outputs" | "log";
 
-const TABS: { key: Tab; label: string }[] = [
+const ALL_TABS: { key: Tab; label: string }[] = [
   { key: "benchmark", label: "Benchmark" },
   { key: "outputs", label: "Outputs" },
   { key: "log", label: "Log" },
 ];
+
+/** Only the tabs this run can actually fill.
+ *
+ *  Benchmark data comes from benchmark_profile.py, and the log is captured
+ *  only while a run is streaming, so most runs have neither. The page used to
+ *  show all three regardless and open on Benchmark, which meant the common
+ *  case was a tab bar where two of three panels said "no data" and the landing
+ *  panel was one of them. The demo session is the worst version of this: it
+ *  predates the profiling harness entirely, so a visitor following the link
+ *  from /benchmark arrived at an empty screen.
+ *
+ *  Derived from the run rather than gated on DEMO, because the dead end is not
+ *  a demo artefact — it is every run that was not profiled. */
+function availableTabs(run: RunState | null) {
+  if (!run) return ALL_TABS;
+  return ALL_TABS.filter((t) =>
+    t.key === "benchmark" ? run.benchmark != null
+    : t.key === "log" ? (run.log_lines?.length ?? 0) > 0
+    : true,
+  );
+}
 
 function fmt(v?: number) {
   return v != null ? `${v.toFixed(1)}s` : "n/a";
@@ -229,6 +250,16 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("benchmark");
+  const tabs = availableTabs(runState);
+
+  // "benchmark" is the initial tab but may not survive the run loading, so
+  // fall back to whatever this run does have rather than rendering a bar with
+  // nothing selected.
+  useEffect(() => {
+    if (tabs.length && !tabs.some((t) => t.key === activeTab)) {
+      setActiveTab(tabs[0].key);
+    }
+  }, [tabs, activeTab]);
 
   useEffect(() => {
     if (!run_id) return;
@@ -265,7 +296,7 @@ export default function ResultsPage() {
 
       {/* Tab bar */}
       <div style={styles.tabBar}>
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
