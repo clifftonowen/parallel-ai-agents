@@ -1,5 +1,3 @@
-import { size } from "../theme";
-
 interface Props {
   /** Short display figure, e.g. "1.44×" or "94.5s". */
   value: string;
@@ -29,9 +27,4 @@ export default function PlateNumber({ value, fontSize = 64 }: Props) {
       <span className="plate plate-y" aria-hidden="true">{value}</span>
     </span>
   );
-}
-
-/** The same treatment at label scale, for inline use in prose. */
-export function PlateNumberInline({ value }: { value: string }) {
-  return <PlateNumber value={value} fontSize={size.hero} />;
 }

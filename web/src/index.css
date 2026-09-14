@@ -348,12 +348,6 @@ textarea.input {
 .elev-sm {
   box-shadow: var(--shadow-sm);
 }
-.elev-md {
-  box-shadow: var(--shadow-md);
-}
-.elev-lg {
-  box-shadow: var(--shadow-lg);
-}
 
 /* — tags — */
 .tag {
@@ -367,10 +361,6 @@ textarea.input {
 .tag-accent {
   background: var(--color-accent-100);
   color: var(--color-accent-800);
-}
-.tag-accent-2 {
-  background: var(--color-accent-2-100);
-  color: var(--color-accent-2-800);
 }
 .tag-neutral {
   background: var(--color-neutral-100);
@@ -462,24 +452,6 @@ textarea.input {
   }
 }
 
-/* ── Landing standfirst ──────────────────────────────────────────────────────
-   The two-column lead a broadsheet sets under its headline, and the only place
-   in this app that uses columns. It lives here rather than as an inline style
-   because it needs a media query: at 360px a column each it reads well, and
-   below roughly 700px it would be four words a line, which is unreadable. */
-.standfirst {
-  column-count: 2;
-  column-gap: var(--space-8);
-  column-rule: 1px solid var(--color-neutral-300);
-  max-width: 760px;
-}
-
-@media (max-width: 700px) {
-  .standfirst {
-    column-count: 1;
-  }
-}
-
 /* Wide content scrolls inside its own box; the page never scrolls sideways. */
 .scroll-x {
   overflow-x: auto;
@@ -527,25 +499,6 @@ textarea.input {
 
 /* ── Motion: reserved for state ─────────────────────────────────────────── */
 
-/* The active stage pulses while its agent works. */
-@keyframes urop-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.72);
-  }
-}
-
-@keyframes urop-orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -560,15 +513,6 @@ textarea.input {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes rule-draw {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
   }
 }
 
@@ -598,19 +542,6 @@ textarea.input {
   }
 }
 
-@keyframes material-develop {
-  from {
-    opacity: 0;
-    filter: blur(6px) contrast(0.6);
-    transform: scale(0.985);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0) contrast(1);
-    transform: scale(1);
-  }
-}
-
 .animate-pulse {
   animation: reagent-pulse 1.9s ease-in-out infinite;
 }
@@ -619,12 +550,6 @@ textarea.input {
 }
 .animate-develop {
   animation: develop 2.4s ease-in-out infinite;
-}
-.animate-material {
-  animation: material-develop 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-.rule-draw {
-  animation: rule-draw 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
