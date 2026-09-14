@@ -2,57 +2,71 @@
 // Ported from the "broadsheet" design system (Claude Design project
 // bd8c5ad0-ee8d-424b-b8d0-ce82b34ccebf, _ds/broadsheet-.../styles.css).
 //
-// A press sheet, not a warm worksheet: cool grey ground, one serif doing every
-// job, and the two process inks — cyan and magenta — carrying all the colour.
-// Near-square corners and real shadows, so surfaces lift off the page rather
-// than being drawn onto it.
+// ── One source of truth ─────────────────────────────────────────────────────
+// The colour tokens below are `var(--token)` references, not literals. The real
+// values live in index.css and nowhere else.
 //
-// These names are mirrored as CSS custom properties in index.css. Inline
-// styles read them from here; the component classes (.btn, .card, .seg …) read
-// them from there. Change a value in BOTH or they drift.
+// This file used to hold hex and index.css held the same hex again, with a
+// comment telling you to change both. They had already drifted: paperDeep,
+// reagentSoft, accent 300/400/500/900 and space.page existed only here, while
+// --color-divider and --color-accent-2-800 existed only there. The visible
+// symptom was two slightly different hairlines on screen at once, because
+// inline styles ruled at neutral-300 and .btn/.input/.table ruled at
+// --color-divider.
+//
+// Colours, borders, shadows and the muted text mixes resolve through CSS.
+// `space`, `size`, `radius` and `layout` stay NUMBERS, because call sites do
+// arithmetic on them and template them into compound values. "var(--space-1)px"
+// is not valid CSS and would fail silently.
 
 export const c = {
   // Ground and surfaces.
-  paper: "#f3f2f2", // --color-bg
-  paperDeep: "#e0dede",
-  paperCard: "#eae9e9", // --color-surface
+  paper: "var(--color-bg)",
+  paperDeep: "var(--color-bg-deep)",
+  paperCard: "var(--color-surface)",
 
   // Ink.
-  ink: "#201e1d", // --color-text
-  inkSoft: "#605d5d", // neutral-700
-  inkFaint: "#7d7979", // neutral-600
+  ink: "var(--color-text)",
+  inkSoft: "var(--color-neutral-700)",
+  inkFaint: "var(--color-neutral-600)",
 
   // Rules. The system draws divisions with hairlines, not boxes.
-  rule: "#d7d3d3", // neutral-300
-  ruleSoft: "#eae7e7", // neutral-200
+  rule: "var(--color-neutral-300)",
+  ruleSoft: "var(--color-neutral-200)",
 
   // First process ink: cyan. Actions and live state.
   // `reagent*` keeps the old names so the call sites did not have to churn
   // twice in one week; read it as "the accent".
-  reagent: "#0088b0", // --color-accent
-  reagentSoft: "#38a6cf", // accent-500
-  reagentWash: "#e9f8ff", // accent-100
-  reagentDeep: "#006786", // accent-700, for text on the pale ground
+  reagent: "var(--color-accent)",
+  reagentSoft: "var(--color-accent-500)",
+  reagentWash: "var(--color-accent-100)",
+  reagentDeep: "var(--color-accent-700)",
 
   // Second process ink: magenta. Attention and failure only.
-  flag: "#d6006c", // --color-accent-2
-  flagWash: "#fff1f4", // accent-2-100
-  flagDeep: "#aa0b56", // accent-2-700
+  flag: "var(--color-accent-2)",
+  flagWash: "var(--color-accent-2-100)",
+  flagDeep: "var(--color-accent-2-700)",
 
   // Third ink, print treatments only (see .cmyk-num in index.css). Never
   // chrome, never body copy.
-  processYellow: "#edbb00",
+  processYellow: "var(--color-process-yellow)",
 } as const;
 
 /** Tonal ramps, for the places that need a step rather than a role. */
 export const neutral = {
-  100: "#f8f4f4", 200: "#eae7e7", 300: "#d7d3d3", 400: "#bab6b6", 500: "#9b9797",
-  600: "#7d7979", 700: "#605d5d", 800: "#444141", 900: "#2d2b2b",
+  100: "var(--color-neutral-100)", 200: "var(--color-neutral-200)",
+  300: "var(--color-neutral-300)", 400: "var(--color-neutral-400)",
+  500: "var(--color-neutral-500)", 600: "var(--color-neutral-600)",
+  700: "var(--color-neutral-700)", 800: "var(--color-neutral-800)",
+  900: "var(--color-neutral-900)",
 } as const;
 
 export const accent = {
-  100: "#e9f8ff", 200: "#cbeeff", 300: "#99e0ff", 400: "#62c5ee", 500: "#38a6cf",
-  600: "#1186ac", 700: "#006786", 800: "#004961", 900: "#0a303e",
+  100: "var(--color-accent-100)", 200: "var(--color-accent-200)",
+  300: "var(--color-accent-300)", 400: "var(--color-accent-400)",
+  500: "var(--color-accent-500)", 600: "var(--color-accent-600)",
+  700: "var(--color-accent-700)", 800: "var(--color-accent-800)",
+  900: "var(--color-accent-900)",
 } as const;
 
 // ── The accent rule ─────────────────────────────────────────────────────────
@@ -69,9 +83,9 @@ export const accent = {
 // no separate display or label face. Mono survives for one job only: the run
 // log and file names, where character alignment is the point.
 export const font = {
-  display: "'Source Serif 4', Georgia, serif",
-  body: "'Source Serif 4', Georgia, serif",
-  mono: "'Space Mono', 'Cascadia Code', 'Consolas', monospace",
+  display: "var(--font-heading)",
+  body: "var(--font-body)",
+  mono: "var(--font-mono)",
 } as const;
 
 /** Broadsheet's heading ramp: body 15, h6 13, h4 20, h3 25, h2 32, h1 42. */
@@ -111,9 +125,9 @@ export const space = {
 export const radius = { sm: 1, md: 2, lg: 4 } as const;
 
 export const shadow = {
-  sm: "0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent)",
-  md: "0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent)",
-  lg: "0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent)",
+  sm: "var(--shadow-sm)",
+  md: "var(--shadow-md)",
+  lg: "var(--shadow-lg)",
 } as const;
 
 // ── Layout ──────────────────────────────────────────────────────────────────
@@ -136,8 +150,8 @@ export const eyebrow: React.CSSProperties = {
 };
 
 /** Muted body text, the design's most-repeated colour treatment. */
-export const muted = "color-mix(in srgb, #201e1d 62%, transparent)";
-export const mutedFaint = "color-mix(in srgb, #201e1d 48%, transparent)";
+export const muted = "color-mix(in srgb, var(--color-text) 62%, transparent)";
+export const mutedFaint = "color-mix(in srgb, var(--color-text) 48%, transparent)";
 
 export const hairline = `1px solid ${c.rule}`;
 export const hairlineSoft = `1px solid ${c.ruleSoft}`;

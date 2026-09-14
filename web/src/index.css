@@ -1,11 +1,24 @@
 /* ── UROP — broadsheet ──────────────────────────────────────────────────────
-   Ported from the "broadsheet" design system. These custom properties mirror
-   src/theme.ts; inline styles read the TS, component classes read these.
-   Change a value in both or they drift.
+   Ported from the "broadsheet" design system.
+
+   THIS FILE IS THE ONLY PLACE COLOUR VALUES LIVE. src/theme.ts holds
+   `var(--token)` references, not hex, so inline styles and component classes
+   resolve against the same declarations. There is nothing to keep in sync.
+
+   src/theme.test.ts enforces that: every var() theme.ts reaches for must be
+   declared here. Add a token to theme.ts without declaring it and the test
+   fails, because an unresolvable var() in an inline style fails silently —
+   the declaration is simply dropped, with no console warning and no build
+   error.
+
+   `space`, `size`, `radius` and `layout` stay numbers in theme.ts. Call sites
+   template them into compound values (`${space.sm}px 0`), and
+   "var(--space-2)px" is not valid CSS.
    ────────────────────────────────────────────────────────────────────────── */
 
 :root {
   --color-bg: #f3f2f2;
+  --color-bg-deep: #e0dede;
   --color-surface: #eae9e9;
   --color-text: #201e1d;
   --color-accent: #0088b0;
@@ -24,9 +37,13 @@
 
   --color-accent-100: #e9f8ff;
   --color-accent-200: #cbeeff;
+  --color-accent-300: #99e0ff;
+  --color-accent-400: #62c5ee;
+  --color-accent-500: #38a6cf;
   --color-accent-600: #1186ac;
   --color-accent-700: #006786;
   --color-accent-800: #004961;
+  --color-accent-900: #0a303e;
 
   --color-accent-2-100: #fff1f4;
   --color-accent-2-700: #aa0b56;
