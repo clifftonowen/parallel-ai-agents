@@ -17,43 +17,96 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  --color-bg: #f3f2f2;
-  --color-bg-deep: #e0dede;
-  --color-surface: #eae9e9;
-  --color-text: #201e1d;
-  --color-accent: #0088b0;
-  --color-accent-2: #d6006c;
-  --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+  /* Dark unconditionally, not behind prefers-color-scheme. This app has one
+     ground; the light reading sheet is a scope inside it, not an OS setting.
+     color-scheme makes native scrollbars, form controls and video chrome
+     follow, which they otherwise would not. */
+  color-scheme: dark;
 
-  --color-neutral-100: #f8f4f4;
-  --color-neutral-200: #eae7e7;
-  --color-neutral-300: #d7d3d3;
-  --color-neutral-400: #bab6b6;
-  --color-neutral-500: #9b9797;
-  --color-neutral-600: #7d7979;
-  --color-neutral-700: #605d5d;
-  --color-neutral-800: #444141;
-  --color-neutral-900: #2d2b2b;
+  /* ── Surfaces ─────────────────────────────────────────────────────────────
+     Warm near-black rather than Linear's cool #08090a. The structure is what
+     was borrowed, not the temperature, and a warm ground holds cyan and
+     magenta better. Pleasing accident: the old ink is now the raised step. */
+  --color-bg: #0e0d0d;
+  --color-bg-deep: #080707; /* sunken: wells, code, the plate ground */
+  --color-surface: #161514; /* cards, rail panels */
+  --color-surface-raised: #201e1d; /* hover fills, active nav — the old ink */
+  --color-scrim: rgba(6, 5, 5, 0.78);
 
-  --color-accent-100: #e9f8ff;
-  --color-accent-200: #cbeeff;
-  --color-accent-300: #99e0ff;
-  --color-accent-400: #62c5ee;
+  --color-text: #f3f2f2; /* 17.4:1 — the old paper, inverted */
+
+  /* ── Rules ────────────────────────────────────────────────────────────────
+     Translucent, so one value reads correctly on bg, surface and raised
+     alike. This is also where the old two-hairline bug dies: inline styles
+     used to rule at neutral-300 while .btn/.input/.table ruled at
+     --color-divider, which were close but not equal. Now theme.ts points
+     c.rule here, so there is one hairline. */
+  --color-divider: color-mix(in srgb, #f3f2f2 14%, transparent);
+  --color-divider-soft: color-mix(in srgb, #f3f2f2 8%, transparent);
+  --color-divider-strong: color-mix(in srgb, #f3f2f2 22%, transparent);
+
+  /* Ramp inverted, so 100 still means "closest to the ground" and 900 still
+     means "furthest from it". .tag-neutral keeps its semantics for free. */
+  --color-neutral-100: #171615;
+  --color-neutral-200: #1f1e1d;
+  --color-neutral-300: #2b2928;
+  --color-neutral-400: #3f3c3b;
+  --color-neutral-500: #5c5857;
+  --color-neutral-600: #8b8787; /* 5.5:1 — the eyebrow/meta step */
+  --color-neutral-700: #a9a5a5; /* 8.0:1 — muted body */
+  --color-neutral-800: #d2cfcf;
+  --color-neutral-900: #f3f2f2;
+
+  /* ── Cyan: action and live state ──────────────────────────────────────────
+     The ramp reads from the other end now. On paper the deep cyan carried
+     text and the soft one was decorative; on near-black that inverts.
+     #0088b0 measures 4.76:1 here, which passes but has no headroom and reads
+     dim as a foreground, so text and icons take --color-accent-fg. */
+  --color-accent: #0088b0; /* fills, live dots, focus ring, brand */
+  --color-accent-fg: #38a6cf; /* 6.95:1 — links, accent text, icons */
+  --color-accent-hover: #17a3cc;
+  --color-accent-active: #0b7595;
+  /* Text ON a cyan fill. 4.76:1, where white would be 4.08 and fail. Same
+     move as black-on-lime, and it replaces three different meanings that
+     were all spelled color: var(--color-bg). */
+  --color-on-accent: #0e0d0d;
+
+  /* The pale washes cannot survive the inversion, so they stop being opaque
+     tints and become veils of their own ink. This also makes them correct
+     inside the light sheet without a second declaration. */
+  --color-accent-100: color-mix(in srgb, #0088b0 16%, transparent);
+  --color-accent-200: color-mix(in srgb, #0088b0 26%, transparent);
+  --color-accent-300: #0b7595;
+  --color-accent-400: #0088b0;
   --color-accent-500: #38a6cf;
-  --color-accent-600: #1186ac;
-  --color-accent-700: #006786;
-  --color-accent-800: #004961;
-  --color-accent-900: #0a303e;
+  --color-accent-600: #5cb8db;
+  --color-accent-700: #7fcae6; /* was "text on the pale ground" — now the bright step */
+  --color-accent-800: #a8dcf0;
+  --color-accent-900: #cbeeff;
 
-  --color-accent-2-100: #fff1f4;
-  --color-accent-2-700: #aa0b56;
-  --color-accent-2-800: #790e3d;
+  /* ── Magenta: attention and failure only ──────────────────────────────────
+     #d6006c measures 3.77:1 here and fails AA for normal text, so every
+     error message needs the lifted step. White on a magenta fill is 5.15:1
+     and passes, so the two accents take opposite text colours. */
+  --color-accent-2: #d6006c;
+  --color-flag-fg: #ff5c9d; /* 6.7:1 */
+  --color-on-flag: #ffffff; /* 5.15:1 */
+  --color-accent-2-100: color-mix(in srgb, #d6006c 20%, transparent);
+  --color-accent-2-700: #ff5c9d;
+  --color-accent-2-800: #ff8fba;
 
   /* The third process ink. Print treatments only — never chrome, never copy. */
   --color-process-yellow: #edbb00;
 
+  /* ── Type: three roles, not one ───────────────────────────────────────────
+     The serif used to do every job. At 13px on near-black it blooms and
+     loses stroke contrast, which is exactly where a dense product UI lives.
+     So the serif keeps what it is good at — headlines and long-form reading —
+     and Inter takes the chrome. Mono keeps the technical metadata, which the
+     old comment claimed was already true while eleven files disagreed. */
   --font-heading: "Source Serif 4", Georgia, serif;
   --font-body: "Source Serif 4", Georgia, serif;
+  --font-ui: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "Space Mono", "Cascadia Code", "Consolas", monospace;
   --font-heading-weight: 600;
 
@@ -72,9 +125,12 @@
   --radius-md: 2px;
   --radius-lg: 4px;
 
-  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
-  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
-  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+  /* Elevation now comes from borders, not shadow — a drop shadow on near-black
+     is close to invisible anyway. These survive for the few things that
+     genuinely float above the page. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.62);
 }
 
 *,
@@ -140,12 +196,12 @@ textarea {
 }
 
 a {
-  color: var(--color-accent-700);
+  color: var(--color-accent-fg);
   text-decoration: none;
   text-underline-offset: 3px;
 }
 a:hover {
-  color: var(--color-accent);
+  color: var(--color-accent-800);
   text-decoration: underline;
 }
 
@@ -199,8 +255,8 @@ code {
   gap: 6px;
   cursor: pointer;
   text-decoration: none;
-  font-family: var(--font-heading);
-  font-weight: var(--font-heading-weight);
+  font-family: var(--font-ui);
+  font-weight: 510;
   font-size: 13px;
   line-height: 1.2;
   color: var(--color-text);
@@ -219,13 +275,15 @@ code {
 }
 .btn-primary {
   background: var(--color-accent);
-  color: var(--color-bg);
+  /* Not --color-bg. It happened to equal "text on an accent fill" while the
+     ground was paper; on dark those are different ideas. */
+  color: var(--color-on-accent);
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-accent-600);
+  background: var(--color-accent-hover);
 }
 .btn-primary:active:not(:disabled) {
-  background: var(--color-accent-700);
+  background: var(--color-accent-active);
 }
 .btn-secondary {
   border-color: var(--color-divider);
@@ -249,6 +307,7 @@ code {
 }
 .btn-danger:hover:not(:disabled) {
   background: var(--color-accent-2-100);
+  color: var(--color-accent-2-800);
 }
 .btn-block {
   width: 100%;
@@ -259,8 +318,8 @@ code {
   width: 100%;
   min-height: 36px;
   padding: 8px 10px;
-  font: inherit;
-  font-size: 15px;
+  font-family: var(--font-ui);
+  font-size: 14px;
   color: var(--color-text);
   caret-color: var(--color-accent);
   background: var(--color-surface);
@@ -294,6 +353,7 @@ textarea.input {
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
+  font-family: var(--font-ui);
   font-size: 13px;
   cursor: pointer;
   background: transparent;
@@ -304,7 +364,7 @@ textarea.input {
 }
 .seg-opt[aria-pressed="true"] {
   background: var(--color-accent);
-  color: var(--color-bg);
+  color: var(--color-on-accent);
 }
 .seg-opt[aria-pressed="false"]:hover {
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
@@ -318,8 +378,12 @@ textarea.input {
   padding: var(--space-3);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+  /* The surface step alone is only a few percent of luminance away from the
+     page on dark, which is not enough to read as a contained object. */
+  border: 1px solid var(--color-divider-soft);
 }
 .card-kicker {
+  font-family: var(--font-ui);
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -343,7 +407,8 @@ textarea.input {
   transition: box-shadow 0.15s, transform 0.15s;
 }
 .card-link:hover {
-  box-shadow: var(--shadow-md);
+  border-color: var(--color-divider-strong);
+  background: var(--color-surface-raised);
 }
 .elev-sm {
   box-shadow: var(--shadow-sm);
@@ -353,6 +418,7 @@ textarea.input {
 .tag {
   display: inline-flex;
   align-items: center;
+  font-family: var(--font-ui);
   font-size: 11px;
   letter-spacing: 0.02em;
   padding: 3px 10px;
@@ -375,6 +441,7 @@ textarea.input {
 .table {
   width: 100%;
   border-collapse: collapse;
+  font-family: var(--font-ui);
   font-size: 14px;
 }
 .table th {
@@ -382,13 +449,13 @@ textarea.input {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  color: var(--color-neutral-600);
   padding: var(--space-2);
   border-bottom: 1px solid var(--color-divider);
 }
 .table td {
   padding: var(--space-2);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+  border-bottom: 1px solid var(--color-divider-soft);
 }
 .table tbody tr:hover {
   background: color-mix(in srgb, var(--color-text) 4%, transparent);
@@ -458,12 +525,27 @@ textarea.input {
 }
 
 /* — the plate numeral —
-   Display figures set as misregistered process plates: cyan, magenta and
-   yellow only, no black. The dark core is the C x M x Y multiply overlap, the
-   fringes are the registration drift. Reserved for headline benchmark figures.
-   The construction carries its own ground so the multiply plates always have a
-   backdrop; the padding bleeds wider than any plate offset and the negative
-   margin hands the layout box back. */
+   Display figures set as three misregistered process plates. No black plate:
+   the core is the overlap, and the fringes are the registration drift, exactly
+   as a real three-colour press would misregister.
+
+   The metaphor inverts on a dark ground, and it has to. Under the old
+   `multiply` the three inks producted toward black, which needs paper beneath
+   them; on near-black there is nothing left to darken and the figure simply
+   disappears. So subtractive ink becomes additive light: `screen` over the
+   sunken surface, where the three plates sum toward white. A screen emits
+   light, it does not print ink, so this is arguably the truer version of the
+   metaphor rather than a workaround — and it keeps the point, which is
+   separate passes that have to align.
+
+   Measured, not guessed: the triple overlap of the existing three inks lands
+   on #fcdfd1, a warm off-white, with lavender, gold and orange pairwise
+   fringes. The inks are unchanged from the light version.
+
+   isolation is mandatory, not tidiness. Without it the plates blend against
+   whatever page content sits behind them, and BenchmarkFindings renders these
+   inside .animate-rise, which animates opacity and so churns the stacking
+   context underneath. */
 .cmyk-num {
   --cmyk-num-ground: var(--color-bg);
   position: relative;
@@ -475,15 +557,20 @@ textarea.input {
   background: var(--cmyk-num-ground);
   padding: 0.12em;
   margin: -0.12em;
+  isolation: isolate;
 }
+/* Carries the text for assistive tech and reserves the layout box, and is
+   otherwise invisible. Not visibility:hidden, which drops it from the
+   accessibility tree, and not color:transparent, which breaks selection.
+   The two offset text-shadows the light version needed are gone: they existed
+   to paint paper under each plate, and screen wants dark underneath. */
 .cmyk-num .paper {
-  color: var(--color-bg);
-  text-shadow: 0.036em 0.025em 0 var(--color-bg), -0.031em -0.023em 0 var(--color-bg);
+  color: var(--cmyk-num-ground);
 }
 .cmyk-num .plate {
   position: absolute;
   inset: 0.12em;
-  mix-blend-mode: multiply;
+  mix-blend-mode: screen;
 }
 .cmyk-num .plate-c {
   color: var(--color-accent);
@@ -495,6 +582,28 @@ textarea.input {
 .cmyk-num .plate-y {
   color: var(--color-process-yellow);
   translate: -0.031em -0.023em;
+}
+
+/* A headline figure must never vanish. Where blending is unavailable or
+   overridden, drop the plates and print the numeral flat. */
+@supports not (mix-blend-mode: screen) {
+  .cmyk-num .plate {
+    display: none;
+  }
+  .cmyk-num .paper {
+    color: var(--color-text);
+  }
+}
+@media (forced-colors: active) {
+  .cmyk-num {
+    background: none;
+  }
+  .cmyk-num .plate {
+    display: none;
+  }
+  .cmyk-num .paper {
+    color: CanvasText;
+  }
 }
 
 /* ── Motion: reserved for state ─────────────────────────────────────────── */

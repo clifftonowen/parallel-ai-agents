@@ -31,8 +31,12 @@ export const c = {
   inkFaint: "var(--color-neutral-600)",
 
   // Rules. The system draws divisions with hairlines, not boxes.
-  rule: "var(--color-neutral-300)",
-  ruleSoft: "var(--color-neutral-200)",
+  // These point at the divider tokens rather than the neutral ramp, which is
+  // what finally resolves the two-hairlines bug: inline styles used to rule at
+  // neutral-300 while .btn/.input/.table ruled at --color-divider. Close, but
+  // not equal, and both were on screen at once.
+  rule: "var(--color-divider)",
+  ruleSoft: "var(--color-divider-soft)",
 
   // First process ink: cyan. Actions and live state.
   // `reagent*` keeps the old names so the call sites did not have to churn
@@ -78,13 +82,25 @@ export const accent = {
 // If something needs to stand out and is neither, it wants weight or space.
 
 // ── Type ────────────────────────────────────────────────────────────────────
-// One family in every role. The system carries its personality through weight,
-// size and italic rather than through a second or third typeface, so there is
-// no separate display or label face. Mono survives for one job only: the run
-// log and file names, where character alignment is the point.
+// Three roles.
+//
+//   display  Source Serif 4. Headlines, section heads, the plate figures, the
+//            run topic. What the serif is actually good at.
+//   body     Source Serif 4. Long-form reading: the landing prose, the
+//            benchmark findings, generated notes.
+//   ui       Inter. Chrome — rail, nav, buttons, tables, form labels, meters,
+//            tabs. The serif at 13px on near-black blooms and loses stroke
+//            contrast, which is exactly where a dense product UI lives.
+//   mono     Space Mono. Run ids, durations, token counts, filenames, the log.
+//
+// This replaces "one family in every role", which had stopped being true
+// anyway: the old comment claimed mono was for the run log and file names
+// only, while eleven files were already using it for micro-labels. Under the
+// three-role system that usage is correct rather than a violation.
 export const font = {
   display: "var(--font-heading)",
   body: "var(--font-body)",
+  ui: "var(--font-ui)",
   mono: "var(--font-mono)",
 } as const;
 
@@ -141,7 +157,7 @@ export const layout = {
 
 /** The recurring structural label: small, tracked, uppercase, in the serif. */
 export const eyebrow: React.CSSProperties = {
-  fontFamily: font.body,
+  fontFamily: font.ui,
   fontSize: size.micro,
   fontWeight: headingWeight,
   letterSpacing: "0.1em",

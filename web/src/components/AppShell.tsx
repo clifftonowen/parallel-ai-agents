@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { accessRequestQueue, listRuns, myAccessState, stats as fetchStats } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { DEMO } from "../api/demo";
+import Mark from "./Mark";
 import type { AccessState, RunSummary, Stats } from "../types";
 import {
   c, eyebrow, font, headingWeight, layout, muted, mutedFaint, size, space,
@@ -125,8 +126,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="shell-rail">
         <div style={{ marginBottom: space.lg }}>
           <Link to="/" style={wordmarkRow}>
-            {/* Decorative: the wordmark beside it already names the place. */}
-            <img src="/mark.svg" alt="" width={26} height={26} />
+            {/* Decorative: the wordmark beside it already names the place.
+                Inline rather than <img src="/mark.svg">, which could not
+                follow the app's own ground — see components/Mark.tsx. */}
+            <Mark size={26} />
             <span style={wordmark}>UROP</span>
           </Link>
           <div style={tagline}>Multi-agent content lab</div>
