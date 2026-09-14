@@ -184,10 +184,15 @@ const backLink: React.CSSProperties = {
 
 // The card itself: heavier ink border + a faint top "tab" reads as an index card.
 const card: React.CSSProperties = {
-  border: `1.5px solid ${c.ink}`,
+  border: "1px solid var(--color-divider-strong)",
   backgroundColor: c.paperCard,
   padding: "26px 26px 20px",
-  boxShadow: `6px 6px 0 ${c.paperDeep}`,
+  // The hard offset stays: it is a physical-object device — an index card
+  // sitting on a desk — not an elevation shadow, so it does not break the
+  // "borders, not shadows" rule the rest of the system follows. But it was
+  // drawn in paperDeep, which on a dark ground is DARKER than the page and so
+  // rendered as nothing at all. Drawn in the raised surface it reads again.
+  boxShadow: "6px 6px 0 var(--color-surface-raised)",
 };
 
 const cardHead: React.CSSProperties = {
