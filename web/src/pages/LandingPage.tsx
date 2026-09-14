@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import HeroPreview from "../components/HeroPreview";
 import { CONTACT_EMAIL, DEMO, DEMO_RUN_ID, REPO_URL } from "../api/demo";
 import {
   c, display, displaySmall, eyebrow, font, hairline, headingWeight, layout,
@@ -44,6 +45,13 @@ export default function LandingPage() {
           <Link to="/benchmark" className="btn btn-secondary" style={btn}>
             The measurements
           </Link>
+        </div>
+
+        {/* The product is its own photography. This is the real notes.md from
+            the bundled session, rendered by the same components the session
+            viewer uses, so it cannot go stale the way a screenshot would. */}
+        <div style={heroFrame}>
+          <HeroPreview />
         </div>
       </header>
 
@@ -215,6 +223,10 @@ const standfirst: React.CSSProperties = {
   color: c.ink,
   maxWidth: layout.measure,
   margin: 0,
+};
+
+const heroFrame: React.CSSProperties = {
+  marginTop: space.section,
 };
 
 const ctaRow: React.CSSProperties = {
