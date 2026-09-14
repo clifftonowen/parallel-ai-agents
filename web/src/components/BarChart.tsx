@@ -12,10 +12,14 @@ function fmt(v?: number) {
   return v != null ? `${v.toFixed(1)}s` : "n/a";
 }
 
+// Three arms that must stay distinguishable in greyscale. The previous set
+// was inkSoft / reagent / reagentSoft, and the last two were one hue a step
+// apart — so the chart carried its meaning in hue alone, which fails WCAG
+// 1.4.1 and fails anyone printing it. See --series-* in index.css.
 const SERIES = {
-  original: c.inkSoft,
-  adk: c.reagent,
-  async: c.reagentSoft,
+  original: "var(--series-1)",
+  adk: "var(--series-2)",
+  async: "var(--series-3)",
 };
 
 export default function BarChart({ label, original, adk, async: asyncVal, maxValue }: Props) {

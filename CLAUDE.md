@@ -48,9 +48,16 @@ moves the backend and the Vite proxy together.
 
 `web/` was two apps (`dashboard2/`, `study-bench/`) until they were merged.
 Routes: `/` dashboard, `/library`, `/run/:id`, `/session/:id`, `/benchmark`,
-`/benchmark/:id`, `/signin`. Design tokens are ported from the "broadsheet"
-Claude Design system — `src/theme.ts` and `src/index.css` mirror each other,
-so a value changed in one must change in the other.
+`/benchmark/:id`, `/signin`. Design tokens live in **`src/index.css` and
+nowhere else**. `src/theme.ts` holds `var(--token)` references, not values, so
+inline styles and component classes resolve against the same declarations.
+`src/theme.test.ts` enforces it: every var() theme.ts reaches for must be
+declared, and theme.ts must contain no colour hex. This matters because an
+unresolvable custom property in an inline style is dropped silently, with no
+warning and no build error.
+
+`space`, `size`, `radius` and `layout` stay **numbers** in theme.ts. Call sites
+template them as `${space.sm}px`, and "var(--space-2)px" is not valid CSS.
 
 Pipeline shape today: Phase 1 notes (sequential) → Phase 2 flashcards +
 video + notes.pdf (parallel) → Phase 3 flashcards.pdf (sequential).

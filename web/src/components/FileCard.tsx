@@ -110,7 +110,7 @@ const dlBtnStyle: React.CSSProperties = {
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  backgroundColor: "rgba(23,21,15,0.7)",
+  backgroundColor: "var(--color-scrim)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
