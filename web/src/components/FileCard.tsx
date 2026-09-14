@@ -42,21 +42,22 @@ export default function FileCard({ run_id, label, filename, icon, previewable }:
     <>
       <div style={cardStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <span style={{ fontSize: size.title }}>{icon}</span>
+          <span style={fileKind}>{icon}</span>
           <span style={{ color: c.ink, fontWeight: 600, fontSize: size.body }}>{label}</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {previewable && (
             <button
+              className="btn btn-secondary"
               onClick={handlePreview}
               disabled={previewLoading}
-              style={previewBtnStyle}
+              style={{ flex: 1 }}
             >
-              {previewLoading ? "Loading..." : "Preview"}
+              {previewLoading ? "Loading…" : "Preview"}
             </button>
           )}
-          <button onClick={handleDownload} style={dlBtnStyle}>
-            ↓ Download
+          <button className="btn btn-secondary" onClick={handleDownload} style={dlBtnStyle}>
+            Download
           </button>
         </div>
         {error && <p style={{ color: c.flag, fontSize: size.micro, marginTop: 6 }}>{error}</p>}
@@ -88,23 +89,29 @@ const cardStyle: React.CSSProperties = {
   marginBottom: 8,
 };
 
-const previewBtnStyle: React.CSSProperties = {
-  flex: 1,
-  backgroundColor: "transparent",
-  color: c.inkSoft,
-  border: `1px solid ${c.rule}`,
-  padding: "8px 12px",
-  fontSize: size.small,
-  fontWeight: 600,
-};
-
+/** Secondary, not primary. This was a filled accent bar, which was survivable
+ *  on paper and is not on a dark ground: the outputs tab lists five files, so
+ *  the page rendered five full-width cyan bars and read as five primary
+ *  actions. theme.ts's accent rule does permit "a list of equivalent actions"
+ *  to count as one use, but permitting it and it looking right are different
+ *  questions. The accent survives as the label colour. */
 const dlBtnStyle: React.CSSProperties = {
   flex: 1,
-  backgroundColor: c.reagent,
-  color: c.paper,
-  padding: "8px 12px",
-  fontSize: size.small,
-  fontWeight: 600,
+  color: "var(--color-accent-fg)",
+};
+
+/** The file kind, set as a mono tag rather than an emoji. Reads at a glance,
+ *  matches the mono-for-technical-metadata rule, and does not carry meaning in
+ *  a glyph that renders differently on every platform. */
+const fileKind: React.CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: size.micro,
+  letterSpacing: "0.06em",
+  color: c.inkFaint,
+  border: hairline,
+  borderRadius: 2,
+  padding: "2px 6px",
+  flex: "none",
 };
 
 const overlayStyle: React.CSSProperties = {

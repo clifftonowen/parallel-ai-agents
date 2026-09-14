@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { downloadZip, getRun } from "../api/client";
+import { DEMO } from "../api/demo";
 import BarChart from "../components/BarChart";
 import FileCard from "../components/FileCard";
 import TokenTable from "../components/TokenTable";
@@ -157,11 +158,13 @@ function OutputsTab({ runState }: { runState: RunState }) {
     icon: string;
     previewable?: boolean;
   }[] = [
-    { key: "notes_md", label: "notes.md", icon: "📝", previewable: true },
-    { key: "flashcards_md", label: "flashcards.md", icon: "🃏", previewable: true },
-    { key: "notes_pdf", label: "notes.pdf", icon: "📄" },
-    { key: "flashcards_pdf", label: "flashcards.pdf", icon: "📄" },
-    { key: "video", label: "study_video.mp4", icon: "🎬" },
+    // The file extension IS the icon. Emoji were left over from the skin
+    // before this one and are the loudest thing on a page of hairlines.
+    { key: "notes_md", label: "notes.md", icon: "MD", previewable: true },
+    { key: "flashcards_md", label: "flashcards.md", icon: "MD", previewable: true },
+    { key: "notes_pdf", label: "notes.pdf", icon: "PDF" },
+    { key: "flashcards_pdf", label: "flashcards.pdf", icon: "PDF" },
+    { key: "video", label: "study_video.mp4", icon: "MP4" },
   ];
 
   const available = OUTPUT_CARDS.filter((card) => outputs[card.key] != null && outputs[card.key] !== "");
@@ -188,9 +191,15 @@ function OutputsTab({ runState }: { runState: RunState }) {
               />
             );
           })}
-          <button onClick={() => downloadZip(run_id)} style={tabStyles.downloadAllBtn}>
-            ⬇  Download All as ZIP
-          </button>
+          {/* Gated on !DEMO for the same reason PackagePage gates its copy:
+              downloadZip throws in the static build, and neither call site
+              caught it, so the button silently did nothing at all. The files
+              above are individually downloadable either way. */}
+          {!DEMO && (
+            <button onClick={() => downloadZip(run_id)} style={tabStyles.downloadAllBtn}>
+              Download all (.zip)
+            </button>
+          )}
         </>
       )}
     </div>
