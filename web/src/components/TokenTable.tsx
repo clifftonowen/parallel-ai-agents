@@ -37,7 +37,7 @@ export default function TokenTable({ rows, showAsync = false }: Props) {
         <thead>
           <tr style={{ backgroundColor: c.paperCard }}>
             <th style={thStyle}>Metric</th>
-            <th style={thStyle}><Series n={1} label="Original" /></th>
+            <th style={thStyle}><Series n={1} label="Threads" /></th>
             <th style={thStyle}><Series n={2} label="ADK" /></th>
             {showAsync && <th style={thStyle}><Series n={3} label="Async" /></th>}
           </tr>

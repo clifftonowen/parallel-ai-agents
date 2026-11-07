@@ -12,8 +12,8 @@ import { c, font, hairline, layout, size } from "../theme";
 type Tab = "benchmark" | "outputs" | "log";
 
 const ALL_TABS: { key: Tab; label: string }[] = [
-  { key: "benchmark", label: "Benchmark" },
-  { key: "outputs", label: "Outputs" },
+  { key: "benchmark", label: "Run times" },
+  { key: "outputs", label: "Files" },
   { key: "log", label: "Log" },
 ];
 
@@ -111,13 +111,13 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
           {adkSpeedup && (
             <div style={tabStyles.speedupBadge}>
               <div style={{ fontFamily: font.display, fontSize: size.hero, fontWeight: 600, color: c.reagent }}>{adkSpeedup}×</div>
-              <div style={{ fontFamily: font.mono, fontSize: size.micro, color: c.inkSoft, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>ADK Speedup</div>
+              <div style={{ fontFamily: font.mono, fontSize: size.micro, color: c.inkSoft, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>ADK compared with threads</div>
             </div>
           )}
           {asyncSpeedup && (
             <div style={tabStyles.speedupBadge}>
               <div style={{ fontFamily: font.display, fontSize: size.hero, fontWeight: 600, color: c.reagentSoft }}>{asyncSpeedup}×</div>
-              <div style={{ fontFamily: font.mono, fontSize: size.micro, color: c.inkSoft, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Async Speedup</div>
+              <div style={{ fontFamily: font.mono, fontSize: size.micro, color: c.inkSoft, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Async compared with threads</div>
             </div>
           )}
           {parallelDetected != null && (
@@ -138,12 +138,12 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
       )}
 
       {/* Wall-clock comparison */}
-      <p style={tabStyles.sectionTitle}>Wall-Clock Times</p>
+      <p style={tabStyles.sectionTitle}>Run times</p>
       <div style={tabStyles.chartBlock}>
-        <BarChart label="Total end-to-end" original={orig?.total_wall_s} adk={adk?.total_wall_s} async={asyn?.total_wall_s} maxValue={maxWall} />
-        <BarChart label="Phase 1: Notes" original={orig?.phases?.phase1_wall_s} adk={adk?.phases?.phase1} async={asyn?.phases?.phase1_wall_s} maxValue={maxWall} />
-        <BarChart label="Phase 2: Flashcards + Video" original={orig?.phases?.phase2_wall_s} adk={adk?.phases?.phase2} async={asyn?.phases?.phase2_wall_s} maxValue={maxWall} />
-        <BarChart label="Phase 3: PDFs" original={orig?.phases?.phase3_wall_s} adk={adk?.phases?.phase3} async={asyn?.phases?.phase3_wall_s} maxValue={maxWall} />
+        <BarChart label="Start to finish" original={orig?.total_wall_s} adk={adk?.total_wall_s} async={asyn?.total_wall_s} maxValue={maxWall} />
+        <BarChart label="Phase 1: writing notes" original={orig?.phases?.phase1_wall_s} adk={adk?.phases?.phase1} async={asyn?.phases?.phase1_wall_s} maxValue={maxWall} />
+        <BarChart label="Phase 2: making the other materials" original={orig?.phases?.phase2_wall_s} adk={adk?.phases?.phase2} async={asyn?.phases?.phase2_wall_s} maxValue={maxWall} />
+        <BarChart label="Phase 3: making the flashcards PDF" original={orig?.phases?.phase3_wall_s} adk={adk?.phases?.phase3} async={asyn?.phases?.phase3_wall_s} maxValue={maxWall} />
       </div>
 
       {/* Video sub-phases */}
@@ -152,17 +152,17 @@ function BenchmarkTab({ report }: { report: BenchmarkReport }) {
           charts with no bars. Guard on a value actually being present. */}
       {[orig, adk, asyn].some((arm) => arm?.agents?.video?.total_s != null) && (
         <>
-          <p style={tabStyles.sectionTitle}>Video Sub-Phases</p>
+          <p style={tabStyles.sectionTitle}>Video stages</p>
           <div style={tabStyles.chartBlock}>
-            <BarChart label="Stage A: narrations ‖ slides" original={orig?.agents?.video?.stage_a_s} adk={adk?.agents?.video?.stage_a_s} async={asyn?.agents?.video?.stage_a_s} maxValue={videoMax} />
-            <BarChart label="Stage B+C: audio ‖ pptx" original={orig?.agents?.video?.stage_bc_s} adk={adk?.agents?.video?.stage_bc_s} async={asyn?.agents?.video?.stage_bc_s} maxValue={videoMax} />
-            <BarChart label="Stage D: assemble" original={orig?.agents?.video?.assemble_s} adk={adk?.agents?.video?.assemble_s} async={asyn?.agents?.video?.assemble_s} maxValue={videoMax} />
+            <BarChart label="Stage A: narration and slides" original={orig?.agents?.video?.stage_a_s} adk={adk?.agents?.video?.stage_a_s} async={asyn?.agents?.video?.stage_a_s} maxValue={videoMax} />
+            <BarChart label="Stages B and C: audio and presentation" original={orig?.agents?.video?.stage_bc_s} adk={adk?.agents?.video?.stage_bc_s} async={asyn?.agents?.video?.stage_bc_s} maxValue={videoMax} />
+            <BarChart label="Stage D: assembling the video" original={orig?.agents?.video?.assemble_s} adk={adk?.agents?.video?.assemble_s} async={asyn?.agents?.video?.assemble_s} maxValue={videoMax} />
           </div>
         </>
       )}
 
       {/* Token usage */}
-      <p style={tabStyles.sectionTitle}>Token Usage</p>
+      <p style={tabStyles.sectionTitle}>Token use</p>
       <TokenTable rows={tokenRows} showAsync={showAsync} />
     </div>
   );
@@ -194,7 +194,7 @@ function OutputsTab({ runState }: { runState: RunState }) {
     <div style={tabStyles.scroll}>
       {available.length === 0 ? (
         <p style={{ color: c.inkFaint, textAlign: "center", padding: "24px 0" }}>
-          No output files found for this run.
+          This run has no files to download.
         </p>
       ) : (
         <>
@@ -233,7 +233,7 @@ function LogTab({ lines }: { lines: string[] }) {
   return (
     <pre style={tabStyles.logPre}>
       {lines.length === 0 ? (
-        <span style={{ color: c.inkFaint }}>No log output captured.</span>
+        <span style={{ color: c.inkFaint }}>No run log was saved.</span>
       ) : (
         lines.join("\n")
       )}
@@ -265,21 +265,21 @@ export default function ResultsPage() {
     if (!run_id) return;
     getRun(run_id)
       .then(setRunState)
-      .catch((e: unknown) => setFetchError(e instanceof Error ? e.message : "Failed to load results"))
+      .catch((e: unknown) => setFetchError(e instanceof Error ? e.message : "We couldn't load this run."))
       .finally(() => setLoading(false));
   }, [run_id]);
 
   if (loading) {
     return (
       <div style={{ display: "flex", justifyContent: "center", padding: 60, color: c.inkSoft }}>
-        Loading results...
+        Loading this run…
       </div>
     );
   }
   if (fetchError || !runState) {
     return (
       <div style={{ display: "flex", justifyContent: "center", padding: 60, color: c.flag }}>
-        {fetchError ?? "No results found."}
+        {fetchError ?? "We couldn't find this run."}
       </div>
     );
   }
@@ -317,7 +317,7 @@ export default function ResultsPage() {
             <BenchmarkTab report={report} />
           ) : (
             <p style={{ color: c.inkFaint, textAlign: "center", padding: "24px 0" }}>
-              No benchmark data available. Only runs using benchmark_profile.py produce this data.
+              This run has no timing report. Only runs started through benchmark_profile.py include one.
             </p>
           ))}
         {activeTab === "outputs" && <OutputsTab runState={runState} />}

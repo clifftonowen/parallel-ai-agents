@@ -34,7 +34,7 @@ export default function HistoryPage() {
       );
   }, [user]);
 
-  if (!ready) return <p style={{ color: muted }}>Opening your card…</p>;
+  if (!ready) return <p style={{ color: muted }}>Opening your library…</p>;
   if (!DEMO && !user) return null;
 
   const openRun = (r: RunSummary) =>
@@ -45,19 +45,19 @@ export default function HistoryPage() {
       <h1 style={heading}>Library</h1>
       <p style={intro}>
         {DEMO
-          ? "One session, kept as the demo. On the live deployment this lists every session your account has generated."
-          : `Every session your agents have generated, filed under ${user!.email}.`}
+          ? "This demo includes one finished session. In the version connected to the study server, your sessions appear here."
+          : `Your study sessions are saved here under ${user!.email}.`}
       </p>
 
       {error && <p style={errorLine}>{error}</p>}
 
       {runs === null ? (
-        <p style={{ color: muted }}>Fetching your topics…</p>
+        <p style={{ color: muted }}>Loading your sessions…</p>
       ) : runs.length === 0 ? (
         <div style={empty}>
-          <p style={emptyLead}>Nothing filed yet.</p>
+          <p style={emptyLead}>No sessions yet.</p>
           <p style={{ color: muted, marginBottom: space.base }}>
-            Study a topic and it will be kept here, ready to reopen whenever you come back.
+            Start with a topic. Your study materials will appear here when they are ready.
           </p>
           <button className="btn btn-primary" onClick={() => navigate("/new")}>
             Start a session

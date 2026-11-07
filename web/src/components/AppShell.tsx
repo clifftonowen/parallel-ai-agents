@@ -132,7 +132,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Mark size={26} />
             <span style={wordmark}>UROP</span>
           </Link>
-          <div style={tagline}>Multi-agent content lab</div>
+          <div style={tagline}>Study materials and research</div>
         </div>
 
         {user ? (
@@ -149,8 +149,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div style={account}>
             <span style={{ ...avatar, background: c.rule, color: c.inkSoft }}>D</span>
             <span style={{ minWidth: 0, flex: 1 }}>
-              <span style={accountName}>Demo build</span>
-              <span style={accountSub}>static, no backend</span>
+              <span style={accountName}>Sample session</span>
+              <span style={accountSub}>demo, no new runs</span>
             </span>
           </div>
         ) : (
@@ -158,7 +158,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span style={{ ...avatar, background: c.rule, color: c.inkSoft }}>?</span>
             <span style={{ minWidth: 0, flex: 1 }}>
               <span style={accountName}>Not signed in</span>
-              <span style={accountSub}>sessions won't be saved</span>
+              <span style={accountSub}>sign in to save sessions</span>
             </span>
           </Link>
         )}
@@ -214,7 +214,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="rail-spacer" style={{ flex: 1, minHeight: space.xl }} />
 
-        <div className="rail-secondary" style={{ ...eyebrow, marginBottom: space.md }}>This machine</div>
+        <div className="rail-secondary" style={{ ...eyebrow, marginBottom: space.md }}>
+          {DEMO ? "Demo snapshot" : "This server"}
+        </div>
         <div className="rail-secondary">
         <Meter
           label="Sessions"
@@ -241,8 +243,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         )}
         <p style={meterFoot}>
           {DEMO
-            ? "Counts for the one session bundled into this build. Nothing here talks to a server."
-            : "Counts from this machine's database. The run limit exists so a demo account can't spend without bound; there is no plan and nothing to buy."}
+            ? "These counts describe the finished session included in this demo."
+            : "These counts come from this server. The daily limit protects the API credits used for new runs. There is no plan or purchase."}
         </p>
         </div>
 

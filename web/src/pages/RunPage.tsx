@@ -11,7 +11,7 @@ import { c, font, eyebrow, layout, size, display } from "../theme";
 const STATUS_LINE: Record<RunPhase, string> = {
   starting: "Getting started on your topic…",
   phase1: "Reading up and writing your notes.",
-  phase2: "Making your flashcards and recording your video.",
+  phase2: "Making your flashcards and narrated video.",
   phase3: "Preparing clean copies you can print.",
   profiling: "Almost done.",
   done: "Everything's ready.",
@@ -158,7 +158,7 @@ export default function RunPage() {
                   Keep going
                 </button>
                 <button className="btn btn-danger" onClick={handleStop} disabled={stopping}>
-                  {stopping ? "Stopping…" : "Stop & go home"}
+                  {stopping ? "Stopping…" : "Stop and start over"}
                 </button>
               </span>
             </>
@@ -178,20 +178,22 @@ export default function RunPage() {
       )}
 
       <h1 style={title} className="animate-rise">
-        {cancelled ? "Stopped" : status === "error" ? "We hit a snag" : topic || "Preparing your study materials"}
+        {cancelled ? "Session stopped" : status === "error" ? "This session couldn't finish" : topic || "Preparing your study materials"}
       </h1>
       <p style={statusLine}>
         {cancelled
           ? "You stopped this one. Start a new topic whenever you're ready."
           : status === "error"
           ? error ?? STATUS_LINE.error
+          : phase === "phase2" && !hasVideo
+          ? "Making your flashcards."
           : STATUS_LINE[phase]}
       </p>
 
       {errored ? (
         <div style={errorBox} role="alert">
           <button className="btn btn-primary" onClick={() => navigate("/new")}>
-            Try another topic
+            Start a new session
           </button>
         </div>
       ) : (

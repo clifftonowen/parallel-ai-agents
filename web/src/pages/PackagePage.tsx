@@ -25,7 +25,7 @@ function DocTab({ run_id, filename }: { run_id: string; filename: string }) {
     setError(null);
     fetchFileText(run_id, filename)
       .then(setText)
-      .catch(() => setError("Couldn't load that file."));
+      .catch(() => setError("We couldn't open this file. Try again in a moment."));
   }, [run_id, filename]);
 
   if (error) return <p style={{ color: c.flagDeep }}>{error}</p>;
@@ -97,7 +97,7 @@ export default function PackagePage() {
     getRun(run_id)
       .then(setRun)
       .catch((e: unknown) =>
-        setErr(e instanceof Error ? e.message : "Couldn't load your materials.")
+        setErr(e instanceof Error ? e.message : "We couldn't open your study materials.")
       )
       .finally(() => setLoading(false));
   }, [run_id]);
@@ -117,7 +117,7 @@ export default function PackagePage() {
   }, [tabs, tab]);
 
   if (loading) return <p style={{ color: muted }}>Opening your study materials…</p>;
-  if (err || !run) return <p style={{ color: c.flagDeep }}>{err ?? "Nothing to show here."}</p>;
+  if (err || !run) return <p style={{ color: c.flagDeep }}>{err ?? "We couldn't find this session."}</p>;
 
   const pdfs = [
     outputs.notes_pdf && { label: "Notes", filename: basename(outputs.notes_pdf) },
@@ -137,7 +137,7 @@ export default function PackagePage() {
             <span className="tag tag-outline">{run.mode ?? "async"}</span>
             {hasBenchmarkData(run.benchmark) && (
               <Link to={`/benchmark/${run.run_id}`} style={metaLink}>
-                timings and tokens →
+                See run times and token use →
               </Link>
             )}
           </div>
@@ -151,14 +151,14 @@ export default function PackagePage() {
 
       {run.from_cache && (
         <p style={cacheNote}>
-          Ready instantly, reused from a similar topic studied earlier
+          Ready right away. This set was reused from a similar topic studied earlier
           {run.cached_topic ? ` (“${run.cached_topic}”)` : ""}.
         </p>
       )}
 
       {tabs.length === 0 ? (
         <p style={{ color: muted }}>
-          This session finished, but no materials came back. Try the topic again.
+          This session finished, but no study materials were saved. Try the topic again.
         </p>
       ) : (
         <>
@@ -194,7 +194,7 @@ export default function PackagePage() {
                 src={fileUrl(run.run_id, basename(outputs.video), grant)}
                 style={{ width: "100%", background: c.ink }}
               />
-              <p style={hint}>A short narrated walkthrough with slides.</p>
+              <p style={hint}>Watch a narrated walkthrough of the topic.</p>
             </div>
           )}
 
@@ -204,7 +204,7 @@ export default function PackagePage() {
                 <div key={p.filename} className="card elev-sm" style={{ width: 240 }}>
                   <div className="card-kicker">Print</div>
                   <div className="card-title">{p.label}</div>
-                  <p className="card-body">Generated from the markdown via pandoc.</p>
+                  <p className="card-body">A printable copy of your {p.label.toLowerCase()}.</p>
                   <button
                     className="btn btn-primary"
                     onClick={() => downloadFile(run.run_id, p.filename)}

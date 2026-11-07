@@ -34,7 +34,7 @@ export default function BarChart({ label, original, adk, async: asyncVal, maxVal
       </div>
       {original != null && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontFamily: font.mono, color: SERIES.original, fontSize: size.micro, fontWeight: 700, width: 32 }}>Orig</span>
+          <span style={{ fontFamily: font.mono, color: SERIES.original, fontSize: size.micro, fontWeight: 700, width: 48 }}>Threads</span>
           <div style={{ flex: 1, height: 14, backgroundColor: c.paperCard, overflow: "hidden" }}>
             <div style={{ width: `${origPct}%`, height: "100%", backgroundColor: SERIES.original, transition: "width 0.5s ease" }} />
           </div>
@@ -43,7 +43,7 @@ export default function BarChart({ label, original, adk, async: asyncVal, maxVal
       )}
       {adk != null && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: asyncVal != null ? 4 : 0 }}>
-          <span style={{ fontFamily: font.mono, color: SERIES.adk, fontSize: size.micro, fontWeight: 700, width: 32 }}>ADK</span>
+          <span style={{ fontFamily: font.mono, color: SERIES.adk, fontSize: size.micro, fontWeight: 700, width: 48 }}>ADK</span>
           <div style={{ flex: 1, height: 14, backgroundColor: c.paperCard, overflow: "hidden" }}>
             <div style={{ width: `${adkPct}%`, height: "100%", backgroundColor: SERIES.adk, transition: "width 0.5s ease" }} />
           </div>
@@ -52,7 +52,7 @@ export default function BarChart({ label, original, adk, async: asyncVal, maxVal
       )}
       {asyncVal != null && (
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: font.mono, color: SERIES.async, fontSize: size.micro, fontWeight: 700, width: 32 }}>Asyn</span>
+          <span style={{ fontFamily: font.mono, color: SERIES.async, fontSize: size.micro, fontWeight: 700, width: 48 }}>Async</span>
           <div style={{ flex: 1, height: 14, backgroundColor: c.paperCard, overflow: "hidden" }}>
             <div style={{ width: `${asyncPct}%`, height: "100%", backgroundColor: SERIES.async, transition: "width 0.5s ease" }} />
           </div>

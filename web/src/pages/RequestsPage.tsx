@@ -47,7 +47,7 @@ export default function RequestsPage() {
       <main style={page}>
         <p style={{ fontFamily: font.mono, fontSize: size.small, color: muted }}>404</p>
         <h1 style={heading}>No page here</h1>
-        <p style={intro}>That address doesn't match anything in the app.</p>
+        <p style={intro}>Check the address, or return to the overview.</p>
       </main>
     );
   }
@@ -57,7 +57,7 @@ export default function RequestsPage() {
       <span style={kicker}>Admin</span>
       <h1 style={heading}>Access requests</h1>
       <p style={intro}>
-        Read-only. To let somebody in, run{" "}
+        Review requests here. To grant access, run{" "}
         <code>python scripts/grant_access.py --grant their@email</code> on the
         machine holding the database.
       </p>
@@ -79,7 +79,7 @@ export default function RequestsPage() {
         <p style={{ color: muted }}>Loading…</p>
       ) : rows.length === 0 ? (
         <p style={{ color: muted }}>
-          {status === "pending" ? "Nothing waiting." : "Nobody granted yet."}
+          {status === "pending" ? "No requests are waiting." : "No requests have been granted yet."}
         </p>
       ) : (
         <div style={list}>

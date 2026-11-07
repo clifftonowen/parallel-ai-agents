@@ -44,15 +44,15 @@ export default function RequestAccessPage() {
     return (
       <main style={page}>
         <span style={kicker}>Access</span>
-        <h1 style={heading}>Nothing to request here</h1>
+        <h1 style={heading}>This demo doesn't use accounts</h1>
         <p style={intro}>
-          Access decides who can spend API credits on the live deployment. This
-          build has no backend and spends nothing, so there is no queue to join.
+          You can explore the finished session and research results without
+          signing in. This demo cannot start new runs, so there is no access to
+          request here.
         </p>
         <p style={note}>
-          The finished session and the benchmark numbers are open, and the
-          source is public. If you want to see it generate something new, say so
-          on the repository.
+          If you would like to generate materials for your own topic, the
+          repository has instructions for running the project.
         </p>
         <a
           href={REPO_URL}
@@ -61,7 +61,7 @@ export default function RequestAccessPage() {
           className="btn btn-primary"
           style={{ textDecoration: "none" }}
         >
-          Open the repository
+          View setup instructions
         </a>
       </main>
     );
@@ -91,8 +91,8 @@ export default function RequestAccessPage() {
     return (
       <main style={page}>
         <span style={kicker}>Access</span>
-        <h1 style={heading}>You're already in</h1>
-        <p style={intro}>This account can start runs. Nothing else to do here.</p>
+        <h1 style={heading}>You can start a session</h1>
+        <p style={intro}>Your account already has access to generate study materials.</p>
         <Link to="/new" className="btn btn-primary" style={{ textDecoration: "none" }}>
           Start a session
         </Link>
@@ -104,17 +104,17 @@ export default function RequestAccessPage() {
     return (
       <main style={page}>
         <span style={kicker}>Access</span>
-        <h1 style={heading}>Request sent</h1>
+        <h1 style={heading}>Your request is in</h1>
         <p style={intro}>
-          It's with the developer. You'll be able to start runs once it's
-          approved. Sign in again later and the Generate button will work.
+          I'll review it. Once approved, you can sign in and start a new
+          study session.
         </p>
         <p style={note}>
-          In the meantime the Benchmark page works without access: it's the
-          measurement side of the project, and the numbers there are real.
+          While you wait, you can explore a finished session and read the
+          research results without access.
         </p>
         <Link to="/benchmark" className="btn btn-secondary" style={{ textDecoration: "none" }}>
-          See the benchmarks
+          Read the research results
         </Link>
       </main>
     );
@@ -123,11 +123,11 @@ export default function RequestAccessPage() {
   return (
     <main style={page}>
       <span style={kicker}>Access</span>
-      <h1 style={heading}>Ask for a demo account</h1>
+      <h1 style={heading}>Request access to generate materials</h1>
       <p style={intro}>
-        Anyone can sign up and read. Starting a run calls the Anthropic and
-        OpenAI APIs and costs real money, so I grant that by hand. Tell me who
-        you are and I'll switch it on.
+        Anyone can read the research results. New study
+        sessions use Anthropic and OpenAI API credits, so I grant access
+        individually. Tell me a little about yourself and what you want to try.
       </p>
 
       <div style={formWrap}>
@@ -155,7 +155,7 @@ export default function RequestAccessPage() {
 
         <label style={field}>
           <span style={label}>
-            Why you'd like access
+            What you'd like to study
             <span style={{ color: mutedFaint }}>
               {" "}
               ({MESSAGE_MAX - message.length} characters left)
@@ -167,7 +167,7 @@ export default function RequestAccessPage() {
             value={message}
             maxLength={MESSAGE_MAX}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="A sentence is plenty."
+            placeholder="Tell me what you'd like to try. A sentence is enough."
           />
         </label>
 
@@ -181,7 +181,7 @@ export default function RequestAccessPage() {
           <button className="btn btn-primary" onClick={submit} disabled={busy || !message.trim()}>
             {busy ? "Sending…" : "Send request"}
           </button>
-          <span style={note}>Sent to the developer, not stored anywhere else.</span>
+          <span style={note}>I'll review your request before enabling new runs.</span>
         </div>
       </div>
     </main>

@@ -48,9 +48,9 @@ export default function BenchmarkFindings() {
         </div>
         <div>
           <PlateNumber value={`${Math.round((1 - 1 / preParallel) / (1 - 1 / total) * 100)}%`} />
-          <div style={figureLabel}>of it before any parallelism</div>
+          <div style={figureLabel}>of the speedup before parallelism</div>
           <div style={figureNote}>
-            the bottleneck was the library, not the concurrency
+            replacing MoviePy did most of the work
           </div>
         </div>
       </div>
@@ -59,12 +59,12 @@ export default function BenchmarkFindings() {
       <section style={finding}>
         <span style={eyebrow}>Finding one</span>
         <h2 style={findingHead}>
-          Choosing a concurrency model made no measurable difference
+          The coordination method made no measurable difference
         </h2>
         <p style={prose}>
-          Five runs per arm, same topic, video off, cache off, arm order
-          alternated between rounds so drift in API latency could not land on
-          one side.
+          We ran each method five times with the same topic, with video and
+          caching off. We alternated which method went first, so changes in API
+          latency would not consistently favor one method.
         </p>
 
         <table className="table" style={{ maxWidth: 520 }}>
@@ -86,24 +86,23 @@ export default function BenchmarkFindings() {
         </table>
 
         <p style={prose}>
-          That is {orchestration.speedup_overall.toFixed(3)}× overall, and Welch's
-          t comes out at 0.51 on about 8 degrees of freedom. The gap is half a
-          standard error. With five runs per arm this design could only have
-          resolved a difference of roughly 11 seconds, and the difference is 2.9.
+          The overall ratio was {orchestration.speedup_overall.toFixed(3)}×.
+          Welch's t was 0.51 on about 8 degrees of freedom, and the gap was
+          half a standard error. With five runs per method, this test could
+          only resolve a difference of roughly 11 seconds. We measured 2.9.
         </p>
 
         <blockquote style={correction}>
           <p style={{ margin: 0 }}>
-            An earlier version of this page claimed 1.18× overall and 1.44× on
-            phase 2, from one run per arm. It did not reproduce. The run to run
-            spread is about three times the size of the effect that was claimed,
-            and a fresh single run early on came out the other way entirely.
+            An earlier version of this page claimed a 1.18× overall speedup and
+            1.44× in phase 2, based on one run per method. Those results did not
+            hold up. The variation between runs was about three times the
+            claimed effect, and another single run came out the other way.
           </p>
           <footer style={correctionFoot}>
-            The phase figure could never have meant much either: it was computed
-            as the largest of the components' own durations, which excludes the
-            coordination overhead the two arms actually differ on. Both now
-            bracket each phase with a clock.
+            The old phase figure used the longest component time. That left out
+            the coordination overhead we wanted to compare. Both methods now
+            time each whole phase.
           </footer>
         </blockquote>
       </section>
@@ -112,13 +111,12 @@ export default function BenchmarkFindings() {
       <section style={finding}>
         <span style={eyebrow}>Finding two</span>
         <h2 style={findingHead}>
-          The time was going somewhere nobody had looked
+          Video assembly took most of the time
         </h2>
         <p style={prose}>
-          Video assembly is 75 to 81% of wall time in every full run on record,
-          and it was the one stage the benchmark deleted rather than measured.
-          Measured on its own, against a {sweep.slides} slide deck already on
-          disk so no model is called:
+          Video assembly took 75 to 81% of the time in every recorded full
+          run. Earlier benchmarks skipped that step. We measured it separately
+          using a {sweep.slides} slide deck already on disk, so no model was called:
         </p>
 
         <table className="table" style={{ maxWidth: 520 }}>
@@ -139,19 +137,18 @@ export default function BenchmarkFindings() {
         </table>
 
         <p style={prose}>
-          Almost all of it is there before anything runs in parallel. Swapping
-          MoviePy for one direct ffmpeg per slide, still entirely serial, is{" "}
+          Most of the gain came before any parallel work. Replacing MoviePy
+          with one direct ffmpeg process per slide, still in sequence, was{" "}
           <strong style={strong}>{preParallel.toFixed(2)}×</strong> on its own.
-          Running those concurrently adds a further{" "}
+          Running those processes together added another{" "}
           {fromParallelism.toFixed(2)}× and saturates by about four workers,
           because each ffmpeg is already multi-threaded.
         </p>
         <p style={prose}>
-          MoviePy decodes every frame into Python, composites in Python and
-          re-encodes, for a slideshow whose scenes are single static images.
-          ffmpeg does that natively. Amdahl's law was the whole story: the
-          parallelisable stages were a fifth of the run, and the other four
-          fifths were slow for a reason that had nothing to do with concurrency.
+          MoviePy decoded and combined every frame in Python before encoding
+          the video again, even though each scene was a static image. ffmpeg
+          handled that work directly. The stages we could run in parallel made
+          up about a fifth of a full run; slow video assembly took the rest.
         </p>
         <p style={note}>{sweep.correctness}</p>
       </section>

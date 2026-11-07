@@ -24,26 +24,25 @@ export default function LandingPage() {
         <span style={eyebrow}>
           SUTD undergraduate research · supervised by Prof Oka Kurniawan
         </span>
-        <h1 style={heading}>One topic in. A full study set out.</h1>
+        <h1 style={heading}>See how one topic becomes a study set.</h1>
         <p style={standfirst}>
-          Give it something you need to learn. Four agents go and build the
-          material: structured notes, flashcards you can revise from, a narrated
-          video, and PDFs to print. They work at the same time, so the set
-          arrives together rather than one piece at a time.
+          This research project turns a topic into notes, flashcards, a narrated
+          video and printable PDFs. It writes the notes first, then uses them to
+          make the rest. Explore a finished set below.
         </p>
 
         <div style={ctaRow}>
           {DEMO ? (
             <Link to={`/session/${DEMO_RUN_ID}`} className="btn btn-primary" style={btn}>
-              See one it made
+              Explore the sample set
             </Link>
           ) : (
             <Link to="/new" className="btn btn-primary" style={btn}>
-              Make one
+              Start a study session
             </Link>
           )}
           <Link to="/benchmark" className="btn btn-secondary" style={btn}>
-            The measurements
+            See what the tests found
           </Link>
         </div>
 
@@ -57,8 +56,8 @@ export default function LandingPage() {
 
       {/* ── The four outputs ─────────────────────────────────────────────── */}
       <section style={section} aria-labelledby="outputs">
-        <span style={eyebrow}>What arrives</span>
-        <h2 id="outputs" style={sectionHeading}>Four things, from one prompt</h2>
+        <span style={eyebrow}>Study materials</span>
+        <h2 id="outputs" style={sectionHeading}>What you get from a topic</h2>
 
         <div style={cardRow}>
           {OUTPUTS.map((o) => (
@@ -71,8 +70,8 @@ export default function LandingPage() {
         </div>
 
         <p style={note}>
-          The notes carry images the pipeline finds for itself. The video is real
-          narration over slides written for the topic, not a slideshow with
+          The notes include images found during research. The video pairs
+          slides written for the topic with narration, rather than relying on
           subtitles.
         </p>
       </section>
@@ -80,10 +79,11 @@ export default function LandingPage() {
       {/* ── How it works ─────────────────────────────────────────────────── */}
       <section style={section} aria-labelledby="pipeline">
         <span style={eyebrow}>How it works</span>
-        <h2 id="pipeline" style={sectionHeading}>Notes first, then everything at once</h2>
+        <h2 id="pipeline" style={sectionHeading}>How the set comes together</h2>
         <p style={prose}>
-          Everything else needs the notes, so those come first. After that the
-          remaining agents have nothing left to wait for and run together.
+          The notes give the other agents something to work from. Flashcards,
+          the video and a printable notes PDF come next. The flashcards PDF
+          follows once the cards are ready.
         </p>
 
         <div style={diagram} role="img" aria-label={DIAGRAM_ALT}>
@@ -114,57 +114,55 @@ export default function LandingPage() {
 
       {/* ── The research ─────────────────────────────────────────────────── */}
       <section style={section} aria-labelledby="research">
-        <span style={eyebrow}>Why it exists</span>
-        <h2 id="research" style={sectionHeading}>It was built to measure something</h2>
+        <span style={eyebrow}>The research</span>
+        <h2 id="research" style={sectionHeading}>What the experiments found</h2>
         <p style={prose}>
-          The question was whether running those agents in parallel actually
-          helps, and if so which concurrency model to use. The app is the
-          workload the question gets asked of.
+          I built this study tool to test whether running agents in parallel
+          speeds up the work, and whether the way they are coordinated matters.
         </p>
         <p style={prose}>
-          The answer turned out better than the one expected. Choosing between
-          concurrency models made no measurable difference at this scale. Almost
-          all of the time was going somewhere nobody had looked, and fixing that
-          was worth about seventeen times, mostly for a reason that has nothing
-          to do with parallelism at all.
+          In repeated tests, the coordination method made no measurable
+          difference at this scale. Video assembly took most of the time.
+          Changing that step made it about 17 times faster, with most of the
+          gain coming before any parallel work was added.
         </p>
         <Link to="/benchmark" className="btn btn-secondary" style={btn}>
-          Read what was measured
+          Read the results
         </Link>
       </section>
 
       {/* ── What this build can do ───────────────────────────────────────── */}
       <section style={{ ...section, borderBottom: "none" }} aria-labelledby="live">
-        <span style={eyebrow}>{DEMO ? "About this build" : "Before you start one"}</span>
+        <span style={eyebrow}>{DEMO ? "About this demo" : "Before you start"}</span>
         <h2 id="live" style={sectionHeading}>
-          {DEMO ? "There is no backend behind this" : "Runs are granted by hand"}
+          {DEMO ? "Explore a finished session" : "Starting a run requires access"}
         </h2>
         <p style={prose}>
           {DEMO ? (
             <>
-              This site is static files. A run takes ten to thirty minutes and
-              needs ffmpeg, pandoc and a headless browser, none of which a static
-              host can give it. The session and the numbers here came out of runs
-              on my own machine and are built into the page.
+              This static demo includes a real finished session and benchmark
+              results from runs on my machine. A new run takes 10 to 30 minutes
+              and needs ffmpeg, pandoc and a headless browser, so it needs a
+              separate study server.
             </>
           ) : (
             <>
-              Every run calls the Anthropic and OpenAI APIs, and those calls come
-              off my own credits. So an account by itself does not let you start
-              one. Sign up and ask, and I will turn it on for you.
+              Each run uses my Anthropic and OpenAI API credits. You can create
+              an account to save your sessions, then ask me for permission to
+              generate new ones.
             </>
           )}
         </p>
         <p style={prose}>
-          Want to see it generate something live?{" "}
+          Want to see a new topic generated?{" "}
           {CONTACT_EMAIL ? (
-            <a href={`mailto:${CONTACT_EMAIL}`} style={link}>Get in touch</a>
+            <a href={`mailto:${CONTACT_EMAIL}`} style={link}>Email me</a>
           ) : (
             <a href={REPO_URL} target="_blank" rel="noreferrer" style={link}>
-              Say so on the repository
+              Visit the repository
             </a>
           )}{" "}
-          and I'll set it up.
+          to ask about a live demonstration.
         </p>
       </section>
     </main>
@@ -175,22 +173,22 @@ const OUTPUTS = [
   {
     name: "Notes",
     file: "notes.md",
-    what: "The topic broken into sections, with the key ideas, worked examples and diagrams found along the way.",
+    what: "A clear explanation of the topic, with key ideas, worked examples and diagrams.",
   },
   {
     name: "Flashcards",
     file: "flashcards.md",
-    what: "Question and answer pairs drawn from the notes, in a format Anki and Obsidian both read.",
+    what: "Questions and answers drawn from the notes, in a format Anki and Obsidian both read.",
   },
   {
     name: "Video",
     file: "study_video.mp4",
-    what: "Slides written for the topic, narrated end to end, for when reading is not what you want.",
+    what: "Topic-specific slides with narration, for when you would rather watch than read.",
   },
   {
     name: "PDFs",
     file: "notes.pdf",
-    what: "Both the notes and the flashcards typeset for printing, via pandoc.",
+    what: "Printable versions of the notes and flashcards, made with pandoc.",
   },
 ];
 

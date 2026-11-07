@@ -40,16 +40,16 @@ function Report({ report }: { report: BenchmarkReport }) {
 
   return (
     <div style={{ marginBottom: space.page }}>
-      <p style={sectionLabel}>Wall clock</p>
+      <p style={sectionLabel}>Total time</p>
       <div style={chartBlock}>
-        <BarChart label="Total end to end" original={orig?.total_wall_s} adk={adk?.total_wall_s} async={asyn?.total_wall_s} maxValue={maxWall} />
+        <BarChart label="Start to finish" original={orig?.total_wall_s} adk={adk?.total_wall_s} async={asyn?.total_wall_s} maxValue={maxWall} />
       </div>
 
       <p style={sectionLabel}>By phase</p>
       <div style={chartBlock}>
-        <BarChart label="Phase 1: notes (sequential in all arms)" original={orig?.phases?.phase1_wall_s} adk={adk?.phases?.phase1} async={asyn?.phases?.phase1_wall_s} maxValue={maxPhase} />
-        <BarChart label="Phase 2: the parallel fan-out" original={orig?.phases?.phase2_wall_s} adk={adk?.phases?.phase2} async={asyn?.phases?.phase2_wall_s} maxValue={maxPhase} />
-        <BarChart label="Phase 3: flashcards PDF (sequential in all arms)" original={orig?.phases?.phase3_wall_s} adk={adk?.phases?.phase3} async={asyn?.phases?.phase3_wall_s} maxValue={maxPhase} />
+        <BarChart label="Phase 1: writing notes" original={orig?.phases?.phase1_wall_s} adk={adk?.phases?.phase1} async={asyn?.phases?.phase1_wall_s} maxValue={maxPhase} />
+        <BarChart label="Phase 2: making the other materials" original={orig?.phases?.phase2_wall_s} adk={adk?.phases?.phase2} async={asyn?.phases?.phase2_wall_s} maxValue={maxPhase} />
+        <BarChart label="Phase 3: making the flashcards PDF" original={orig?.phases?.phase3_wall_s} adk={adk?.phases?.phase3} async={asyn?.phases?.phase3_wall_s} maxValue={maxPhase} />
       </div>
 
       <p style={sectionLabel}>Tokens</p>
@@ -88,20 +88,36 @@ export default function BenchmarkPage() {
 
   return (
     <main style={page}>
-      <span style={kicker}>Research output</span>
-      <h1 style={heading}>Does concurrency actually help?</h1>
+      <span style={kicker}>Research results</span>
+      <h1 style={heading}>What made the study tool faster?</h1>
       <p style={intro}>
-        The app is a workload for one question: does running a multi-agent
-        pipeline in parallel actually pay, and if so how. Two experiments, both
-        repeated rather than run once, and both reported here including the one
-        that went the wrong way.
+        I tested whether the way agents are coordinated changes the run time,
+        then measured the video step that took most of it. Both experiments
+        used repeated runs. The results include a speedup that held up and an
+        earlier claim that did not.
       </p>
 
       <BenchmarkFindings />
 
+      {curated.length > 0 && (
+        <div style={caveat}>
+          <p style={caveatTitle}>About the detailed run report below</p>
+          <p style={caveatBody}>
+            Video assembly runs as one serial ffmpeg step and takes 76 to 81% of
+            a full run. It can hide differences between coordination methods,
+            as Amdahl's law predicts. The runs below skip video so those
+            differences are easier to see. This report has only one
+            run per method, and the methods made different numbers of LLM calls.
+            Treat the overall timing as indicative. The phase 2 timing is the
+            more useful comparison. The full write-up is in{" "}
+            <code>benchmarks/README.md</code>.
+          </p>
+        </div>
+      )}
+
       {curated.length === 0 ? (
         <p style={{ color: muted }}>
-          No curated benchmarks found in <code>benchmarks/</code>.
+          The detailed run report is not available right now.
         </p>
       ) : (
         curated.map((b) => (
@@ -115,29 +131,15 @@ export default function BenchmarkPage() {
         ))
       )}
 
-      <div style={caveat}>
-        <p style={caveatTitle}>How much to trust these numbers</p>
-        <p style={caveatBody}>
-          Video assembly is single-threaded ffmpeg and takes 76 to 81% of wall
-          time on a full run. On the full pipeline that swamps any difference
-          between orchestrators, which is Amdahl's law doing what it does. These
-          runs skip video so the part I actually changed becomes visible. They
-          are also one run per arm, and the two arms made a different number of
-          LLM calls, so the overall figure is indicative at best. Phase 2 is the
-          number I would trust. The full write-up is in{" "}
-          <code>benchmarks/README.md</code>.
-        </p>
-      </div>
-
       {/* Hidden in the static build. The only session bundled there predates
           the profiling harness, so every link in this list would land on a
           page with nothing to show. */}
       {!DEMO && runs.length > 0 && (
         <>
-          <p style={sectionLabel}>Your runs</p>
+          <p style={sectionLabel}>Your benchmark runs</p>
           <p style={{ ...intro, marginBottom: space.base }}>
-            Only runs started through <code>benchmark_profile.py</code> carry
-            their own report.
+            Only runs started through <code>benchmark_profile.py</code> have
+            their own timing report.
           </p>
           <div style={runList}>
             {runs.slice(0, 8).map((r) => (

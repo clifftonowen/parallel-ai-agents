@@ -12,10 +12,10 @@ import {
 // benchmark dashboard could set. "All three" runs them in sequence — roughly
 // 36 minutes and 3x the token spend — so it is never the default.
 const MODES: { value: RunMode; label: string; note: string }[] = [
-  { value: "async", label: "Async", note: "asyncio, the default path" },
-  { value: "adk", label: "ADK", note: "Google ADK agent graph" },
-  { value: "original", label: "Threads", note: "ThreadPoolExecutor baseline" },
-  { value: "all", label: "All three", note: "sequential, slow and expensive" },
+  { value: "async", label: "Async", note: "Default: coordinates agents with asyncio" },
+  { value: "adk", label: "ADK", note: "Coordinates agents with Google ADK" },
+  { value: "original", label: "Threads", note: "Coordinates agents with a thread pool" },
+  { value: "all", label: "All three", note: "Runs each method in turn; takes longer and costs more" },
 ];
 
 /** Whether this orchestrator can actually skip the video stage.
@@ -93,7 +93,7 @@ export default function SubmitPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Couldn't reach the study server. Make sure the backend is running, then try again."
+          : "We couldn't reach the study server. If you're running it locally, check that the server is on, then try again."
       );
       setSubmitting(false);
     }
@@ -109,13 +109,39 @@ export default function SubmitPage() {
     <main style={page}>
       <section className="animate-rise">
         <span style={kicker}>New session</span>
-        <h1 style={heading}>What do you want to understand today?</h1>
+        <h1 style={heading}>
+          {DEMO ? "See how to ask for a study set" : "What do you want to understand today?"}
+        </h1>
         <p style={intro}>
-          Describe a topic. Four agents run in parallel on notes, flashcards,
-          video and PDF, and hand back a full study set.
+          {DEMO
+            ? "Try wording a topic below, then explore the finished example to see what the project makes."
+            : "Describe what you want to learn. The tool writes notes first, then uses them to make flashcards, printable PDFs and a video if you include one."}
         </p>
 
+        {DEMO && (
+          <div style={gate}>
+            <p style={gateLead}>This demo cannot generate a new study set.</p>
+            <p style={gateBody}>
+              You can explore a <Link to={`/session/${DEMO_RUN_ID}`}>finished session</Link> and
+              read the <Link to="/benchmark">benchmark results</Link>, both from real runs.
+              To try your own topic, follow the setup instructions in the repository.
+            </p>
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-primary"
+              style={{ textDecoration: "none" }}
+            >
+              View setup instructions
+            </a>
+          </div>
+        )}
+
         <div style={composer}>
+          <label htmlFor="topic" style={{ display: "block", fontWeight: headingWeight, marginBottom: space.sm }}>
+            Your topic
+          </label>
           <textarea
             id="topic"
             className="input"
@@ -143,35 +169,13 @@ export default function SubmitPage() {
             </p>
           )}
 
-          {DEMO ? (
+          {!DEMO && !user ? (
             <div style={gate}>
-              <p style={gateLead}>This build has no backend attached.</p>
+              <p style={gateLead}>Sign in to make a study set.</p>
               <p style={gateBody}>
-                The composer works, and so does everything it would send. But a
-                run is a ten to thirty minute subprocess driving ffmpeg, pandoc
-                and headless Chromium, and no static host will do that. The{" "}
-                <Link to={`/session/${DEMO_RUN_ID}`}>finished session</Link> and
-                the <Link to="/benchmark">benchmark numbers</Link> came out of
-                actual runs.
-              </p>
-              <a
-                href={REPO_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-primary"
-                style={{ textDecoration: "none" }}
-              >
-                Run it yourself
-              </a>
-            </div>
-          ) : !user ? (
-            <div style={gate}>
-              <p style={gateLead}>Sign in to run the pipeline.</p>
-              <p style={gateBody}>
-                Reading is open to everyone, and the{" "}
-                <Link to="/benchmark">benchmark page</Link> works signed out.
-                Generating calls the Anthropic and OpenAI APIs, so that part
-                needs an account.
+                You can read the <Link to="/benchmark">research results</Link> without an account.
+                Generating new materials uses API credits, so you'll also need
+                access after signing in.
               </p>
               <Link to="/signin" className="btn btn-primary" style={{ textDecoration: "none" }}>
                 Sign in
@@ -181,15 +185,15 @@ export default function SubmitPage() {
             <div style={gate}>
               <p style={gateLead}>
                 {access.pending
-                  ? "Your access request is with the developer."
-                  : "This account can't start runs yet."}
+                  ? "Your access request is waiting for review."
+                  : "You need access to start a session."}
               </p>
               <p style={gateBody}>
-                A run calls the Anthropic and OpenAI APIs and costs real money,
-                so it's granted by hand.{" "}
+                Each run uses Anthropic and OpenAI API credits, so I grant
+                access individually.{" "}
                 {access.pending
-                  ? "You'll be let in once it's approved."
-                  : "Tell me who you are and I'll switch it on."}
+                  ? "You can start a session once your request is approved."
+                  : "Tell me a little about yourself to request it."}
               </p>
               {!access.pending && (
                 <Link
@@ -204,7 +208,7 @@ export default function SubmitPage() {
           ) : null}
 
           <div style={controls}>
-            <div className="seg" role="group" aria-label="Orchestrator">
+            <div className="seg" role="group" aria-label="How to run the agents">
               {MODES.map((m) => (
                 <button
                   key={m.value}
@@ -223,7 +227,7 @@ export default function SubmitPage() {
               onClick={submit}
               disabled={DEMO || submitting || !topic.trim() || !access?.can_run}
             >
-              {submitting ? "Starting…" : "Generate"}
+              {DEMO ? "New runs unavailable" : submitting ? "Starting…" : "Generate"}
             </button>
           </div>
 
@@ -238,10 +242,10 @@ export default function SubmitPage() {
               Include narrated video
               <span style={{ color: mutedFaint }}>
                 {!canSkipVideo(mode)
-                  ? ". Always on for this orchestrator; only Async and Threads can skip it"
+                  ? ". This method always includes video; choose Async or Threads to leave it out"
                   : includeVideo
-                  ? ". Adds roughly 8 minutes of ffmpeg"
-                  : ". About 2 minutes without it"}
+                  ? ". Adds about 8 minutes to the run"
+                  : ". About 2 minutes without video"}
               </span>
             </span>
           </label>
@@ -250,8 +254,8 @@ export default function SubmitPage() {
 
       <div style={figures}>
         <Figure value={String(history.length)} label="Sessions generated" />
-        <Figure value="3" label="Orchestrators compared" />
-        <Figure value="4" label="Outputs per session" />
+        <Figure value="3" label="Ways to run the agents" />
+        <Figure value="4" label={DEMO ? "Formats in the demo" : "Available study formats"} />
       </div>
 
       <div style={recentHead}>

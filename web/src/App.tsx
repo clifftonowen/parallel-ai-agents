@@ -20,12 +20,12 @@ function NotFound() {
     <main>
       <p style={{ fontFamily: font.mono, fontSize: size.small, color: muted }}>404</p>
       <h1 style={{ fontSize: size.head, margin: `${space.sm}px 0`, color: c.ink }}>
-        No page here
+        We couldn't find that page
       </h1>
       <p style={{ color: muted, marginBottom: space.base }}>
-        That address doesn't match anything in the app.
+        Check the address, or return to the overview.
       </p>
-      <Link to="/">← Back to the front page</Link>
+      <Link to="/">← Back to the overview</Link>
     </main>
   );
 }

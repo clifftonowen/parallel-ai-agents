@@ -24,7 +24,7 @@ export default function FileCard({ run_id, label, filename, icon, previewable }:
       setPreviewContent(text);
       setPreviewOpen(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load");
+      setError(err instanceof Error ? err.message : "We couldn't open the preview.");
     } finally {
       setPreviewLoading(false);
     }
@@ -34,7 +34,7 @@ export default function FileCard({ run_id, label, filename, icon, previewable }:
     try {
       downloadFile(run_id, filename);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Download failed");
+      setError(err instanceof Error ? err.message : "We couldn't start the download.");
     }
   };
 

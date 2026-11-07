@@ -47,7 +47,7 @@ export default function SignInPage() {
     return (
       <main style={page}>
         <button onClick={() => navigate("/")} style={backLink}>
-          ← back to the front page
+          ← back to the overview
         </button>
 
         <div style={card} className="animate-rise">
@@ -57,14 +57,15 @@ export default function SignInPage() {
           </div>
           <div style={cardRule} />
 
-          <h1 style={cardTitle}>No accounts here</h1>
+          <h1 style={cardTitle}>No sign-in needed for this demo</h1>
           <p style={cardSub}>
-            Accounts live on the deployment that has a backend behind it. This
-            one is static files, so there is nothing to sign in to.
+            This demo includes a finished study session and research results.
+            It runs without a study server, so sign-in is unavailable. You can
+            explore both without an account.
           </p>
           <p style={cardSub}>
-            The <Link to={`/session/${DEMO_RUN_ID}`}>finished session</Link> and
-            the <Link to="/benchmark">benchmark numbers</Link> are open anyway.
+            Open the <Link to={`/session/${DEMO_RUN_ID}`}>sample session</Link> or
+            read <Link to="/benchmark">what the tests found</Link>.
           </p>
 
           <a
@@ -73,7 +74,7 @@ export default function SignInPage() {
             rel="noreferrer"
             style={{ ...primary, display: "block", textAlign: "center", textDecoration: "none" }}
           >
-            Run it yourself
+            View setup instructions
           </a>
         </div>
       </main>
@@ -83,7 +84,7 @@ export default function SignInPage() {
   return (
     <main style={page}>
       <button onClick={() => navigate("/")} style={backLink}>
-        ← back to the front page
+        ← back to the overview
       </button>
 
       <div style={card} className="animate-rise">
@@ -99,8 +100,8 @@ export default function SignInPage() {
         </h1>
         <p style={cardSub}>
           {mode === "in"
-            ? "Your studied topics are filed here, waiting for you."
-            : "An account keeps every session in one place, private to you."}
+            ? "Your study sessions are here whenever you come back."
+            : "Keep your study sessions together in a private library."}
         </p>
 
         <form onSubmit={submit} noValidate>
@@ -151,7 +152,7 @@ export default function SignInPage() {
 
         {/* Footer: what signing in is actually for, and the mode switch. */}
         <div style={cardFoot}>
-          <span style={issuedLine}>Reading is open; running needs an account</span>
+          <span style={issuedLine}>Reading is open; new runs need an account and access</span>
           <button
             type="button"
             onClick={() => {

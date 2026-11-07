@@ -74,7 +74,7 @@ export async function startRun(
       .catch(() => undefined);
     throw new Error(
       detail ??
-        "Couldn't reach the study server. Make sure the backend is running, then try again.",
+        "We couldn't reach the study server. If you're running it locally, check that the server is on, then try again.",
     );
   }
   return res.json();
@@ -82,18 +82,18 @@ export async function startRun(
 
 export async function getRun(run_id: string): Promise<RunState> {
   if (DEMO) {
-    if (run_id !== demo.DEMO_RUN_ID) throw new Error("That study session couldn't be found.");
+    if (run_id !== demo.DEMO_RUN_ID) throw new Error("We couldn't find that study session.");
     return demo.run();
   }
   const res = await fetch(`${BASE}/run/${run_id}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error("That study session couldn't be found.");
+  if (!res.ok) throw new Error("We couldn't find that study session.");
   return res.json();
 }
 
 export async function listRuns(): Promise<RunSummary[]> {
   if (DEMO) return demo.runs();
   const res = await fetch(`${BASE}/runs`, { headers: authHeaders() });
-  if (!res.ok) throw new Error("Couldn't load recent sessions.");
+  if (!res.ok) throw new Error("We couldn't load your recent sessions.");
   return res.json();
 }
 
@@ -101,14 +101,14 @@ export async function listRuns(): Promise<RunSummary[]> {
 export async function stats(): Promise<Stats> {
   if (DEMO) return demo.stats();
   const res = await fetch(`${BASE}/stats`, { headers: authHeaders() });
-  if (!res.ok) throw new Error("Failed to load stats");
+  if (!res.ok) throw new Error("We couldn't load the session counts.");
   return res.json();
 }
 
 export async function myAccessState(): Promise<AccessState> {
   if (DEMO) return demo.access();
   const res = await fetch(`${BASE}/access-request`, { headers: authHeaders() });
-  if (!res.ok) throw new Error("Failed to load access state");
+  if (!res.ok) throw new Error("We couldn't check your access yet.");
   return res.json();
 }
 
@@ -128,7 +128,7 @@ export async function requestAccess(
       .json()
       .then((b) => (b as { detail?: string }).detail)
       .catch(() => undefined);
-    throw new Error(detail ?? "Couldn't send that request. Try again in a moment.");
+    throw new Error(detail ?? "We couldn't send your request. Try again in a moment.");
   }
   return res.json();
 }
@@ -144,7 +144,7 @@ export async function accessRequestQueue(
   const res = await fetch(`${BASE}/access-requests?status=${status}`, {
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error("Failed to load the queue");
+  if (!res.ok) throw new Error("We couldn't load the access requests.");
   return res.json();
 }
 
@@ -153,7 +153,7 @@ export async function curatedBenchmarks(): Promise<CuratedBenchmark[]> {
   // from benchmarks/, and a demo build compiles the same files in.
   if (DEMO) return demo.benchmarks();
   const res = await fetch(`${BASE}/benchmarks`, { headers: authHeaders() });
-  if (!res.ok) throw new Error("Failed to load benchmarks");
+  if (!res.ok) throw new Error("We couldn't load the benchmark reports.");
   return res.json();
 }
 
@@ -163,7 +163,7 @@ export async function cancelRun(run_id: string): Promise<void> {
     method: "POST",
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error("Couldn't stop this session.");
+  if (!res.ok) throw new Error("We couldn't stop this session.");
 }
 
 // ── Accounts ──────────────────────────────────────────────────────────────────
