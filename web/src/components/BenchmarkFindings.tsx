@@ -67,7 +67,7 @@ export default function BenchmarkFindings() {
           latency would not consistently favor one method.
         </p>
 
-        <table className="table" style={{ maxWidth: 520 }}>
+        <table className="table">
           <thead>
             <tr><th>arm</th><th>total wall</th><th>range</th></tr>
           </thead>
@@ -119,7 +119,7 @@ export default function BenchmarkFindings() {
           using a {sweep.slides} slide deck already on disk, so no model was called:
         </p>
 
-        <table className="table" style={{ maxWidth: 520 }}>
+        <table className="table">
           <thead>
             <tr><th>configuration</th><th>wall</th><th>speedup</th></tr>
           </thead>
@@ -191,7 +191,7 @@ const findingHead: React.CSSProperties = {
   fontSize: size.head,
   lineHeight: 1.15,
   margin: `${space.xs}px 0 ${space.md}px`,
-  maxWidth: "26ch",
+  maxWidth: layout.measure,
 };
 
 const prose: React.CSSProperties = {

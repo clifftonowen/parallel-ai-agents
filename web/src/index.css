@@ -474,8 +474,8 @@ textarea.input {
 }
 
 /* — the shell —
-   The rail is a fixed 264px column on a desktop. On a phone that would eat two
-   thirds of a 390px viewport, so below 900px it becomes a band across the top
+   The rail is a 240px column on a desktop. On a phone it would take up most
+   of a 390px viewport, so below 900px it becomes a band across the top
    and the parts that are reference rather than navigation (agent status, the
    meters) are dropped. Layout lives here rather than in inline styles because
    inline styles cannot express a media query. */
@@ -484,7 +484,7 @@ textarea.input {
   min-height: 100vh;
 }
 .shell-rail {
-  width: 264px;
+  width: 240px;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -502,6 +502,12 @@ textarea.input {
   flex-direction: column;
   gap: 2px;
   margin-bottom: var(--space-5);
+}
+
+@media (min-width: 901px) and (max-width: 1100px) {
+  .shell-rail {
+    width: 208px;
+  }
 }
 
 @media (max-width: 900px) {

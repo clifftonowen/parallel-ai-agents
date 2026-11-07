@@ -334,7 +334,7 @@ const intro: React.CSSProperties = {
   margin: `0 0 ${space.lg}px`,
 };
 
-const composer: React.CSSProperties = { maxWidth: 680 };
+const composer: React.CSSProperties = { maxWidth: layout.measure };
 
 const chipRow: React.CSSProperties = {
   display: "flex",

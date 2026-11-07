@@ -212,7 +212,7 @@ const heading: React.CSSProperties = {
   lineHeight: 1.04,
   letterSpacing: "-0.015em",
   margin: `${space.sm}px 0 ${space.base}px`,
-  maxWidth: "16ch",
+  maxWidth: layout.measure,
 };
 
 const standfirst: React.CSSProperties = {
@@ -248,7 +248,7 @@ const sectionHeading: React.CSSProperties = {
   fontSize: displaySmall,
   lineHeight: 1.15,
   margin: `${space.xs}px 0 ${space.base}px`,
-  maxWidth: "24ch",
+  maxWidth: layout.measure,
 };
 
 const prose: React.CSSProperties = {
@@ -285,7 +285,7 @@ const diagram: React.CSSProperties = {
   padding: space.base,
   border: hairline,
   background: c.paperCard,
-  maxWidth: 620,
+  maxWidth: layout.measure,
 };
 
 const stageLabel: React.CSSProperties = {

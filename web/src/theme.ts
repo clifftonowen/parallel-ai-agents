@@ -148,11 +148,11 @@ export const shadow = {
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 export const layout = {
-  sidebar: 264, // the fixed left rail
-  shell: 980, // main content column
-  measure: "62ch", // prose blocks: a CSS length, so it drops straight into maxWidth
+  sidebar: 240, // the desktop left rail; CSS narrows it further below 1100px
+  shell: "100%", // pages fill the available main pane
+  measure: "min(100%, max(62ch, 75vw))", // broad desktop copy, constrained by its parent on phones
   narrow: 440, // sign-in and other single-purpose forms
-  gutter: 40, // --space-8, the main pane's horizontal padding
+  gutter: 20, // main pane's horizontal padding
 } as const;
 
 /** The recurring structural label: small, tracked, uppercase, in the serif. */
